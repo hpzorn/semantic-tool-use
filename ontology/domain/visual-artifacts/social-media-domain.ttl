@@ -1,0 +1,649 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix social: <http://semantic-tool-use.org/ontology/visual-artifacts/social#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix og: <http://ogp.me/ns#> .
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+
+<http://semantic-tool-use.org/ontology/visual-artifacts/social>
+    a owl:Ontology ;
+    rdfs:label "Visual Artifacts - Social Media Domain" ;
+    rdfs:comment """Extension ontology for social media visual content.
+    Models carousels, posts, threads, and platform-specific formats.""" ;
+    owl:versionInfo "1.0.0" ;
+    owl:imports <http://semantic-tool-use.org/ontology/visual-artifacts> .
+
+# =============================================================================
+# Social Media Platforms
+# =============================================================================
+
+social:Platform a owl:Class ;
+    rdfs:label "Platform" ;
+    rdfs:comment "A social media platform with specific content requirements." .
+
+social:LinkedIn a social:Platform ;
+    rdfs:label "LinkedIn" ;
+    social:characterLimit 3000 ;
+    social:hashtagStyle "lowercase" ;
+    social:carouselSupport true ;
+    social:carouselMinSlides 2 ;
+    social:carouselMaxSlides 20 ;
+    social:preferredAspectRatio "1:1" .
+
+social:Twitter a social:Platform ;
+    rdfs:label "X (Twitter)" ;
+    social:characterLimit 280 ;
+    social:hashtagStyle "mixed" ;
+    social:threadSupport true ;
+    social:maxThreadLength 25 .
+
+social:Instagram a social:Platform ;
+    rdfs:label "Instagram" ;
+    social:characterLimit 2200 ;
+    social:hashtagStyle "lowercase" ;
+    social:carouselSupport true ;
+    social:carouselMinSlides 2 ;
+    social:carouselMaxSlides 10 ;
+    social:preferredAspectRatio "1:1" ;
+    social:altAspectRatio "4:5" .
+
+social:Mastodon a social:Platform ;
+    rdfs:label "Mastodon" ;
+    social:characterLimit 500 ;
+    social:hashtagStyle "CamelCase" ;
+    social:contentWarningSupport true .
+
+social:Substack a social:Platform ;
+    rdfs:label "Substack" ;
+    social:contentType "newsletter" ;
+    social:formatType "markdown" ;
+    social:recommendedWordCount 1500 ;
+    social:maxWordCount 5000 .
+
+# Platform Properties
+social:characterLimit a owl:DatatypeProperty ;
+    rdfs:domain social:Platform ;
+    rdfs:range xsd:integer ;
+    rdfs:label "character limit" .
+
+social:hashtagStyle a owl:DatatypeProperty ;
+    rdfs:domain social:Platform ;
+    rdfs:range xsd:string ;
+    rdfs:label "hashtag style" ;
+    rdfs:comment "Preferred hashtag format: lowercase, CamelCase, mixed" .
+
+social:carouselSupport a owl:DatatypeProperty ;
+    rdfs:domain social:Platform ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "carousel support" .
+
+social:threadSupport a owl:DatatypeProperty ;
+    rdfs:domain social:Platform ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "thread support" .
+
+social:contentWarningSupport a owl:DatatypeProperty ;
+    rdfs:domain social:Platform ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "content warning support" .
+
+social:preferredAspectRatio a owl:DatatypeProperty ;
+    rdfs:domain social:Platform ;
+    rdfs:range xsd:string ;
+    rdfs:label "preferred aspect ratio" .
+
+# =============================================================================
+# Social Media Content Types
+# =============================================================================
+
+social:SocialContent a owl:Class ;
+    rdfs:label "Social Content" ;
+    rdfs:subClassOf vao:VisualArtifact ;
+    rdfs:comment "Content designed for social media platforms." .
+
+social:Carousel a owl:Class ;
+    rdfs:label "Carousel" ;
+    rdfs:subClassOf social:SocialContent ;
+    rdfs:comment "Multi-slide swipeable content." .
+
+social:Thread a owl:Class ;
+    rdfs:label "Thread" ;
+    rdfs:subClassOf social:SocialContent ;
+    rdfs:comment "A series of connected posts (e.g., Twitter thread)." .
+
+social:SinglePost a owl:Class ;
+    rdfs:label "Single Post" ;
+    rdfs:subClassOf social:SocialContent ;
+    rdfs:comment "A standalone social media post." .
+
+social:Newsletter a owl:Class ;
+    rdfs:label "Newsletter" ;
+    rdfs:subClassOf social:SocialContent ;
+    rdfs:comment "Long-form newsletter content (e.g., Substack)." .
+
+social:Card a owl:Class ;
+    rdfs:label "Card" ;
+    rdfs:subClassOf social:SocialContent ;
+    rdfs:comment "A single visual card or image." .
+
+# Platform-Specific Carousels
+social:LinkedInCarousel a owl:Class ;
+    rdfs:label "LinkedIn Carousel" ;
+    rdfs:subClassOf social:Carousel ;
+    social:targetPlatform social:LinkedIn ;
+    rdfs:comment "PDF carousel optimized for LinkedIn." .
+
+social:InstagramCarousel a owl:Class ;
+    rdfs:label "Instagram Carousel" ;
+    rdfs:subClassOf social:Carousel ;
+    social:targetPlatform social:Instagram ;
+    rdfs:comment "Multi-image carousel for Instagram." .
+
+# Platform-Specific Posts
+social:TwitterThread a owl:Class ;
+    rdfs:label "Twitter Thread" ;
+    rdfs:subClassOf social:Thread ;
+    social:targetPlatform social:Twitter ;
+    rdfs:comment "Series of connected tweets." .
+
+social:MastodonPost a owl:Class ;
+    rdfs:label "Mastodon Post" ;
+    rdfs:subClassOf social:SinglePost ;
+    social:targetPlatform social:Mastodon ;
+    rdfs:comment "Single Mastodon toot." .
+
+social:SubstackArticle a owl:Class ;
+    rdfs:label "Substack Article" ;
+    rdfs:subClassOf social:Newsletter ;
+    social:targetPlatform social:Substack ;
+    rdfs:comment "Long-form newsletter article." .
+
+# =============================================================================
+# Content Brief (Input Specification)
+# =============================================================================
+
+social:ContentBrief a owl:Class ;
+    rdfs:label "Content Brief" ;
+    rdfs:comment "A specification for generating social media content." .
+
+social:thesis a owl:DatatypeProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range xsd:string ;
+    rdfs:label "thesis" ;
+    rdfs:comment "Main argument in 1-2 sentences" .
+
+social:contrarianAngle a owl:DatatypeProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range xsd:string ;
+    rdfs:label "contrarian angle" ;
+    rdfs:comment "Bold or controversial take" .
+
+social:hook a owl:DatatypeProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range xsd:string ;
+    rdfs:label "hook" ;
+    rdfs:comment "Attention-grabbing opener (max 10 words)" .
+
+social:question a owl:DatatypeProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range xsd:string ;
+    rdfs:label "question" ;
+    rdfs:comment "Engagement question for audience" .
+
+social:callToAction a owl:DatatypeProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range xsd:string ;
+    rdfs:label "call to action" ;
+    rdfs:comment "Desired audience action" .
+
+social:authorCredential a owl:DatatypeProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range xsd:string ;
+    rdfs:label "author credential" ;
+    rdfs:comment "Why the author is credible on this topic" .
+
+social:hasKeyPoint a owl:ObjectProperty ;
+    rdfs:domain social:ContentBrief ;
+    rdfs:range social:KeyPoint ;
+    rdfs:label "has key point" .
+
+social:fromBrief a owl:ObjectProperty ;
+    rdfs:domain social:SocialContent ;
+    rdfs:range social:ContentBrief ;
+    rdfs:label "from brief" ;
+    rdfs:comment "The content brief this content was generated from" .
+
+# Key Point
+social:KeyPoint a owl:Class ;
+    rdfs:label "Key Point" ;
+    rdfs:comment "A supporting point with evidence." .
+
+social:pointText a owl:DatatypeProperty ;
+    rdfs:domain social:KeyPoint ;
+    rdfs:range xsd:string ;
+    rdfs:label "point text" .
+
+social:evidence a owl:DatatypeProperty ;
+    rdfs:domain social:KeyPoint ;
+    rdfs:range xsd:string ;
+    rdfs:label "evidence" .
+
+social:pointOrder a owl:DatatypeProperty ;
+    rdfs:domain social:KeyPoint ;
+    rdfs:range xsd:integer ;
+    rdfs:label "point order" .
+
+# =============================================================================
+# Carousel Slide Types (from social-content skill)
+# =============================================================================
+
+social:CarouselSlide a owl:Class ;
+    rdfs:label "Carousel Slide" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "A single slide in a carousel." .
+
+social:HookSlide a owl:Class ;
+    rdfs:label "Hook Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Opening slide that grabs attention (3-4 lines max)." .
+
+social:TipSlide a owl:Class ;
+    rdfs:label "Tip Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Numbered tip with title and evidence." .
+
+social:StatSlide a owl:Class ;
+    rdfs:label "Stat Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Statistics display with large number and context." .
+
+social:QuoteSlide a owl:Class ;
+    rdfs:label "Quote Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Quote with attribution." .
+
+social:StatementSlide a owl:Class ;
+    rdfs:label "Statement Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Bold assertion or contrarian statement (2-3 lines)." .
+
+social:CTASlide a owl:Class ;
+    rdfs:label "CTA Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Call-to-action final slide with question, CTA, and website." .
+
+social:ComparisonSlide a owl:Class ;
+    rdfs:label "Comparison Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Before/after or pros/cons comparison." .
+
+social:ListSlide a owl:Class ;
+    rdfs:label "List Slide" ;
+    rdfs:subClassOf social:CarouselSlide ;
+    rdfs:comment "Bulleted list of items." .
+
+# Carousel Properties
+social:hasSlide a owl:ObjectProperty ;
+    rdfs:domain social:Carousel ;
+    rdfs:range social:CarouselSlide ;
+    rdfs:label "has slide" .
+
+social:slideCount a owl:DatatypeProperty ;
+    rdfs:domain social:Carousel ;
+    rdfs:range xsd:integer ;
+    rdfs:label "slide count" .
+
+social:slidePosition a owl:DatatypeProperty ;
+    rdfs:domain social:CarouselSlide ;
+    rdfs:range xsd:integer ;
+    rdfs:label "slide position" ;
+    rdfs:comment "Position in carousel (1-indexed)" .
+
+# Carousel Slide Content Properties
+social:tipNumber a owl:DatatypeProperty ;
+    rdfs:domain social:TipSlide ;
+    rdfs:range xsd:integer ;
+    rdfs:label "tip number" .
+
+social:tipTitle a owl:DatatypeProperty ;
+    rdfs:domain social:TipSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "tip title" .
+
+social:tipEvidence a owl:DatatypeProperty ;
+    rdfs:domain social:TipSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "tip evidence" .
+
+social:statNumber a owl:DatatypeProperty ;
+    rdfs:domain social:StatSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "stat number" ;
+    rdfs:comment "The main statistic (e.g., '73%', '2.5x')" .
+
+social:statContext a owl:DatatypeProperty ;
+    rdfs:domain social:StatSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "stat context" .
+
+social:statMoreContext a owl:DatatypeProperty ;
+    rdfs:domain social:StatSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "additional context" .
+
+social:ctaQuestion a owl:DatatypeProperty ;
+    rdfs:domain social:CTASlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "CTA question" .
+
+social:ctaText a owl:DatatypeProperty ;
+    rdfs:domain social:CTASlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "CTA text" .
+
+social:ctaWebsite a owl:DatatypeProperty ;
+    rdfs:domain social:CTASlide ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "CTA website" .
+
+# =============================================================================
+# Thread Structure
+# =============================================================================
+
+social:Tweet a owl:Class ;
+    rdfs:label "Tweet" ;
+    rdfs:subClassOf vao:TextBlock ;
+    rdfs:comment "A single tweet in a thread." .
+
+social:hasTweet a owl:ObjectProperty ;
+    rdfs:domain social:TwitterThread ;
+    rdfs:range social:Tweet ;
+    rdfs:label "has tweet" .
+
+social:tweetNumber a owl:DatatypeProperty ;
+    rdfs:domain social:Tweet ;
+    rdfs:range xsd:integer ;
+    rdfs:label "tweet number" ;
+    rdfs:comment "Position in thread (1-indexed)" .
+
+social:tweetText a owl:DatatypeProperty ;
+    rdfs:domain social:Tweet ;
+    rdfs:range xsd:string ;
+    rdfs:label "tweet text" .
+
+social:threadIndicator a owl:DatatypeProperty ;
+    rdfs:domain social:Tweet ;
+    rdfs:range xsd:string ;
+    rdfs:label "thread indicator" ;
+    rdfs:comment "Position indicator like '1/10' or '🧵'" .
+
+social:totalTweets a owl:DatatypeProperty ;
+    rdfs:domain social:TwitterThread ;
+    rdfs:range xsd:integer ;
+    rdfs:label "total tweets" .
+
+# =============================================================================
+# Single Post Structure
+# =============================================================================
+
+social:postText a owl:DatatypeProperty ;
+    rdfs:domain social:SinglePost ;
+    rdfs:range xsd:string ;
+    rdfs:label "post text" .
+
+social:contentWarning a owl:DatatypeProperty ;
+    rdfs:domain social:MastodonPost ;
+    rdfs:range xsd:string ;
+    rdfs:label "content warning" ;
+    rdfs:comment "CW text for sensitive topics" .
+
+# Instagram-specific
+social:InstagramCaption a owl:Class ;
+    rdfs:label "Instagram Caption" ;
+    rdfs:subClassOf vao:TextBlock ;
+    rdfs:comment "Caption text for Instagram post." .
+
+social:hasCaption a owl:ObjectProperty ;
+    rdfs:domain social:InstagramCarousel ;
+    rdfs:range social:InstagramCaption ;
+    rdfs:label "has caption" .
+
+social:firstLineHook a owl:DatatypeProperty ;
+    rdfs:domain social:InstagramCaption ;
+    rdfs:range xsd:string ;
+    rdfs:label "first line hook" ;
+    rdfs:comment "First 125 characters shown in preview" .
+
+social:captionBody a owl:DatatypeProperty ;
+    rdfs:domain social:InstagramCaption ;
+    rdfs:range xsd:string ;
+    rdfs:label "caption body" .
+
+# =============================================================================
+# Newsletter Structure
+# =============================================================================
+
+social:articleTitle a owl:DatatypeProperty ;
+    rdfs:domain social:Newsletter ;
+    rdfs:range xsd:string ;
+    rdfs:label "article title" .
+
+social:articleSubtitle a owl:DatatypeProperty ;
+    rdfs:domain social:Newsletter ;
+    rdfs:range xsd:string ;
+    rdfs:label "article subtitle" .
+
+social:wordCount a owl:DatatypeProperty ;
+    rdfs:domain social:Newsletter ;
+    rdfs:range xsd:integer ;
+    rdfs:label "word count" .
+
+social:readingTime a owl:DatatypeProperty ;
+    rdfs:domain social:Newsletter ;
+    rdfs:range xsd:string ;
+    rdfs:label "reading time" ;
+    rdfs:comment "Estimated reading time, e.g., '5 min read'" .
+
+social:hasSection a owl:ObjectProperty ;
+    rdfs:domain social:Newsletter ;
+    rdfs:range social:ArticleSection ;
+    rdfs:label "has section" .
+
+social:ArticleSection a owl:Class ;
+    rdfs:label "Article Section" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "A section within a newsletter article." .
+
+social:sectionHeading a owl:DatatypeProperty ;
+    rdfs:domain social:ArticleSection ;
+    rdfs:range xsd:string ;
+    rdfs:label "section heading" .
+
+social:sectionContent a owl:DatatypeProperty ;
+    rdfs:domain social:ArticleSection ;
+    rdfs:range xsd:string ;
+    rdfs:label "section content" ;
+    rdfs:comment "Markdown-formatted content" .
+
+social:sectionOrder a owl:DatatypeProperty ;
+    rdfs:domain social:ArticleSection ;
+    rdfs:range xsd:integer ;
+    rdfs:label "section order" .
+
+# =============================================================================
+# Hashtags and Engagement
+# =============================================================================
+
+social:Hashtag a owl:Class ;
+    rdfs:label "Hashtag" ;
+    rdfs:comment "A hashtag for content discoverability." .
+
+social:hashtagText a owl:DatatypeProperty ;
+    rdfs:domain social:Hashtag ;
+    rdfs:range xsd:string ;
+    rdfs:label "hashtag text" ;
+    rdfs:comment "Hashtag without the # symbol" .
+
+social:hashtagCategory a owl:DatatypeProperty ;
+    rdfs:domain social:Hashtag ;
+    rdfs:range xsd:string ;
+    rdfs:label "hashtag category" ;
+    rdfs:comment "Category: mega, broad, medium, niche" .
+
+social:hasHashtag a owl:ObjectProperty ;
+    rdfs:domain social:SocialContent ;
+    rdfs:range social:Hashtag ;
+    rdfs:label "has hashtag" .
+
+social:targetPlatform a owl:ObjectProperty ;
+    rdfs:domain social:SocialContent ;
+    rdfs:range social:Platform ;
+    rdfs:label "target platform" .
+
+# =============================================================================
+# Visual Markers and Emoji
+# =============================================================================
+
+social:VisualMarker a owl:Class ;
+    rdfs:label "Visual Marker" ;
+    rdfs:comment "Emoji or symbol used for visual hierarchy." .
+
+social:markerSymbol a owl:DatatypeProperty ;
+    rdfs:domain social:VisualMarker ;
+    rdfs:range xsd:string ;
+    rdfs:label "marker symbol" ;
+    rdfs:comment "The emoji or symbol, e.g., '✓', '→', '📌'" .
+
+social:markerPurpose a owl:DatatypeProperty ;
+    rdfs:domain social:VisualMarker ;
+    rdfs:range xsd:string ;
+    rdfs:label "marker purpose" ;
+    rdfs:comment "Purpose: bullet, checkmark, warning, highlight, arrow" .
+
+# Standard Markers
+social:CheckMarker a social:VisualMarker ;
+    rdfs:label "Check Marker" ;
+    social:markerSymbol "✓" ;
+    social:markerPurpose "positive" .
+
+social:CrossMarker a social:VisualMarker ;
+    rdfs:label "Cross Marker" ;
+    social:markerSymbol "✗" ;
+    social:markerPurpose "negative" .
+
+social:ArrowMarker a social:VisualMarker ;
+    rdfs:label "Arrow Marker" ;
+    social:markerSymbol "→" ;
+    social:markerPurpose "bullet" .
+
+social:PinMarker a social:VisualMarker ;
+    rdfs:label "Pin Marker" ;
+    social:markerSymbol "📌" ;
+    social:markerPurpose "highlight" .
+
+social:LightbulbMarker a social:VisualMarker ;
+    rdfs:label "Lightbulb Marker" ;
+    social:markerSymbol "💡" ;
+    social:markerPurpose "tip" .
+
+social:WarningMarker a social:VisualMarker ;
+    rdfs:label "Warning Marker" ;
+    social:markerSymbol "⚠️" ;
+    social:markerPurpose "warning" .
+
+# =============================================================================
+# Content Composition Rules
+# =============================================================================
+
+social:ContentRule a owl:Class ;
+    rdfs:label "Content Rule" ;
+    rdfs:comment "Rules for content composition on a platform." .
+
+social:minSlides a owl:DatatypeProperty ;
+    rdfs:domain social:ContentRule ;
+    rdfs:range xsd:integer ;
+    rdfs:label "minimum slides" .
+
+social:maxSlides a owl:DatatypeProperty ;
+    rdfs:domain social:ContentRule ;
+    rdfs:range xsd:integer ;
+    rdfs:label "maximum slides" .
+
+social:recommendedSlides a owl:DatatypeProperty ;
+    rdfs:domain social:ContentRule ;
+    rdfs:range xsd:string ;
+    rdfs:label "recommended slides" ;
+    rdfs:comment "Recommended number range, e.g., '6-10'" .
+
+social:structurePattern a owl:DatatypeProperty ;
+    rdfs:domain social:ContentRule ;
+    rdfs:range xsd:string ;
+    rdfs:label "structure pattern" ;
+    rdfs:comment "Recommended structure as pattern string" .
+
+# LinkedIn Carousel Rule
+social:LinkedInCarouselRule a social:ContentRule ;
+    rdfs:label "LinkedIn Carousel Rule" ;
+    social:minSlides 6 ;
+    social:maxSlides 10 ;
+    social:recommendedSlides "6-10" ;
+    social:structurePattern "HookSlide -> TipSlide+ -> StatementSlide? -> CTASlide" .
+
+# Twitter Thread Rule
+social:TwitterThreadRule a social:ContentRule ;
+    rdfs:label "Twitter Thread Rule" ;
+    social:minSlides 5 ;
+    social:maxSlides 10 ;
+    social:recommendedSlides "5-10" ;
+    social:structurePattern "Hook -> Points (numbered) -> Summary -> CTA with hashtags" .
+
+# =============================================================================
+# Hook Patterns
+# =============================================================================
+
+social:HookPattern a owl:Class ;
+    rdfs:label "Hook Pattern" ;
+    rdfs:comment "A template pattern for attention-grabbing hooks." .
+
+social:patternTemplate a owl:DatatypeProperty ;
+    rdfs:domain social:HookPattern ;
+    rdfs:range xsd:string ;
+    rdfs:label "pattern template" ;
+    rdfs:comment "Template with placeholders like {take}, {practice}" .
+
+social:patternExample a owl:DatatypeProperty ;
+    rdfs:domain social:HookPattern ;
+    rdfs:range xsd:string ;
+    rdfs:label "pattern example" .
+
+# Standard Hook Patterns
+social:UnpopularOpinionHook a social:HookPattern ;
+    rdfs:label "Unpopular Opinion Hook" ;
+    social:patternTemplate "Unpopular opinion: {take}" ;
+    social:patternExample "Unpopular opinion: JSON Schema is not enough for AI safety" .
+
+social:StopDoingHook a social:HookPattern ;
+    rdfs:label "Stop Doing Hook" ;
+    social:patternTemplate "Stop {practice}. Do this instead." ;
+    social:patternExample "Stop validating with regex. Do this instead." .
+
+social:AfterExperienceHook a social:HookPattern ;
+    rdfs:label "After Experience Hook" ;
+    social:patternTemplate "After {credential}, I learned {insight}" ;
+    social:patternExample "After 10 years building APIs, I learned that schemas lie" .
+
+social:SurprisingStatHook a social:HookPattern ;
+    rdfs:label "Surprising Stat Hook" ;
+    social:patternTemplate "{stat}. Here's what it means." ;
+    social:patternExample "73% of API errors are semantic, not structural. Here's what it means." .
+
+social:WrongPracticeHook a social:HookPattern ;
+    rdfs:label "Wrong Practice Hook" ;
+    social:patternTemplate "{thing everyone does} is wrong. Here's why." ;
+    social:patternExample "Your validation strategy is wrong. Here's why." .

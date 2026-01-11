@@ -1,0 +1,627 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix diag: <http://semantic-tool-use.org/ontology/visual-artifacts/diagram#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+
+<http://semantic-tool-use.org/ontology/visual-artifacts/diagram>
+    a owl:Ontology ;
+    rdfs:label "Visual Artifacts - Diagram Domain" ;
+    rdfs:comment """Extension ontology for diagrams and data visualizations.
+    Models flowcharts, architecture diagrams, charts, and specialized visualizations.""" ;
+    owl:versionInfo "1.0.0" ;
+    owl:imports <http://semantic-tool-use.org/ontology/visual-artifacts> .
+
+# =============================================================================
+# Abstract Diagram Classes
+# =============================================================================
+
+diag:Diagram a owl:Class ;
+    rdfs:label "Diagram" ;
+    rdfs:subClassOf vao:VisualArtifact ;
+    rdfs:comment "A visual representation of information or relationships." .
+
+diag:FlowDiagram a owl:Class ;
+    rdfs:label "Flow Diagram" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Diagram showing process flow or sequence." .
+
+diag:StructureDiagram a owl:Class ;
+    rdfs:label "Structure Diagram" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Diagram showing organizational or hierarchical structure." .
+
+diag:DataVisualization a owl:Class ;
+    rdfs:label "Data Visualization" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Chart or graph representing data." .
+
+# =============================================================================
+# Flow Diagram Types
+# =============================================================================
+
+diag:Flowchart a owl:Class ;
+    rdfs:label "Flowchart" ;
+    rdfs:subClassOf diag:FlowDiagram ;
+    rdfs:comment "Standard flowchart with decision points and process steps." .
+
+diag:SequenceDiagram a owl:Class ;
+    rdfs:label "Sequence Diagram" ;
+    rdfs:subClassOf diag:FlowDiagram ;
+    rdfs:comment "Diagram showing interactions between entities over time." .
+
+diag:StateDiagram a owl:Class ;
+    rdfs:label "State Diagram" ;
+    rdfs:subClassOf diag:FlowDiagram ;
+    rdfs:comment "Diagram showing states and transitions." .
+
+diag:ProcessFlow a owl:Class ;
+    rdfs:label "Process Flow" ;
+    rdfs:subClassOf diag:FlowDiagram ;
+    rdfs:comment "Linear process flow showing stages or steps." .
+
+diag:Pipeline a owl:Class ;
+    rdfs:label "Pipeline" ;
+    rdfs:subClassOf diag:ProcessFlow ;
+    rdfs:comment "Data or processing pipeline diagram." .
+
+diag:UserJourney a owl:Class ;
+    rdfs:label "User Journey" ;
+    rdfs:subClassOf diag:FlowDiagram ;
+    rdfs:comment "Diagram showing user experience flow." .
+
+# Flow Properties
+diag:flowDirection a owl:DatatypeProperty ;
+    rdfs:domain diag:FlowDiagram ;
+    rdfs:range xsd:string ;
+    rdfs:label "flow direction" ;
+    rdfs:comment "Direction: LR (left-right), RL, TB (top-bottom), BT" .
+
+# =============================================================================
+# Structure Diagram Types
+# =============================================================================
+
+diag:ArchitectureDiagram a owl:Class ;
+    rdfs:label "Architecture Diagram" ;
+    rdfs:subClassOf diag:StructureDiagram ;
+    rdfs:comment "System or software architecture diagram." .
+
+diag:NetworkDiagram a owl:Class ;
+    rdfs:label "Network Diagram" ;
+    rdfs:subClassOf diag:StructureDiagram ;
+    rdfs:comment "Network topology or infrastructure diagram." .
+
+diag:EntityRelationship a owl:Class ;
+    rdfs:label "Entity Relationship Diagram" ;
+    rdfs:subClassOf diag:StructureDiagram ;
+    rdfs:comment "Database or data model diagram." .
+
+diag:HierarchyDiagram a owl:Class ;
+    rdfs:label "Hierarchy Diagram" ;
+    rdfs:subClassOf diag:StructureDiagram ;
+    rdfs:comment "Organizational or classification hierarchy." .
+
+diag:DependencyGraph a owl:Class ;
+    rdfs:label "Dependency Graph" ;
+    rdfs:subClassOf diag:StructureDiagram ;
+    rdfs:comment "Graph showing dependencies between components." .
+
+diag:MindMap a owl:Class ;
+    rdfs:label "Mind Map" ;
+    rdfs:subClassOf diag:StructureDiagram ;
+    rdfs:comment "Radial diagram for brainstorming or concept mapping." .
+
+diag:CloudArchitecture a owl:Class ;
+    rdfs:label "Cloud Architecture" ;
+    rdfs:subClassOf diag:ArchitectureDiagram ;
+    rdfs:comment "Cloud infrastructure architecture diagram." .
+
+# =============================================================================
+# Data Visualization Types
+# =============================================================================
+
+diag:BarChart a owl:Class ;
+    rdfs:label "Bar Chart" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Vertical or horizontal bar chart." .
+
+diag:LineChart a owl:Class ;
+    rdfs:label "Line Chart" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Line graph showing trends over time." .
+
+diag:ScatterPlot a owl:Class ;
+    rdfs:label "Scatter Plot" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Plot showing correlation between variables." .
+
+diag:PieChart a owl:Class ;
+    rdfs:label "Pie Chart" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Circular chart showing proportions." .
+
+diag:AreaChart a owl:Class ;
+    rdfs:label "Area Chart" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Filled line chart showing cumulative values." .
+
+diag:Histogram a owl:Class ;
+    rdfs:label "Histogram" ;
+    rdfs:subClassOf diag:BarChart ;
+    rdfs:comment "Distribution histogram." .
+
+diag:HeatMap a owl:Class ;
+    rdfs:label "Heat Map" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Color-coded matrix visualization." .
+
+diag:GaugeChart a owl:Class ;
+    rdfs:label "Gauge Chart" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Circular gauge showing single metric." .
+
+diag:KPICard a owl:Class ;
+    rdfs:label "KPI Card" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Card displaying key performance indicator." .
+
+# =============================================================================
+# Specialized Visualization Types
+# =============================================================================
+
+diag:Timeline a owl:Class ;
+    rdfs:label "Timeline" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Chronological timeline visualization." .
+
+diag:GanttChart a owl:Class ;
+    rdfs:label "Gantt Chart" ;
+    rdfs:subClassOf diag:Timeline ;
+    rdfs:comment "Project schedule Gantt chart." .
+
+diag:Isotype a owl:Class ;
+    rdfs:label "Isotype" ;
+    rdfs:subClassOf diag:DataVisualization ;
+    rdfs:comment "Pictorial statistics using repeated icons." .
+
+diag:IconScene a owl:Class ;
+    rdfs:label "Icon Scene" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Composition of icons representing a system or concept." .
+
+diag:GeographicMap a owl:Class ;
+    rdfs:label "Geographic Map" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Map visualization with geographic data." .
+
+diag:QuadrantGrid a owl:Class ;
+    rdfs:label "Quadrant Grid" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "2x2 matrix for categorization." .
+
+diag:ServiceMatrix a owl:Class ;
+    rdfs:label "Service Matrix" ;
+    rdfs:subClassOf diag:Diagram ;
+    rdfs:comment "Multi-column service or feature comparison." .
+
+# =============================================================================
+# Diagram Components
+# =============================================================================
+
+diag:DiagramNode a owl:Class ;
+    rdfs:label "Diagram Node" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A node or vertex in a diagram." .
+
+diag:DiagramEdge a owl:Class ;
+    rdfs:label "Diagram Edge" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A connection or edge between nodes." .
+
+diag:DiagramCluster a owl:Class ;
+    rdfs:label "Diagram Cluster" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "A grouping of related nodes." .
+
+diag:DiagramLabel a owl:Class ;
+    rdfs:label "Diagram Label" ;
+    rdfs:subClassOf vao:TextBlock ;
+    rdfs:comment "Text label in a diagram." .
+
+# Node Properties
+diag:nodeId a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramNode ;
+    rdfs:range xsd:string ;
+    rdfs:label "node ID" .
+
+diag:nodeLabel a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramNode ;
+    rdfs:range xsd:string ;
+    rdfs:label "node label" .
+
+diag:nodeShape a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramNode ;
+    rdfs:range xsd:string ;
+    rdfs:label "node shape" ;
+    rdfs:comment "Shape: rectangle, circle, diamond, cylinder, hexagon, person, cloud" .
+
+diag:nodeIcon a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramNode ;
+    rdfs:range xsd:string ;
+    rdfs:label "node icon" ;
+    rdfs:comment "Icon identifier from icon library" .
+
+# Edge Properties
+diag:sourceNode a owl:ObjectProperty ;
+    rdfs:domain diag:DiagramEdge ;
+    rdfs:range diag:DiagramNode ;
+    rdfs:label "source node" .
+
+diag:targetNode a owl:ObjectProperty ;
+    rdfs:domain diag:DiagramEdge ;
+    rdfs:range diag:DiagramNode ;
+    rdfs:label "target node" .
+
+diag:edgeLabel a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramEdge ;
+    rdfs:range xsd:string ;
+    rdfs:label "edge label" .
+
+diag:edgeStyle a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramEdge ;
+    rdfs:range xsd:string ;
+    rdfs:label "edge style" ;
+    rdfs:comment "Style: solid, dashed, dotted" .
+
+diag:arrowType a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramEdge ;
+    rdfs:range xsd:string ;
+    rdfs:label "arrow type" ;
+    rdfs:comment "Arrow: none, arrow, diamond, circle" .
+
+# Cluster Properties
+diag:hasNode a owl:ObjectProperty ;
+    rdfs:domain diag:Diagram ;
+    rdfs:range diag:DiagramNode ;
+    rdfs:label "has node" .
+
+diag:hasEdge a owl:ObjectProperty ;
+    rdfs:domain diag:Diagram ;
+    rdfs:range diag:DiagramEdge ;
+    rdfs:label "has edge" .
+
+diag:hasCluster a owl:ObjectProperty ;
+    rdfs:domain diag:Diagram ;
+    rdfs:range diag:DiagramCluster ;
+    rdfs:label "has cluster" .
+
+diag:clusterLabel a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramCluster ;
+    rdfs:range xsd:string ;
+    rdfs:label "cluster label" .
+
+# =============================================================================
+# Data Visualization Properties
+# =============================================================================
+
+diag:DataSeries a owl:Class ;
+    rdfs:label "Data Series" ;
+    rdfs:comment "A series of data points for visualization." .
+
+diag:DataPoint a owl:Class ;
+    rdfs:label "Data Point" ;
+    rdfs:comment "A single data point." .
+
+diag:hasSeries a owl:ObjectProperty ;
+    rdfs:domain diag:DataVisualization ;
+    rdfs:range diag:DataSeries ;
+    rdfs:label "has series" .
+
+diag:seriesName a owl:DatatypeProperty ;
+    rdfs:domain diag:DataSeries ;
+    rdfs:range xsd:string ;
+    rdfs:label "series name" .
+
+diag:seriesColor a owl:ObjectProperty ;
+    rdfs:domain diag:DataSeries ;
+    rdfs:range vao:Color ;
+    rdfs:label "series color" .
+
+diag:hasDataPoint a owl:ObjectProperty ;
+    rdfs:domain diag:DataSeries ;
+    rdfs:range diag:DataPoint ;
+    rdfs:label "has data point" .
+
+diag:xValue a owl:DatatypeProperty ;
+    rdfs:domain diag:DataPoint ;
+    rdfs:range xsd:string ;
+    rdfs:label "x value" .
+
+diag:yValue a owl:DatatypeProperty ;
+    rdfs:domain diag:DataPoint ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "y value" .
+
+diag:dataLabel a owl:DatatypeProperty ;
+    rdfs:domain diag:DataPoint ;
+    rdfs:range xsd:string ;
+    rdfs:label "data label" .
+
+# Axis Properties
+diag:Axis a owl:Class ;
+    rdfs:label "Axis" ;
+    rdfs:comment "Chart axis specification." .
+
+diag:xAxis a owl:ObjectProperty ;
+    rdfs:domain diag:DataVisualization ;
+    rdfs:range diag:Axis ;
+    rdfs:label "x axis" .
+
+diag:yAxis a owl:ObjectProperty ;
+    rdfs:domain diag:DataVisualization ;
+    rdfs:range diag:Axis ;
+    rdfs:label "y axis" .
+
+diag:axisTitle a owl:DatatypeProperty ;
+    rdfs:domain diag:Axis ;
+    rdfs:range xsd:string ;
+    rdfs:label "axis title" .
+
+diag:axisMin a owl:DatatypeProperty ;
+    rdfs:domain diag:Axis ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "axis minimum" .
+
+diag:axisMax a owl:DatatypeProperty ;
+    rdfs:domain diag:Axis ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "axis maximum" .
+
+diag:axisType a owl:DatatypeProperty ;
+    rdfs:domain diag:Axis ;
+    rdfs:range xsd:string ;
+    rdfs:label "axis type" ;
+    rdfs:comment "Type: linear, log, time, ordinal" .
+
+# =============================================================================
+# Diagram Generation Tools
+# =============================================================================
+
+diag:DiagramTool a owl:Class ;
+    rdfs:label "Diagram Tool" ;
+    rdfs:comment "A tool for generating diagrams." .
+
+diag:toolName a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramTool ;
+    rdfs:range xsd:string ;
+    rdfs:label "tool name" .
+
+diag:outputFormat a owl:DatatypeProperty ;
+    rdfs:domain diag:DiagramTool ;
+    rdfs:range xsd:string ;
+    rdfs:label "output format" ;
+    rdfs:comment "Output format: SVG, PNG, PDF" .
+
+diag:supportedDiagramTypes a owl:ObjectProperty ;
+    rdfs:domain diag:DiagramTool ;
+    rdfs:range owl:Class ;
+    rdfs:label "supported diagram types" .
+
+diag:generatedBy a owl:ObjectProperty ;
+    rdfs:domain diag:Diagram ;
+    rdfs:range diag:DiagramTool ;
+    rdfs:label "generated by" .
+
+diag:sourceCode a owl:DatatypeProperty ;
+    rdfs:domain diag:Diagram ;
+    rdfs:range xsd:string ;
+    rdfs:label "source code" ;
+    rdfs:comment "Source specification for the diagram tool" .
+
+# Tool Instances
+diag:Mermaid a diag:DiagramTool ;
+    rdfs:label "Mermaid" ;
+    diag:toolName "mermaid" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:Flowchart, diag:SequenceDiagram,
+        diag:StateDiagram, diag:EntityRelationship, diag:GanttChart .
+
+diag:Graphviz a diag:DiagramTool ;
+    rdfs:label "Graphviz" ;
+    diag:toolName "graphviz" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:DependencyGraph, diag:HierarchyDiagram,
+        diag:NetworkDiagram .
+
+diag:D2 a diag:DiagramTool ;
+    rdfs:label "D2" ;
+    diag:toolName "d2" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:ArchitectureDiagram, diag:CloudArchitecture,
+        diag:NetworkDiagram .
+
+diag:VegaLite a diag:DiagramTool ;
+    rdfs:label "Vega-Lite" ;
+    diag:toolName "vega-lite" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:BarChart, diag:LineChart, diag:ScatterPlot,
+        diag:AreaChart, diag:Histogram, diag:HeatMap .
+
+diag:ComposeScene a diag:DiagramTool ;
+    rdfs:label "Compose Scene" ;
+    diag:toolName "compose-scene.py" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:IconScene, diag:ArchitectureDiagram .
+
+diag:ComposeMap a diag:DiagramTool ;
+    rdfs:label "Compose Map" ;
+    diag:toolName "compose-map.py" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:GeographicMap .
+
+diag:IsotypeTool a diag:DiagramTool ;
+    rdfs:label "Isotype Tool" ;
+    diag:toolName "isotype.py" ;
+    diag:outputFormat "SVG" ;
+    diag:supportedDiagramTypes diag:Isotype .
+
+# =============================================================================
+# Icon Library
+# =============================================================================
+
+diag:IconLibrary a owl:Class ;
+    rdfs:label "Icon Library" ;
+    rdfs:comment "A collection of icons for diagrams." .
+
+diag:Icon a owl:Class ;
+    rdfs:label "Icon" ;
+    rdfs:subClassOf vao:ImageBlock ;
+    rdfs:comment "A single icon from a library." .
+
+diag:iconId a owl:DatatypeProperty ;
+    rdfs:domain diag:Icon ;
+    rdfs:range xsd:string ;
+    rdfs:label "icon ID" .
+
+diag:iconCategory a owl:DatatypeProperty ;
+    rdfs:domain diag:Icon ;
+    rdfs:range xsd:string ;
+    rdfs:label "icon category" ;
+    rdfs:comment "Category: azure, kubernetes, genai, tech" .
+
+diag:hasIcon a owl:ObjectProperty ;
+    rdfs:domain diag:IconLibrary ;
+    rdfs:range diag:Icon ;
+    rdfs:label "has icon" .
+
+diag:usesLibrary a owl:ObjectProperty ;
+    rdfs:domain diag:IconScene ;
+    rdfs:range diag:IconLibrary ;
+    rdfs:label "uses library" .
+
+# Standard Icon Libraries
+diag:AzureIcons a diag:IconLibrary ;
+    rdfs:label "Azure Icons" ;
+    rdfs:comment "Microsoft Azure service icons (37 icons)" .
+
+diag:KubernetesIcons a diag:IconLibrary ;
+    rdfs:label "Kubernetes Icons" ;
+    rdfs:comment "Kubernetes resource icons (39 icons)" .
+
+diag:GenAIIcons a diag:IconLibrary ;
+    rdfs:label "GenAI Icons" ;
+    rdfs:comment "Generative AI concept icons (27 icons)" .
+
+diag:TechLogos a diag:IconLibrary ;
+    rdfs:label "Tech Logos" ;
+    rdfs:comment "Technology and tool logos (20+ icons)" .
+
+# =============================================================================
+# Layout Patterns for Diagrams
+# =============================================================================
+
+diag:DiagramLayout a owl:Class ;
+    rdfs:label "Diagram Layout" ;
+    rdfs:subClassOf vao:Layout ;
+    rdfs:comment "Layout pattern specific to diagrams." .
+
+diag:layoutStyle a owl:DatatypeProperty ;
+    rdfs:domain diag:IconScene ;
+    rdfs:range xsd:string ;
+    rdfs:label "layout style" ;
+    rdfs:comment "Style: flow, vertical, grid, cluster, hierarchy, pipeline" .
+
+diag:visualStyle a owl:DatatypeProperty ;
+    rdfs:domain diag:Diagram ;
+    rdfs:range xsd:string ;
+    rdfs:label "visual style" ;
+    rdfs:comment "Visual style: corporate, blueprint, neon, dark, minimal" .
+
+# =============================================================================
+# Geographic Map Properties
+# =============================================================================
+
+diag:mapRegion a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "map region" ;
+    rdfs:comment "Region: world, europe, dach, americas, north-america, asia, middle-east, africa, oceania" .
+
+diag:highlightedCountries a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "highlighted countries" ;
+    rdfs:comment "Comma-separated ISO country codes" .
+
+diag:showGraticule a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "show graticule" ;
+    rdfs:comment "Whether to show lat/lon grid" .
+
+diag:MapMarker a owl:Class ;
+    rdfs:label "Map Marker" ;
+    rdfs:comment "A marker on a geographic map." .
+
+diag:markerLatitude a owl:DatatypeProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "latitude" .
+
+diag:markerLongitude a owl:DatatypeProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "longitude" .
+
+diag:markerLabel a owl:DatatypeProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range xsd:string ;
+    rdfs:label "marker label" .
+
+diag:hasMarker a owl:ObjectProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range diag:MapMarker ;
+    rdfs:label "has marker" .
+
+# =============================================================================
+# Isotype Properties
+# =============================================================================
+
+diag:isotypeIcon a owl:DatatypeProperty ;
+    rdfs:domain diag:Isotype ;
+    rdfs:range xsd:string ;
+    rdfs:label "isotype icon" ;
+    rdfs:comment "Icon type: person, company, star, circle, square, heart, check, x" .
+
+diag:totalCount a owl:DatatypeProperty ;
+    rdfs:domain diag:Isotype ;
+    rdfs:range xsd:integer ;
+    rdfs:label "total count" ;
+    rdfs:comment "Total number of icons to display" .
+
+diag:activeCount a owl:DatatypeProperty ;
+    rdfs:domain diag:Isotype ;
+    rdfs:range xsd:integer ;
+    rdfs:label "active count" ;
+    rdfs:comment "Number of highlighted/active icons" .
+
+diag:iconColumns a owl:DatatypeProperty ;
+    rdfs:domain diag:Isotype ;
+    rdfs:range xsd:integer ;
+    rdfs:label "icon columns" ;
+    rdfs:comment "Number of columns in the icon grid" .
+
+diag:activeColor a owl:ObjectProperty ;
+    rdfs:domain diag:Isotype ;
+    rdfs:range vao:Color ;
+    rdfs:label "active color" .
+
+diag:inactiveColor a owl:ObjectProperty ;
+    rdfs:domain diag:Isotype ;
+    rdfs:range vao:Color ;
+    rdfs:label "inactive color" .

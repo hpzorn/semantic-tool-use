@@ -1,0 +1,812 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix doco: <http://purl.org/spar/doco/> .
+@prefix schema: <https://schema.org/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+
+<http://semantic-tool-use.org/ontology/visual-artifacts>
+    a owl:Ontology ;
+    rdfs:label "Visual Artifacts Ontology (VAO)" ;
+    rdfs:comment """An ontology for modeling visual artifacts in presentations
+    and social media content. Enables LLMs to generate and compose visuals
+    through formal semantic specifications.""" ;
+    owl:versionInfo "1.0.0" ;
+    dc:creator "Semantic Tool Use Project" ;
+    dc:created "2026-01-10"^^xsd:date ;
+    owl:imports <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# Core Abstract Classes
+# =============================================================================
+
+vao:VisualArtifact a owl:Class ;
+    rdfs:label "Visual Artifact" ;
+    rdfs:comment "Abstract base class for all visual content that can be generated or composed." ;
+    rdfs:subClassOf schema:CreativeWork .
+
+vao:VisualComponent a owl:Class ;
+    rdfs:label "Visual Component" ;
+    rdfs:comment "A reusable visual element that can be composed into larger artifacts." ;
+    rdfs:subClassOf vao:VisualArtifact .
+
+vao:VisualStyle a owl:Class ;
+    rdfs:label "Visual Style" ;
+    rdfs:comment "A collection of visual properties that define appearance." .
+
+vao:Layout a owl:Class ;
+    rdfs:label "Layout" ;
+    rdfs:comment "Defines spatial arrangement of visual components." .
+
+# =============================================================================
+# Color System
+# =============================================================================
+
+vao:Color a owl:Class ;
+    rdfs:label "Color" ;
+    rdfs:comment "A color specification with hex, RGB, or semantic role." .
+
+vao:ColorPalette a owl:Class ;
+    rdfs:label "Color Palette" ;
+    rdfs:comment "A coordinated set of colors for consistent visual identity." .
+
+vao:Gradient a owl:Class ;
+    rdfs:label "Gradient" ;
+    rdfs:comment "A color transition between two or more colors." .
+
+# Color Properties
+vao:hexValue a owl:DatatypeProperty ;
+    rdfs:domain vao:Color ;
+    rdfs:range xsd:string ;
+    rdfs:label "hex value" ;
+    rdfs:comment "Color in hexadecimal format, e.g., #2C5DFF" .
+
+vao:semanticRole a owl:DatatypeProperty ;
+    rdfs:domain vao:Color ;
+    rdfs:range xsd:string ;
+    rdfs:label "semantic role" ;
+    rdfs:comment "The semantic purpose: primary, secondary, accent, background, text, success, warning, error" .
+
+vao:primaryColor a owl:ObjectProperty ;
+    rdfs:domain vao:ColorPalette ;
+    rdfs:range vao:Color ;
+    rdfs:label "primary color" .
+
+vao:secondaryColor a owl:ObjectProperty ;
+    rdfs:domain vao:ColorPalette ;
+    rdfs:range vao:Color ;
+    rdfs:label "secondary color" .
+
+vao:accentColor a owl:ObjectProperty ;
+    rdfs:domain vao:ColorPalette ;
+    rdfs:range vao:Color ;
+    rdfs:label "accent color" .
+
+vao:backgroundColor a owl:ObjectProperty ;
+    rdfs:domain vao:ColorPalette ;
+    rdfs:range vao:Color ;
+    rdfs:label "background color" .
+
+vao:textColor a owl:ObjectProperty ;
+    rdfs:domain vao:ColorPalette ;
+    rdfs:range vao:Color ;
+    rdfs:label "text color" .
+
+# Gradient Properties
+vao:startColor a owl:ObjectProperty ;
+    rdfs:domain vao:Gradient ;
+    rdfs:range vao:Color ;
+    rdfs:label "start color" .
+
+vao:endColor a owl:ObjectProperty ;
+    rdfs:domain vao:Gradient ;
+    rdfs:range vao:Color ;
+    rdfs:label "end color" .
+
+vao:gradientAngle a owl:DatatypeProperty ;
+    rdfs:domain vao:Gradient ;
+    rdfs:range xsd:integer ;
+    rdfs:label "gradient angle" ;
+    rdfs:comment "Angle in degrees (0-360) for linear gradients." .
+
+vao:gradientType a owl:DatatypeProperty ;
+    rdfs:domain vao:Gradient ;
+    rdfs:range xsd:string ;
+    rdfs:label "gradient type" ;
+    rdfs:comment "Type of gradient: linear, radial, conic" .
+
+# =============================================================================
+# Typography System
+# =============================================================================
+
+vao:Typography a owl:Class ;
+    rdfs:label "Typography" ;
+    rdfs:comment "Typography settings for text rendering." .
+
+vao:TextStyle a owl:Class ;
+    rdfs:label "Text Style" ;
+    rdfs:comment "A named typography configuration for consistent text styling." ;
+    rdfs:subClassOf vao:Typography .
+
+vao:Font a owl:Class ;
+    rdfs:label "Font" ;
+    rdfs:comment "A specific font or typeface." .
+
+# Typography Properties
+vao:fontFamily a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:string ;
+    rdfs:label "font family" ;
+    rdfs:comment "Font family name, e.g., 'Atkinson Hyperlegible'" .
+
+vao:fontSize a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:string ;
+    rdfs:label "font size" ;
+    rdfs:comment "Font size with unit, e.g., '14pt', '1.2em'" .
+
+vao:fontWeight a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:integer ;
+    rdfs:label "font weight" ;
+    rdfs:comment "Font weight: 100 (thin) to 900 (black), 400=normal, 700=bold" .
+
+vao:fontStyle a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:string ;
+    rdfs:label "font style" ;
+    rdfs:comment "Font style: normal, italic, oblique" .
+
+vao:textAlign a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:string ;
+    rdfs:label "text alignment" ;
+    rdfs:comment "Text alignment: left, center, right, justify" .
+
+vao:lineHeight a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "line height" ;
+    rdfs:comment "Line height as multiplier (e.g., 1.5)" .
+
+vao:letterSpacing a owl:DatatypeProperty ;
+    rdfs:domain vao:Typography ;
+    rdfs:range xsd:string ;
+    rdfs:label "letter spacing" ;
+    rdfs:comment "Letter spacing with unit" .
+
+# Standard Text Styles
+vao:TitleStyle a vao:TextStyle ;
+    rdfs:label "Title Style" ;
+    vao:fontSize "32pt" ;
+    vao:fontWeight 700 ;
+    rdfs:comment "Style for main titles" .
+
+vao:HeadingStyle a vao:TextStyle ;
+    rdfs:label "Heading Style" ;
+    vao:fontSize "22pt" ;
+    vao:fontWeight 700 ;
+    rdfs:comment "Style for section headings" .
+
+vao:SubheadingStyle a vao:TextStyle ;
+    rdfs:label "Subheading Style" ;
+    vao:fontSize "18pt" ;
+    vao:fontWeight 600 ;
+    rdfs:comment "Style for subheadings" .
+
+vao:BodyStyle a vao:TextStyle ;
+    rdfs:label "Body Style" ;
+    vao:fontSize "14pt" ;
+    vao:fontWeight 400 ;
+    rdfs:comment "Style for body text" .
+
+vao:CaptionStyle a vao:TextStyle ;
+    rdfs:label "Caption Style" ;
+    vao:fontSize "12pt" ;
+    vao:fontWeight 400 ;
+    rdfs:comment "Style for captions and small text" .
+
+vao:CodeStyle a vao:TextStyle ;
+    rdfs:label "Code Style" ;
+    vao:fontFamily "Menlo, Monaco, monospace" ;
+    vao:fontSize "12pt" ;
+    vao:fontWeight 400 ;
+    rdfs:comment "Style for code blocks" .
+
+# =============================================================================
+# Spatial Properties (Dimensions, Positions, Spacing)
+# =============================================================================
+
+vao:Dimension a owl:Class ;
+    rdfs:label "Dimension" ;
+    rdfs:comment "A measurement with value and unit." .
+
+vao:Position a owl:Class ;
+    rdfs:label "Position" ;
+    rdfs:comment "A location within a coordinate system." .
+
+vao:Spacing a owl:Class ;
+    rdfs:label "Spacing" ;
+    rdfs:comment "Margin, padding, or gap specifications." .
+
+vao:BoundingBox a owl:Class ;
+    rdfs:label "Bounding Box" ;
+    rdfs:comment "A rectangular area defined by position and dimensions." .
+
+# Dimension Properties
+vao:value a owl:DatatypeProperty ;
+    rdfs:domain vao:Dimension ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "value" .
+
+vao:unit a owl:DatatypeProperty ;
+    rdfs:domain vao:Dimension ;
+    rdfs:range xsd:string ;
+    rdfs:label "unit" ;
+    rdfs:comment "Unit of measurement: px, pt, mm, em, rem, %, vw, vh" .
+
+# Position Properties
+vao:x a owl:ObjectProperty ;
+    rdfs:domain vao:Position ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "x coordinate" .
+
+vao:y a owl:ObjectProperty ;
+    rdfs:domain vao:Position ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "y coordinate" .
+
+vao:anchor a owl:DatatypeProperty ;
+    rdfs:domain vao:Position ;
+    rdfs:range xsd:string ;
+    rdfs:label "anchor point" ;
+    rdfs:comment "Reference point: top-left, top-right, center, bottom-left, bottom-right" .
+
+# Bounding Box Properties
+vao:width a owl:ObjectProperty ;
+    rdfs:domain vao:BoundingBox ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "width" .
+
+vao:height a owl:ObjectProperty ;
+    rdfs:domain vao:BoundingBox ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "height" .
+
+vao:aspectRatio a owl:DatatypeProperty ;
+    rdfs:domain vao:BoundingBox ;
+    rdfs:range xsd:string ;
+    rdfs:label "aspect ratio" ;
+    rdfs:comment "Aspect ratio as 'W:H', e.g., '16:9', '1:1', '4:5'" .
+
+# Spacing Properties
+vao:marginTop a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:marginRight a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:marginBottom a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:marginLeft a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:paddingTop a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:paddingRight a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:paddingBottom a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:paddingLeft a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension .
+
+vao:gap a owl:ObjectProperty ;
+    rdfs:domain vao:Spacing ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "gap" ;
+    rdfs:comment "Space between child elements" .
+
+# =============================================================================
+# Layout System
+# =============================================================================
+
+vao:GridLayout a owl:Class ;
+    rdfs:label "Grid Layout" ;
+    rdfs:subClassOf vao:Layout ;
+    rdfs:comment "A grid-based layout with rows and columns." .
+
+vao:FlowLayout a owl:Class ;
+    rdfs:label "Flow Layout" ;
+    rdfs:subClassOf vao:Layout ;
+    rdfs:comment "A linear flow layout (horizontal or vertical)." .
+
+vao:AbsoluteLayout a owl:Class ;
+    rdfs:label "Absolute Layout" ;
+    rdfs:subClassOf vao:Layout ;
+    rdfs:comment "A layout with absolutely positioned elements." .
+
+vao:StackLayout a owl:Class ;
+    rdfs:label "Stack Layout" ;
+    rdfs:subClassOf vao:Layout ;
+    rdfs:comment "Elements stacked on top of each other (z-index)." .
+
+# Grid Layout Properties
+vao:columns a owl:DatatypeProperty ;
+    rdfs:domain vao:GridLayout ;
+    rdfs:range xsd:integer ;
+    rdfs:label "columns" .
+
+vao:rows a owl:DatatypeProperty ;
+    rdfs:domain vao:GridLayout ;
+    rdfs:range xsd:integer ;
+    rdfs:label "rows" .
+
+vao:columnWidths a owl:DatatypeProperty ;
+    rdfs:domain vao:GridLayout ;
+    rdfs:range xsd:string ;
+    rdfs:label "column widths" ;
+    rdfs:comment "Column widths as space-separated values, e.g., '1fr 2fr' or '200px auto'" .
+
+vao:rowHeights a owl:DatatypeProperty ;
+    rdfs:domain vao:GridLayout ;
+    rdfs:range xsd:string ;
+    rdfs:label "row heights" .
+
+vao:gutter a owl:ObjectProperty ;
+    rdfs:domain vao:GridLayout ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "gutter" ;
+    rdfs:comment "Space between grid cells" .
+
+# Flow Layout Properties
+vao:direction a owl:DatatypeProperty ;
+    rdfs:domain vao:FlowLayout ;
+    rdfs:range xsd:string ;
+    rdfs:label "direction" ;
+    rdfs:comment "Flow direction: horizontal, vertical, row, column" .
+
+vao:wrap a owl:DatatypeProperty ;
+    rdfs:domain vao:FlowLayout ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "wrap" ;
+    rdfs:comment "Whether items wrap to next line" .
+
+vao:justifyContent a owl:DatatypeProperty ;
+    rdfs:domain vao:Layout ;
+    rdfs:range xsd:string ;
+    rdfs:label "justify content" ;
+    rdfs:comment "Main axis alignment: start, end, center, space-between, space-around" .
+
+vao:alignItems a owl:DatatypeProperty ;
+    rdfs:domain vao:Layout ;
+    rdfs:range xsd:string ;
+    rdfs:label "align items" ;
+    rdfs:comment "Cross axis alignment: start, end, center, stretch, baseline" .
+
+# =============================================================================
+# Visual Components
+# =============================================================================
+
+vao:TextBlock a owl:Class ;
+    rdfs:label "Text Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A block of styled text." .
+
+vao:ImageBlock a owl:Class ;
+    rdfs:label "Image Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:subClassOf schema:ImageObject ;
+    rdfs:comment "An image or graphic element." .
+
+vao:IconBlock a owl:Class ;
+    rdfs:label "Icon Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "An icon or symbol element." .
+
+vao:ShapeBlock a owl:Class ;
+    rdfs:label "Shape Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A geometric shape (rectangle, circle, line, etc.)." .
+
+vao:DiagramBlock a owl:Class ;
+    rdfs:label "Diagram Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "An embedded diagram or chart." .
+
+vao:BulletList a owl:Class ;
+    rdfs:label "Bullet List" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A bulleted or numbered list." .
+
+vao:CodeBlock a owl:Class ;
+    rdfs:label "Code Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A block of formatted code." .
+
+vao:QuoteBlock a owl:Class ;
+    rdfs:label "Quote Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A styled quotation with attribution." .
+
+vao:CalloutBlock a owl:Class ;
+    rdfs:label "Callout Block" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A highlighted information box (info, warning, success, etc.)." .
+
+# Component Properties
+vao:content a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:string ;
+    rdfs:label "content" ;
+    rdfs:comment "The text or data content of the component." .
+
+vao:hasTypography a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range vao:Typography ;
+    rdfs:label "has typography" .
+
+vao:hasColor a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range vao:Color ;
+    rdfs:label "has color" .
+
+vao:hasBackground a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range [ owl:unionOf (vao:Color vao:Gradient vao:ImageBlock) ] ;
+    rdfs:label "has background" .
+
+vao:hasBorder a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range vao:Border ;
+    rdfs:label "has border" .
+
+vao:hasPosition a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range vao:Position ;
+    rdfs:label "has position" .
+
+vao:hasBoundingBox a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range vao:BoundingBox ;
+    rdfs:label "has bounding box" .
+
+vao:hasSpacing a owl:ObjectProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range vao:Spacing ;
+    rdfs:label "has spacing" .
+
+vao:zIndex a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "z-index" ;
+    rdfs:comment "Stacking order for overlapping elements" .
+
+# List Properties
+vao:items a owl:DatatypeProperty ;
+    rdfs:domain vao:BulletList ;
+    rdfs:range xsd:string ;
+    rdfs:label "items" ;
+    rdfs:comment "List items as JSON array of strings" .
+
+vao:bulletStyle a owl:DatatypeProperty ;
+    rdfs:domain vao:BulletList ;
+    rdfs:range xsd:string ;
+    rdfs:label "bullet style" ;
+    rdfs:comment "Bullet style: disc, circle, square, decimal, alpha, none" .
+
+# Quote Properties
+vao:quoteText a owl:DatatypeProperty ;
+    rdfs:domain vao:QuoteBlock ;
+    rdfs:range xsd:string ;
+    rdfs:label "quote text" .
+
+vao:attribution a owl:DatatypeProperty ;
+    rdfs:domain vao:QuoteBlock ;
+    rdfs:range xsd:string ;
+    rdfs:label "attribution" ;
+    rdfs:comment "Quote attribution (author, source)" .
+
+# Callout Properties
+vao:calloutType a owl:DatatypeProperty ;
+    rdfs:domain vao:CalloutBlock ;
+    rdfs:range xsd:string ;
+    rdfs:label "callout type" ;
+    rdfs:comment "Type of callout: info, warning, success, error, tip, note" .
+
+vao:calloutTitle a owl:DatatypeProperty ;
+    rdfs:domain vao:CalloutBlock ;
+    rdfs:range xsd:string ;
+    rdfs:label "callout title" .
+
+# =============================================================================
+# Border and Shape Properties
+# =============================================================================
+
+vao:Border a owl:Class ;
+    rdfs:label "Border" ;
+    rdfs:comment "Border styling for components." .
+
+vao:borderWidth a owl:ObjectProperty ;
+    rdfs:domain vao:Border ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "border width" .
+
+vao:borderColor a owl:ObjectProperty ;
+    rdfs:domain vao:Border ;
+    rdfs:range vao:Color ;
+    rdfs:label "border color" .
+
+vao:borderStyle a owl:DatatypeProperty ;
+    rdfs:domain vao:Border ;
+    rdfs:range xsd:string ;
+    rdfs:label "border style" ;
+    rdfs:comment "Border style: solid, dashed, dotted, double, none" .
+
+vao:borderRadius a owl:ObjectProperty ;
+    rdfs:domain vao:Border ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "border radius" ;
+    rdfs:comment "Corner radius for rounded borders" .
+
+# Shape Properties
+vao:shapeType a owl:DatatypeProperty ;
+    rdfs:domain vao:ShapeBlock ;
+    rdfs:range xsd:string ;
+    rdfs:label "shape type" ;
+    rdfs:comment "Shape type: rectangle, circle, ellipse, line, polygon, path" .
+
+vao:fillColor a owl:ObjectProperty ;
+    rdfs:domain vao:ShapeBlock ;
+    rdfs:range vao:Color ;
+    rdfs:label "fill color" .
+
+vao:strokeColor a owl:ObjectProperty ;
+    rdfs:domain vao:ShapeBlock ;
+    rdfs:range vao:Color ;
+    rdfs:label "stroke color" .
+
+vao:strokeWidth a owl:ObjectProperty ;
+    rdfs:domain vao:ShapeBlock ;
+    rdfs:range vao:Dimension ;
+    rdfs:label "stroke width" .
+
+# =============================================================================
+# Style and Theme System
+# =============================================================================
+
+vao:Theme a owl:Class ;
+    rdfs:label "Theme" ;
+    rdfs:subClassOf vao:VisualStyle ;
+    rdfs:comment "A complete visual theme with colors, typography, and spacing." .
+
+vao:hasColorPalette a owl:ObjectProperty ;
+    rdfs:domain vao:Theme ;
+    rdfs:range vao:ColorPalette ;
+    rdfs:label "has color palette" .
+
+vao:hasDefaultTypography a owl:ObjectProperty ;
+    rdfs:domain vao:Theme ;
+    rdfs:range vao:Typography ;
+    rdfs:label "has default typography" .
+
+vao:hasDefaultSpacing a owl:ObjectProperty ;
+    rdfs:domain vao:Theme ;
+    rdfs:range vao:Spacing ;
+    rdfs:label "has default spacing" .
+
+vao:hasLogo a owl:ObjectProperty ;
+    rdfs:domain vao:Theme ;
+    rdfs:range vao:ImageBlock ;
+    rdfs:label "has logo" .
+
+vao:logoPlacement a owl:DatatypeProperty ;
+    rdfs:domain vao:Theme ;
+    rdfs:range xsd:string ;
+    rdfs:label "logo placement" ;
+    rdfs:comment "Where to place logo: top-left, top-right, bottom-left, bottom-right" .
+
+# Apply style to components
+vao:appliesStyle a owl:ObjectProperty ;
+    rdfs:domain vao:VisualArtifact ;
+    rdfs:range vao:VisualStyle ;
+    rdfs:label "applies style" .
+
+# =============================================================================
+# Composition and Container
+# =============================================================================
+
+vao:Container a owl:Class ;
+    rdfs:label "Container" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A component that contains other components." .
+
+vao:hasComponent a owl:ObjectProperty ;
+    rdfs:domain vao:Container ;
+    rdfs:range vao:VisualComponent ;
+    rdfs:label "has component" ;
+    rdfs:comment "Child component within this container" .
+
+vao:hasLayout a owl:ObjectProperty ;
+    rdfs:domain vao:Container ;
+    rdfs:range vao:Layout ;
+    rdfs:label "has layout" .
+
+vao:componentOrder a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "component order" ;
+    rdfs:comment "Order of component within parent (for flow layouts)" .
+
+# Grid placement
+vao:gridColumn a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "grid column" .
+
+vao:gridRow a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "grid row" .
+
+vao:gridColumnSpan a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "grid column span" .
+
+vao:gridRowSpan a owl:DatatypeProperty ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "grid row span" .
+
+# =============================================================================
+# Metadata (using Dublin Core)
+# =============================================================================
+
+# Reuse Dublin Core for standard metadata
+# dc:title, dc:creator, dc:description, dc:created, dc:modified, dc:format
+
+vao:hasTitle a owl:DatatypeProperty ;
+    rdfs:subPropertyOf dc:title ;
+    rdfs:domain vao:VisualArtifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "title" .
+
+vao:hasCreator a owl:DatatypeProperty ;
+    rdfs:subPropertyOf dc:creator ;
+    rdfs:domain vao:VisualArtifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "creator" .
+
+vao:hasDescription a owl:DatatypeProperty ;
+    rdfs:subPropertyOf dc:description ;
+    rdfs:domain vao:VisualArtifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+vao:outputFormat a owl:DatatypeProperty ;
+    rdfs:subPropertyOf dc:format ;
+    rdfs:domain vao:VisualArtifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "output format" ;
+    rdfs:comment "Output format: PDF, SVG, PNG, JPEG, etc." .
+
+# =============================================================================
+# Standard Color Palette Instances
+# =============================================================================
+
+# Inovex Corporate Palette
+vao:InovexBlue a vao:Color ;
+    rdfs:label "Inovex Blue" ;
+    vao:hexValue "#2C5DFF" ;
+    vao:semanticRole "primary" .
+
+vao:InovexGreen a vao:Color ;
+    rdfs:label "Inovex Green" ;
+    vao:hexValue "#7DF381" ;
+    vao:semanticRole "accent" .
+
+vao:InovexNavy a vao:Color ;
+    rdfs:label "Inovex Navy" ;
+    vao:hexValue "#061B59" ;
+    vao:semanticRole "background" .
+
+vao:InovexCyan a vao:Color ;
+    rdfs:label "Inovex Cyan" ;
+    vao:hexValue "#0AAFE8" ;
+    vao:semanticRole "secondary" .
+
+vao:InovexTeal a vao:Color ;
+    rdfs:label "Inovex Teal" ;
+    vao:hexValue "#41E8E0" ;
+    vao:semanticRole "accent" .
+
+vao:InovexWhite a vao:Color ;
+    rdfs:label "Inovex White" ;
+    vao:hexValue "#FFFFFF" ;
+    vao:semanticRole "background" .
+
+vao:InovexLightGray a vao:Color ;
+    rdfs:label "Inovex Light Gray" ;
+    vao:hexValue "#F5F5F5" ;
+    vao:semanticRole "background" .
+
+vao:InovexDarkGray a vao:Color ;
+    rdfs:label "Inovex Dark Gray" ;
+    vao:hexValue "#333333" ;
+    vao:semanticRole "text" .
+
+vao:InovexPalette a vao:ColorPalette ;
+    rdfs:label "Inovex Corporate Palette" ;
+    vao:primaryColor vao:InovexBlue ;
+    vao:secondaryColor vao:InovexCyan ;
+    vao:accentColor vao:InovexGreen ;
+    vao:accentColor vao:InovexTeal ;
+    vao:backgroundColor vao:InovexNavy ;
+    vao:backgroundColor vao:InovexWhite ;
+    vao:backgroundColor vao:InovexLightGray ;
+    vao:textColor vao:InovexDarkGray ;
+    vao:textColor vao:InovexWhite .
+
+# Standard Gradients
+vao:DarkGradient a vao:Gradient ;
+    rdfs:label "Dark Gradient" ;
+    vao:startColor vao:InovexBlue ;
+    vao:endColor vao:InovexNavy ;
+    vao:gradientAngle 180 ;
+    vao:gradientType "linear" .
+
+vao:TitleGradient a vao:Gradient ;
+    rdfs:label "Title Gradient" ;
+    vao:startColor vao:InovexNavy ;
+    vao:endColor vao:InovexBlue ;
+    vao:gradientAngle 135 ;
+    vao:gradientType "linear" .
+
+# =============================================================================
+# Standard Aspect Ratios
+# =============================================================================
+
+vao:Aspect16x9 a vao:BoundingBox ;
+    rdfs:label "16:9 Aspect Ratio" ;
+    vao:aspectRatio "16:9" ;
+    rdfs:comment "Standard widescreen presentation format" .
+
+vao:Aspect4x3 a vao:BoundingBox ;
+    rdfs:label "4:3 Aspect Ratio" ;
+    vao:aspectRatio "4:3" ;
+    rdfs:comment "Traditional presentation format" .
+
+vao:Aspect1x1 a vao:BoundingBox ;
+    rdfs:label "1:1 Aspect Ratio" ;
+    vao:aspectRatio "1:1" ;
+    rdfs:comment "Square format for social media" .
+
+vao:Aspect4x5 a vao:BoundingBox ;
+    rdfs:label "4:5 Aspect Ratio" ;
+    vao:aspectRatio "4:5" ;
+    rdfs:comment "Portrait format for Instagram" .
+
+vao:Aspect9x16 a vao:BoundingBox ;
+    rdfs:label "9:16 Aspect Ratio" ;
+    vao:aspectRatio "9:16" ;
+    rdfs:comment "Vertical video format (Stories, Reels)" .

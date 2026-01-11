@@ -1,0 +1,180 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix social: <http://semantic-tool-use.org/ontology/visual-artifacts/social#> .
+@prefix ex: <http://example.org/carousel/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# =============================================================================
+# Example: LinkedIn Carousel on Semantic Validation
+# =============================================================================
+# This example shows how to specify a LinkedIn carousel using the ontology.
+# An LLM can read this specification and generate the corresponding Typst code.
+
+# -----------------------------------------------------------------------------
+# Content Brief (Input)
+# -----------------------------------------------------------------------------
+ex:SemanticValidationBrief a social:ContentBrief ;
+    rdfs:label "Semantic Validation Content Brief" ;
+    social:thesis "JSON Schema validation is not enough for AI safety. Semantic validation catches errors that structural validation misses." ;
+    social:contrarianAngle "Everyone uses JSON Schema for API validation. That's dangerously insufficient for autonomous AI agents." ;
+    social:hook "Your AI's safety net has holes." ;
+    social:question "What validation strategy do you use for LLM tool calls?" ;
+    social:callToAction "Follow for more on AI safety and semantic web" ;
+    social:authorCredential "Built semantic validation systems for healthcare and finance" ;
+    social:hasKeyPoint ex:KeyPoint1, ex:KeyPoint2, ex:KeyPoint3 .
+
+ex:KeyPoint1 a social:KeyPoint ;
+    social:pointOrder 1 ;
+    social:pointText "JSON Schema only validates structure" ;
+    social:evidence "It can't check if a patient exists or if an account has sufficient funds" .
+
+ex:KeyPoint2 a social:KeyPoint ;
+    social:pointOrder 2 ;
+    social:pointText "Semantic validation checks meaning" ;
+    social:evidence "SPARQL queries verify preconditions against real-world state" .
+
+ex:KeyPoint3 a social:KeyPoint ;
+    social:pointOrder 3 ;
+    social:pointText "100% recall vs 75%" ;
+    social:evidence "Semantic validation caught ALL invalid requests in our benchmark" .
+
+# -----------------------------------------------------------------------------
+# LinkedIn Carousel (Output)
+# -----------------------------------------------------------------------------
+ex:SemanticValidationCarousel a social:LinkedInCarousel ;
+    rdfs:label "Semantic Validation LinkedIn Carousel" ;
+    social:fromBrief ex:SemanticValidationBrief ;
+    social:targetPlatform social:LinkedIn ;
+    social:slideCount 7 ;
+    vao:aspectRatio "1:1" ;
+    vao:appliesStyle pres:InovexPresentationTheme ;
+    social:hasSlide ex:CarouselSlide1, ex:CarouselSlide2, ex:CarouselSlide3,
+                    ex:CarouselSlide4, ex:CarouselSlide5, ex:CarouselSlide6,
+                    ex:CarouselSlide7 ;
+    social:hasHashtag ex:Tag1, ex:Tag2, ex:Tag3 .
+
+# Hashtags
+ex:Tag1 a social:Hashtag ;
+    social:hashtagText "aisafety" ;
+    social:hashtagCategory "niche" .
+
+ex:Tag2 a social:Hashtag ;
+    social:hashtagText "llm" ;
+    social:hashtagCategory "broad" .
+
+ex:Tag3 a social:Hashtag ;
+    social:hashtagText "semanticweb" ;
+    social:hashtagCategory "niche" .
+
+# -----------------------------------------------------------------------------
+# Slide 1: Hook Slide
+# -----------------------------------------------------------------------------
+ex:CarouselSlide1 a social:HookSlide ;
+    social:slidePosition 1 ;
+    vao:content """Your AI's safety net
+has holes.
+
+Here's how to fix it
+(and why JSON Schema isn't enough)""" ;
+    vao:hasBackground vao:DarkGradient .
+
+# -----------------------------------------------------------------------------
+# Slide 2: Problem Statement
+# -----------------------------------------------------------------------------
+ex:CarouselSlide2 a social:StatementSlide ;
+    social:slidePosition 2 ;
+    vao:content """Everyone validates AI tool calls
+with JSON Schema.
+
+That's a mistake.""" ;
+    vao:hasBackground vao:InovexWhite .
+
+# -----------------------------------------------------------------------------
+# Slide 3: Tip 1
+# -----------------------------------------------------------------------------
+ex:CarouselSlide3 a social:TipSlide ;
+    social:slidePosition 3 ;
+    social:tipNumber 1 ;
+    social:tipTitle "JSON Schema only validates structure" ;
+    social:tipEvidence "It can't check if a patient exists, if an account is closed, or if you're authorized to dispense medication." ;
+    vao:hasBackground vao:InovexWhite .
+
+# -----------------------------------------------------------------------------
+# Slide 4: Tip 2
+# -----------------------------------------------------------------------------
+ex:CarouselSlide4 a social:TipSlide ;
+    social:slidePosition 4 ;
+    social:tipNumber 2 ;
+    social:tipTitle "Semantic validation checks meaning" ;
+    social:tipEvidence "SPARQL queries verify preconditions against the actual world state. Not just 'is this valid JSON?' but 'does this make sense?'" ;
+    vao:hasBackground vao:InovexWhite .
+
+# -----------------------------------------------------------------------------
+# Slide 5: Stat Slide
+# -----------------------------------------------------------------------------
+ex:CarouselSlide5 a social:StatSlide ;
+    social:slidePosition 5 ;
+    social:statNumber "100%" ;
+    social:statContext "Recall" ;
+    social:statMoreContext "Semantic validation caught ALL invalid requests. JSON Schema missed 25%." ;
+    vao:hasBackground vao:DarkGradient .
+
+# -----------------------------------------------------------------------------
+# Slide 6: Tip 3
+# -----------------------------------------------------------------------------
+ex:CarouselSlide6 a social:TipSlide ;
+    social:slidePosition 6 ;
+    social:tipNumber 3 ;
+    social:tipTitle "The cost of missing errors" ;
+    social:tipEvidence "In healthcare: wrong patient, wrong medication. In finance: unauthorized transactions, insufficient funds. JSON Schema can't catch these." ;
+    vao:hasBackground vao:InovexWhite .
+
+# -----------------------------------------------------------------------------
+# Slide 7: CTA Slide
+# -----------------------------------------------------------------------------
+ex:CarouselSlide7 a social:CTASlide ;
+    social:slidePosition 7 ;
+    social:ctaQuestion "What validation strategy do you use for LLM tool calls?" ;
+    social:ctaText "Follow for more on AI safety" ;
+    social:ctaWebsite "github.com/semantic-tool-use"^^xsd:anyURI ;
+    vao:hasBackground vao:InovexWhite .
+
+# =============================================================================
+# Twitter Thread (Alternative Output from Same Brief)
+# =============================================================================
+ex:SemanticValidationThread a social:TwitterThread ;
+    rdfs:label "Semantic Validation Twitter Thread" ;
+    social:fromBrief ex:SemanticValidationBrief ;
+    social:targetPlatform social:Twitter ;
+    social:totalTweets 6 ;
+    social:hasTweet ex:Tweet1, ex:Tweet2, ex:Tweet3, ex:Tweet4, ex:Tweet5, ex:Tweet6 .
+
+ex:Tweet1 a social:Tweet ;
+    social:tweetNumber 1 ;
+    social:tweetText "Your AI's safety net has holes. 🧵 Everyone validates LLM tool calls with JSON Schema. That's dangerously insufficient. Here's why (1/6)" ;
+    social:threadIndicator "1/6" .
+
+ex:Tweet2 a social:Tweet ;
+    social:tweetNumber 2 ;
+    social:tweetText "JSON Schema validates STRUCTURE, not MEANING. It can check if 'patientId' is a string. It can't check if that patient actually exists. (2/6)" ;
+    social:threadIndicator "2/6" .
+
+ex:Tweet3 a social:Tweet ;
+    social:tweetNumber 3 ;
+    social:tweetText "Semantic validation uses SPARQL queries against real-world state. Before dispensing medication: Does the patient exist? Is the prescription active? Is the pharmacist authorized? (3/6)" ;
+    social:threadIndicator "3/6" .
+
+ex:Tweet4 a social:Tweet ;
+    social:tweetNumber 4 ;
+    social:tweetText "The results: • JSON Schema: 75% recall • Semantic: 100% recall That 25% gap? Authorization errors, state violations, reference errors. Exactly what matters in high-stakes domains. (4/6)" ;
+    social:threadIndicator "4/6" .
+
+ex:Tweet5 a social:Tweet ;
+    social:tweetNumber 5 ;
+    social:tweetText "The trade-off: • JSON Schema: 0.7ms, 100% precision • Semantic: 252ms, 84% precision For healthcare and finance, I'll take the slower, safer option every time. (5/6)" ;
+    social:threadIndicator "5/6" .
+
+ex:Tweet6 a social:Tweet ;
+    social:tweetNumber 6 ;
+    social:tweetText "TL;DR: JSON Schema validates what you SAID. Semantic validation verifies what you MEANT. What validation strategy do you use for LLM tool calls? #AISafety #LLM #SemanticWeb (6/6)" ;
+    social:threadIndicator "6/6" .

@@ -1,0 +1,566 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix pres: <http://semantic-tool-use.org/ontology/visual-artifacts/presentation#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+
+<http://semantic-tool-use.org/ontology/visual-artifacts/presentation>
+    a owl:Ontology ;
+    rdfs:label "Visual Artifacts - Presentation Domain" ;
+    rdfs:comment """Extension ontology for presentation and slide-based visual artifacts.
+    Models slide types, deck structures, and presentation-specific components.""" ;
+    owl:versionInfo "1.0.0" ;
+    owl:imports <http://semantic-tool-use.org/ontology/visual-artifacts> .
+
+# =============================================================================
+# Presentation and Deck Classes
+# =============================================================================
+
+pres:Presentation a owl:Class ;
+    rdfs:label "Presentation" ;
+    rdfs:subClassOf vao:VisualArtifact ;
+    rdfs:comment "A collection of slides forming a presentation deck." .
+
+pres:Slide a owl:Class ;
+    rdfs:label "Slide" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "A single slide within a presentation." .
+
+pres:SlideTemplate a owl:Class ;
+    rdfs:label "Slide Template" ;
+    rdfs:comment "A reusable template defining slide structure and styling." .
+
+# =============================================================================
+# Slide Types (from typst-presentation skill)
+# =============================================================================
+
+pres:TitleSlide a owl:Class ;
+    rdfs:label "Title Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Opening slide with presentation title, subtitle, and optional author." .
+
+pres:SectionSlide a owl:Class ;
+    rdfs:label "Section Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Section divider slide with section title." .
+
+pres:SectionSlideDark a owl:Class ;
+    rdfs:label "Section Slide (Dark)" ;
+    rdfs:subClassOf pres:SectionSlide ;
+    rdfs:comment "Section divider with dark gradient background." .
+
+pres:ContentSlide a owl:Class ;
+    rdfs:label "Content Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Standard content slide with title and content area." .
+
+pres:TwoColumnSlide a owl:Class ;
+    rdfs:label "Two Column Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Side-by-side comparison layout with two columns." .
+
+pres:ThreeColumnSlide a owl:Class ;
+    rdfs:label "Three Column Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Three-column layout with numbered sections." .
+
+pres:QuoteSlide a owl:Class ;
+    rdfs:label "Quote Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Slide displaying a quotation with attribution." .
+
+pres:QuoteSlideDark a owl:Class ;
+    rdfs:label "Quote Slide (Dark)" ;
+    rdfs:subClassOf pres:QuoteSlide ;
+    rdfs:comment "Quote slide with dark gradient background." .
+
+pres:CodeSlide a owl:Class ;
+    rdfs:label "Code Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Slide displaying code with optional explanation." .
+
+pres:ImageSlide a owl:Class ;
+    rdfs:label "Image Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Full-width image slide with caption." .
+
+pres:ContactSlide a owl:Class ;
+    rdfs:label "Contact Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Presenter contact information slide." .
+
+pres:ThankYouSlide a owl:Class ;
+    rdfs:label "Thank You Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Closing slide." .
+
+pres:AgendaSlide a owl:Class ;
+    rdfs:label "Agenda Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Slide showing presentation outline/agenda." .
+
+pres:ComparisonSlide a owl:Class ;
+    rdfs:label "Comparison Slide" ;
+    rdfs:subClassOf pres:TwoColumnSlide ;
+    rdfs:comment "Two-column slide specifically for comparisons (before/after, pros/cons)." .
+
+pres:TimelineSlide a owl:Class ;
+    rdfs:label "Timeline Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Slide displaying a chronological timeline." .
+
+pres:DiagramSlide a owl:Class ;
+    rdfs:label "Diagram Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Slide featuring an embedded diagram." .
+
+pres:StatisticsSlide a owl:Class ;
+    rdfs:label "Statistics Slide" ;
+    rdfs:subClassOf pres:Slide ;
+    rdfs:comment "Slide displaying key statistics or metrics." .
+
+# =============================================================================
+# Presentation Properties
+# =============================================================================
+
+pres:hasSlide a owl:ObjectProperty ;
+    rdfs:domain pres:Presentation ;
+    rdfs:range pres:Slide ;
+    rdfs:label "has slide" .
+
+pres:slideCount a owl:DatatypeProperty ;
+    rdfs:domain pres:Presentation ;
+    rdfs:range xsd:integer ;
+    rdfs:label "slide count" .
+
+pres:slideNumber a owl:DatatypeProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range xsd:integer ;
+    rdfs:label "slide number" ;
+    rdfs:comment "Position of slide in presentation (1-indexed)" .
+
+pres:showSlideNumber a owl:DatatypeProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "show slide number" ;
+    rdfs:comment "Whether to display slide number on this slide" .
+
+pres:usesTemplate a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:SlideTemplate ;
+    rdfs:label "uses template" .
+
+pres:aspectRatio a owl:DatatypeProperty ;
+    rdfs:domain pres:Presentation ;
+    rdfs:range xsd:string ;
+    rdfs:label "aspect ratio" ;
+    rdfs:comment "Presentation aspect ratio: 16:9 or 4:3" .
+
+# =============================================================================
+# Slide Content Areas
+# =============================================================================
+
+pres:TitleArea a owl:Class ;
+    rdfs:label "Title Area" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "Area for slide title." .
+
+pres:SubtitleArea a owl:Class ;
+    rdfs:label "Subtitle Area" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "Area for slide subtitle." .
+
+pres:ContentArea a owl:Class ;
+    rdfs:label "Content Area" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "Main content area of a slide." .
+
+pres:LeftColumn a owl:Class ;
+    rdfs:label "Left Column" ;
+    rdfs:subClassOf pres:ContentArea ;
+    rdfs:comment "Left column in multi-column layout." .
+
+pres:RightColumn a owl:Class ;
+    rdfs:label "Right Column" ;
+    rdfs:subClassOf pres:ContentArea ;
+    rdfs:comment "Right column in multi-column layout." .
+
+pres:CenterColumn a owl:Class ;
+    rdfs:label "Center Column" ;
+    rdfs:subClassOf pres:ContentArea ;
+    rdfs:comment "Center column in three-column layout." .
+
+pres:FooterArea a owl:Class ;
+    rdfs:label "Footer Area" ;
+    rdfs:subClassOf vao:Container ;
+    rdfs:comment "Footer area for logos, page numbers." .
+
+pres:SpeakerNotes a owl:Class ;
+    rdfs:label "Speaker Notes" ;
+    rdfs:subClassOf vao:TextBlock ;
+    rdfs:comment "Notes visible only to presenter." .
+
+# Content Area Properties
+pres:hasTitleArea a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:TitleArea ;
+    rdfs:label "has title area" .
+
+pres:hasSubtitleArea a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:SubtitleArea ;
+    rdfs:label "has subtitle area" .
+
+pres:hasContentArea a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:ContentArea ;
+    rdfs:label "has content area" .
+
+pres:hasLeftColumn a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:LeftColumn ;
+    rdfs:label "has left column" .
+
+pres:hasRightColumn a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:RightColumn ;
+    rdfs:label "has right column" .
+
+pres:hasFooterArea a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:FooterArea ;
+    rdfs:label "has footer area" .
+
+pres:hasSpeakerNotes a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:SpeakerNotes ;
+    rdfs:label "has speaker notes" .
+
+# =============================================================================
+# Presentation Decorative Elements
+# =============================================================================
+
+pres:AccentLine a owl:Class ;
+    rdfs:label "Accent Line" ;
+    rdfs:subClassOf vao:ShapeBlock ;
+    rdfs:comment "Decorative accent line under titles." .
+
+pres:LogoPlacement a owl:Class ;
+    rdfs:label "Logo Placement" ;
+    rdfs:subClassOf vao:ImageBlock ;
+    rdfs:comment "Logo positioned on slide." .
+
+pres:SlideBackground a owl:Class ;
+    rdfs:label "Slide Background" ;
+    rdfs:comment "Background specification for a slide." .
+
+# Decorative Element Properties
+pres:accentLineWidth a owl:DatatypeProperty ;
+    rdfs:domain pres:AccentLine ;
+    rdfs:range xsd:string ;
+    rdfs:label "accent line width" ;
+    rdfs:comment "Width of accent line, e.g., '20mm'" .
+
+pres:accentLineThickness a owl:DatatypeProperty ;
+    rdfs:domain pres:AccentLine ;
+    rdfs:range xsd:string ;
+    rdfs:label "accent line thickness" ;
+    rdfs:comment "Thickness of accent line, e.g., '1pt'" .
+
+pres:hasAccentLine a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:AccentLine ;
+    rdfs:label "has accent line" .
+
+pres:hasLogoPlacement a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:LogoPlacement ;
+    rdfs:label "has logo placement" .
+
+pres:hasBackground a owl:ObjectProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range pres:SlideBackground ;
+    rdfs:label "has background" .
+
+pres:backgroundType a owl:DatatypeProperty ;
+    rdfs:domain pres:SlideBackground ;
+    rdfs:range xsd:string ;
+    rdfs:label "background type" ;
+    rdfs:comment "Type: solid, gradient, image, pattern" .
+
+# =============================================================================
+# Slide-Specific Content Properties
+# =============================================================================
+
+# Title Slide
+pres:presentationTitle a owl:DatatypeProperty ;
+    rdfs:domain pres:TitleSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "presentation title" .
+
+pres:presentationSubtitle a owl:DatatypeProperty ;
+    rdfs:domain pres:TitleSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "presentation subtitle" .
+
+pres:author a owl:DatatypeProperty ;
+    rdfs:domain pres:TitleSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "author" .
+
+pres:date a owl:DatatypeProperty ;
+    rdfs:domain pres:TitleSlide ;
+    rdfs:range xsd:date ;
+    rdfs:label "date" .
+
+pres:organization a owl:DatatypeProperty ;
+    rdfs:domain pres:TitleSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "organization" .
+
+# Section Slide
+pres:sectionTitle a owl:DatatypeProperty ;
+    rdfs:domain pres:SectionSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "section title" .
+
+pres:sectionNumber a owl:DatatypeProperty ;
+    rdfs:domain pres:SectionSlide ;
+    rdfs:range xsd:integer ;
+    rdfs:label "section number" .
+
+# Content Slide
+pres:slideTitle a owl:DatatypeProperty ;
+    rdfs:domain pres:Slide ;
+    rdfs:range xsd:string ;
+    rdfs:label "slide title" .
+
+# Quote Slide
+pres:quoteText a owl:DatatypeProperty ;
+    rdfs:domain pres:QuoteSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "quote text" .
+
+pres:quoteAttribution a owl:DatatypeProperty ;
+    rdfs:domain pres:QuoteSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "quote attribution" .
+
+# Code Slide
+pres:codeContent a owl:DatatypeProperty ;
+    rdfs:domain pres:CodeSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "code content" .
+
+pres:codeLanguage a owl:DatatypeProperty ;
+    rdfs:domain pres:CodeSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "code language" ;
+    rdfs:comment "Programming language for syntax highlighting" .
+
+pres:codeExplanation a owl:DatatypeProperty ;
+    rdfs:domain pres:CodeSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "code explanation" .
+
+# Image Slide
+pres:imagePath a owl:DatatypeProperty ;
+    rdfs:domain pres:ImageSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "image path" .
+
+pres:imageCaption a owl:DatatypeProperty ;
+    rdfs:domain pres:ImageSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "image caption" .
+
+pres:imageAltText a owl:DatatypeProperty ;
+    rdfs:domain pres:ImageSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "image alt text" .
+
+# Contact Slide
+pres:contactName a owl:DatatypeProperty ;
+    rdfs:domain pres:ContactSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "contact name" .
+
+pres:contactEmail a owl:DatatypeProperty ;
+    rdfs:domain pres:ContactSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "contact email" .
+
+pres:contactPhone a owl:DatatypeProperty ;
+    rdfs:domain pres:ContactSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "contact phone" .
+
+pres:contactWebsite a owl:DatatypeProperty ;
+    rdfs:domain pres:ContactSlide ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "contact website" .
+
+pres:contactPhoto a owl:ObjectProperty ;
+    rdfs:domain pres:ContactSlide ;
+    rdfs:range vao:ImageBlock ;
+    rdfs:label "contact photo" .
+
+# Three Column Slide
+pres:columnTitle a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "column title" .
+
+pres:columnNumber a owl:DatatypeProperty ;
+    rdfs:range xsd:integer ;
+    rdfs:label "column number" .
+
+pres:columnContent a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "column content" .
+
+# Statistics Slide
+pres:statValue a owl:DatatypeProperty ;
+    rdfs:domain pres:StatisticsSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "statistic value" ;
+    rdfs:comment "The main statistic number or percentage" .
+
+pres:statLabel a owl:DatatypeProperty ;
+    rdfs:domain pres:StatisticsSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "statistic label" ;
+    rdfs:comment "Label describing the statistic" .
+
+pres:statContext a owl:DatatypeProperty ;
+    rdfs:domain pres:StatisticsSlide ;
+    rdfs:range xsd:string ;
+    rdfs:label "statistic context" ;
+    rdfs:comment "Additional context for the statistic" .
+
+# =============================================================================
+# Embedded Diagram Types
+# =============================================================================
+
+pres:EmbeddedDiagram a owl:Class ;
+    rdfs:label "Embedded Diagram" ;
+    rdfs:subClassOf vao:DiagramBlock ;
+    rdfs:comment "A diagram embedded in a slide." .
+
+pres:diagramTool a owl:DatatypeProperty ;
+    rdfs:domain pres:EmbeddedDiagram ;
+    rdfs:range xsd:string ;
+    rdfs:label "diagram tool" ;
+    rdfs:comment "Tool to render: mermaid, graphviz, d2, vega-lite" .
+
+pres:diagramSource a owl:DatatypeProperty ;
+    rdfs:domain pres:EmbeddedDiagram ;
+    rdfs:range xsd:string ;
+    rdfs:label "diagram source" ;
+    rdfs:comment "Source code/specification for the diagram" .
+
+pres:diagramOutputPath a owl:DatatypeProperty ;
+    rdfs:domain pres:EmbeddedDiagram ;
+    rdfs:range xsd:string ;
+    rdfs:label "diagram output path" ;
+    rdfs:comment "Path to rendered diagram file" .
+
+pres:hasDiagram a owl:ObjectProperty ;
+    rdfs:domain pres:DiagramSlide ;
+    rdfs:range pres:EmbeddedDiagram ;
+    rdfs:label "has diagram" .
+
+# =============================================================================
+# Presentation Theme
+# =============================================================================
+
+pres:PresentationTheme a owl:Class ;
+    rdfs:label "Presentation Theme" ;
+    rdfs:subClassOf vao:Theme ;
+    rdfs:comment "A complete theme for presentations." .
+
+pres:headerTypography a owl:ObjectProperty ;
+    rdfs:domain pres:PresentationTheme ;
+    rdfs:range vao:Typography ;
+    rdfs:label "header typography" .
+
+pres:bodyTypography a owl:ObjectProperty ;
+    rdfs:domain pres:PresentationTheme ;
+    rdfs:range vao:Typography ;
+    rdfs:label "body typography" .
+
+pres:codeTypography a owl:ObjectProperty ;
+    rdfs:domain pres:PresentationTheme ;
+    rdfs:range vao:Typography ;
+    rdfs:label "code typography" .
+
+pres:lightLogo a owl:ObjectProperty ;
+    rdfs:domain pres:PresentationTheme ;
+    rdfs:range vao:ImageBlock ;
+    rdfs:label "light logo" ;
+    rdfs:comment "Logo variant for dark backgrounds" .
+
+pres:darkLogo a owl:ObjectProperty ;
+    rdfs:domain pres:PresentationTheme ;
+    rdfs:range vao:ImageBlock ;
+    rdfs:label "dark logo" ;
+    rdfs:comment "Logo variant for light backgrounds" .
+
+pres:defaultSlideLayout a owl:ObjectProperty ;
+    rdfs:domain pres:PresentationTheme ;
+    rdfs:range vao:Layout ;
+    rdfs:label "default slide layout" .
+
+# =============================================================================
+# Standard Theme Instance
+# =============================================================================
+
+pres:InovexPresentationTheme a pres:PresentationTheme ;
+    rdfs:label "Inovex Presentation Theme" ;
+    vao:hasColorPalette vao:InovexPalette ;
+    vao:fontFamily "Atkinson Hyperlegible" ;
+    pres:aspectRatio "16:9" ;
+    vao:logoPlacement "bottom-right" .
+
+# =============================================================================
+# Slide Composition Rules
+# =============================================================================
+
+pres:SlideCompositionRule a owl:Class ;
+    rdfs:label "Slide Composition Rule" ;
+    rdfs:comment "Rules for how slides should be composed." .
+
+pres:minSlides a owl:DatatypeProperty ;
+    rdfs:domain pres:SlideCompositionRule ;
+    rdfs:range xsd:integer ;
+    rdfs:label "minimum slides" .
+
+pres:maxSlides a owl:DatatypeProperty ;
+    rdfs:domain pres:SlideCompositionRule ;
+    rdfs:range xsd:integer ;
+    rdfs:label "maximum slides" .
+
+pres:requiredSlideTypes a owl:ObjectProperty ;
+    rdfs:domain pres:SlideCompositionRule ;
+    rdfs:range owl:Class ;
+    rdfs:label "required slide types" ;
+    rdfs:comment "Slide types that must be included" .
+
+pres:recommendedStructure a owl:DatatypeProperty ;
+    rdfs:domain pres:SlideCompositionRule ;
+    rdfs:range xsd:string ;
+    rdfs:label "recommended structure" ;
+    rdfs:comment "Recommended sequence of slide types" .
+
+# Standard Presentation Rule
+pres:StandardPresentationRule a pres:SlideCompositionRule ;
+    rdfs:label "Standard Presentation Rule" ;
+    pres:minSlides 5 ;
+    pres:maxSlides 30 ;
+    pres:requiredSlideTypes pres:TitleSlide ;
+    pres:recommendedStructure "TitleSlide -> AgendaSlide -> (SectionSlide -> ContentSlide+)+ -> ThankYouSlide" .

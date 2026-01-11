@@ -1,0 +1,190 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix pres: <http://semantic-tool-use.org/ontology/visual-artifacts/presentation#> .
+@prefix diag: <http://semantic-tool-use.org/ontology/visual-artifacts/diagram#> .
+@prefix ex: <http://example.org/presentation/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# =============================================================================
+# Example: Semantic Tool Use Presentation
+# =============================================================================
+# This example shows how to specify a complete presentation using the ontology.
+# An LLM can read this specification and generate the corresponding Typst code.
+
+ex:SemanticToolUsePresentation a pres:Presentation ;
+    rdfs:label "Semantic Tool Use for Neuro-Symbolic AI" ;
+    vao:hasTitle "Semantic Tool Use for Neuro-Symbolic AI" ;
+    vao:hasCreator "Research Team" ;
+    vao:hasDescription "A presentation on ontology-grounded LLM tool validation" ;
+    pres:aspectRatio "16:9" ;
+    pres:slideCount 8 ;
+    vao:appliesStyle pres:InovexPresentationTheme ;
+    pres:hasSlide ex:Slide1, ex:Slide2, ex:Slide3, ex:Slide4,
+                  ex:Slide5, ex:Slide6, ex:Slide7, ex:Slide8 .
+
+# -----------------------------------------------------------------------------
+# Slide 1: Title Slide
+# -----------------------------------------------------------------------------
+ex:Slide1 a pres:TitleSlide ;
+    pres:slideNumber 1 ;
+    pres:presentationTitle "Semantic Tool Use for Neuro-Symbolic AI" ;
+    pres:presentationSubtitle "Ontology-Grounded Validation of LLM Tool Invocations" ;
+    pres:author "Research Team" ;
+    pres:date "2026-01-10"^^xsd:date ;
+    pres:organization "inovex GmbH" ;
+    pres:hasBackground [
+        a pres:SlideBackground ;
+        pres:backgroundType "gradient" ;
+        vao:hasBackground vao:TitleGradient
+    ] ;
+    pres:showSlideNumber false .
+
+# -----------------------------------------------------------------------------
+# Slide 2: Problem Statement (Content Slide)
+# -----------------------------------------------------------------------------
+ex:Slide2 a pres:ContentSlide ;
+    pres:slideNumber 2 ;
+    pres:slideTitle "The Problem" ;
+    pres:hasContentArea [
+        a pres:ContentArea ;
+        vao:hasComponent [
+            a vao:BulletList ;
+            vao:bulletStyle "disc" ;
+            vao:items "[\"LLMs make tool invocation errors\", \"JSON Schema catches only structural errors\", \"Semantic errors slip through\", \"High stakes in healthcare and finance\"]"
+        ]
+    ] ;
+    pres:hasAccentLine [
+        a pres:AccentLine ;
+        pres:accentLineWidth "20mm" ;
+        pres:accentLineThickness "1pt" ;
+        vao:hasColor vao:InovexBlue
+    ] .
+
+# -----------------------------------------------------------------------------
+# Slide 3: Two Column Comparison
+# -----------------------------------------------------------------------------
+ex:Slide3 a pres:TwoColumnSlide ;
+    pres:slideNumber 3 ;
+    pres:slideTitle "JSON Schema vs Semantic Validation" ;
+    pres:hasLeftColumn [
+        a pres:LeftColumn ;
+        vao:hasComponent [
+            a vao:TextBlock ;
+            vao:content "JSON Schema" ;
+            vao:hasTypography vao:HeadingStyle
+        ] ;
+        vao:hasComponent [
+            a vao:BulletList ;
+            vao:items "[\"Checks structure\", \"Fast (0.7ms)\", \"100% precision\", \"75% recall\"]"
+        ]
+    ] ;
+    pres:hasRightColumn [
+        a pres:RightColumn ;
+        vao:hasComponent [
+            a vao:TextBlock ;
+            vao:content "Semantic Validation" ;
+            vao:hasTypography vao:HeadingStyle
+        ] ;
+        vao:hasComponent [
+            a vao:BulletList ;
+            vao:items "[\"Checks meaning\", \"Slower (252ms)\", \"84% precision\", \"100% recall\"]"
+        ]
+    ] .
+
+# -----------------------------------------------------------------------------
+# Slide 4: Architecture Diagram
+# -----------------------------------------------------------------------------
+ex:Slide4 a pres:DiagramSlide ;
+    pres:slideNumber 4 ;
+    pres:slideTitle "System Architecture" ;
+    pres:hasDiagram [
+        a pres:EmbeddedDiagram ;
+        diag:generatedBy diag:D2 ;
+        diag:sourceCode """
+direction: right
+User -> LLM: Natural Language
+LLM -> Translator: Request
+Translator -> Validator: RDF/Turtle
+Validator -> Reasoner: SHACL + SPARQL
+Reasoner -> Executor: Valid Request
+Reasoner -> Feedback: Invalid Request
+Feedback -> LLM: Error + Guidance
+        """ ;
+        diag:diagramOutputPath "figures/architecture.svg"
+    ] .
+
+# -----------------------------------------------------------------------------
+# Slide 5: Statistics Slide
+# -----------------------------------------------------------------------------
+ex:Slide5 a pres:StatisticsSlide ;
+    pres:slideNumber 5 ;
+    pres:slideTitle "Key Results" ;
+    pres:statValue "100%" ;
+    pres:statLabel "Recall" ;
+    pres:statContext "Semantic validation catches ALL invalid requests" ;
+    pres:hasContentArea [
+        a pres:ContentArea ;
+        vao:hasComponent [
+            a diag:BarChart ;
+            diag:hasSeries [
+                a diag:DataSeries ;
+                diag:seriesName "Recall" ;
+                diag:hasDataPoint [
+                    diag:xValue "JSON Schema" ;
+                    diag:yValue 75
+                ] ;
+                diag:hasDataPoint [
+                    diag:xValue "Semantic" ;
+                    diag:yValue 100
+                ]
+            ]
+        ]
+    ] .
+
+# -----------------------------------------------------------------------------
+# Slide 6: Quote Slide
+# -----------------------------------------------------------------------------
+ex:Slide6 a pres:QuoteSlideDark ;
+    pres:slideNumber 6 ;
+    pres:quoteText "JSON Schema validates what you said. Semantic validation verifies what you meant." ;
+    pres:quoteAttribution "This Research" ;
+    pres:hasBackground [
+        a pres:SlideBackground ;
+        pres:backgroundType "gradient" ;
+        vao:hasBackground vao:DarkGradient
+    ] .
+
+# -----------------------------------------------------------------------------
+# Slide 7: Code Slide
+# -----------------------------------------------------------------------------
+ex:Slide7 a pres:CodeSlide ;
+    pres:slideNumber 7 ;
+    pres:slideTitle "Precondition Example" ;
+    pres:codeLanguage "sparql" ;
+    pres:codeContent """
+ASK {
+    ?patient a fhir:Patient ;
+        fhir:identifier "{patientId}" .
+}
+    """ ;
+    pres:codeExplanation "SPARQL query checks if patient exists before recording observation" .
+
+# -----------------------------------------------------------------------------
+# Slide 8: Thank You Slide
+# -----------------------------------------------------------------------------
+ex:Slide8 a pres:ThankYouSlide ;
+    pres:slideNumber 8 ;
+    pres:slideTitle "Thank You" ;
+    pres:hasContentArea [
+        a pres:ContentArea ;
+        vao:hasComponent [
+            a vao:TextBlock ;
+            vao:content "Questions?" ;
+            vao:hasTypography vao:HeadingStyle
+        ] ;
+        vao:hasComponent [
+            a vao:TextBlock ;
+            vao:content "github.com/semantic-tool-use" ;
+            vao:hasTypography vao:BodyStyle
+        ]
+    ] .
