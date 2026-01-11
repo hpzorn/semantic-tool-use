@@ -1,0 +1,62 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/test#> .
+
+# Test Ontology for Unit Tests
+
+ex:TestOntology a owl:Ontology ;
+    rdfs:label "Test Ontology" ;
+    rdfs:comment "A simple ontology for testing the ontology server" .
+
+# Classes
+ex:Person a owl:Class ;
+    rdfs:label "Person" ;
+    rdfs:comment "A human being" .
+
+ex:Organization a owl:Class ;
+    rdfs:label "Organization" ;
+    rdfs:comment "A group of people with a common purpose" .
+
+ex:Project a owl:Class ;
+    rdfs:label "Project" ;
+    rdfs:comment "A planned undertaking" .
+
+# Object Properties
+ex:worksFor a owl:ObjectProperty ;
+    rdfs:label "works for" ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Organization .
+
+ex:manages a owl:ObjectProperty ;
+    rdfs:label "manages" ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Project .
+
+# Datatype Properties
+ex:name a owl:DatatypeProperty ;
+    rdfs:label "name" ;
+    rdfs:domain ex:Person ;
+    rdfs:range xsd:string .
+
+ex:age a owl:DatatypeProperty ;
+    rdfs:label "age" ;
+    rdfs:domain ex:Person ;
+    rdfs:range xsd:integer .
+
+# Individuals
+ex:Alice a ex:Person, owl:NamedIndividual ;
+    rdfs:label "Alice" ;
+    ex:name "Alice Smith" ;
+    ex:age 30 .
+
+ex:Bob a ex:Person, owl:NamedIndividual ;
+    rdfs:label "Bob" ;
+    ex:name "Bob Jones" ;
+    ex:age 25 .
+
+ex:Acme a ex:Organization, owl:NamedIndividual ;
+    rdfs:label "Acme Corp" .
+
+ex:Alice ex:worksFor ex:Acme .
+ex:Bob ex:worksFor ex:Acme .
