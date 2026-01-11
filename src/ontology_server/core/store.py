@@ -277,8 +277,8 @@ class OntologyStore:
         results = self.query(sparql, ontology_uri)
         return [
             {
-                "uri": str(row.class_),
-                "label": str(row.label) if row.label else None
+                "uri": str(row[0]),  # ?class
+                "label": str(row[1]) if row[1] else None  # ?label
             }
             for row in results
         ]

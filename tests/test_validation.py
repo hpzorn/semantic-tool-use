@@ -92,6 +92,7 @@ ex:TestShape a sh:NodeShape ;
         # Load some shapes
         shapes_ttl = """
 @prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
 ex:Shape a sh:NodeShape .
 """
         validator.load_shapes_from_string(shapes_ttl)

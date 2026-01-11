@@ -30,10 +30,7 @@ def create_mcp_server(
     if validator is None:
         validator = SHACLValidator(settings.get_shapes_path())
 
-    mcp = FastMCP(
-        name=settings.mcp_name,
-        version=settings.mcp_version,
-    )
+    mcp = FastMCP(settings.mcp_name)
 
     # =========================================================================
     # Tool: list_ontologies

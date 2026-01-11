@@ -2,7 +2,7 @@
 name = "ontology-server"
 version = "0.1.0"
 description = "Unified ontology server with MCP and REST API support"
-readme = "README.md"
+readme = "ontology_server/README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
