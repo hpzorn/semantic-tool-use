@@ -543,50 +543,315 @@ diag:visualStyle a owl:DatatypeProperty ;
     rdfs:comment "Visual style: corporate, blueprint, neon, dark, minimal" .
 
 # =============================================================================
-# Geographic Map Properties
+# Geographic Map Classes
 # =============================================================================
 
-diag:mapRegion a owl:DatatypeProperty ;
-    rdfs:domain diag:GeographicMap ;
+# Administrative Level Enumeration
+diag:AdministrativeLevel a owl:Class ;
+    rdfs:label "Administrative Level" ;
+    rdfs:comment "Level of administrative division (country, state, district, etc.)." ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:oneOf (diag:Country diag:State diag:District diag:Municipality)
+    ] .
+
+diag:Country a diag:AdministrativeLevel ;
+    rdfs:label "Country" ;
+    rdfs:comment "Sovereign nation (admin level 0)." .
+
+diag:State a diag:AdministrativeLevel ;
+    rdfs:label "State" ;
+    rdfs:comment "State, province, region, or Bundesland (admin level 1)." .
+
+diag:District a diag:AdministrativeLevel ;
+    rdfs:label "District" ;
+    rdfs:comment "County, Kreis, or district (admin level 2)." .
+
+diag:Municipality a diag:AdministrativeLevel ;
+    rdfs:label "Municipality" ;
+    rdfs:comment "City, town, or municipality (admin level 3+)." .
+
+# Geographic Region (a bounded area on a map)
+diag:GeoRegion a owl:Class ;
+    rdfs:label "Geographic Region" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A bounded geographic area that can be rendered on a map." .
+
+diag:regionCode a owl:DatatypeProperty ;
+    rdfs:domain diag:GeoRegion ;
     rdfs:range xsd:string ;
-    rdfs:label "map region" ;
-    rdfs:comment "Region: world, europe, dach, americas, north-america, asia, middle-east, africa, oceania" .
+    rdfs:label "region code" ;
+    rdfs:comment "ISO code or identifier (e.g., 'DE', 'DE-BY', 'DE-BY-091')." .
 
-diag:highlightedCountries a owl:DatatypeProperty ;
-    rdfs:domain diag:GeographicMap ;
+diag:regionName a owl:DatatypeProperty ;
+    rdfs:domain diag:GeoRegion ;
     rdfs:range xsd:string ;
-    rdfs:label "highlighted countries" ;
-    rdfs:comment "Comma-separated ISO country codes" .
+    rdfs:label "region name" ;
+    rdfs:comment "Human-readable name (e.g., 'Germany', 'Bavaria')." .
 
-diag:showGraticule a owl:DatatypeProperty ;
-    rdfs:domain diag:GeographicMap ;
-    rdfs:range xsd:boolean ;
-    rdfs:label "show graticule" ;
-    rdfs:comment "Whether to show lat/lon grid" .
+diag:adminLevel a owl:ObjectProperty ;
+    rdfs:domain diag:GeoRegion ;
+    rdfs:range diag:AdministrativeLevel ;
+    rdfs:label "administrative level" .
 
+diag:regionValue a owl:DatatypeProperty ;
+    rdfs:domain diag:GeoRegion ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "region value" ;
+    rdfs:comment "Data value for choropleth coloring." .
+
+diag:regionFill a owl:ObjectProperty ;
+    rdfs:domain diag:GeoRegion ;
+    rdfs:range vao:Color ;
+    rdfs:label "region fill" ;
+    rdfs:comment "Override fill color for this region." .
+
+# Map Marker
 diag:MapMarker a owl:Class ;
     rdfs:label "Map Marker" ;
-    rdfs:comment "A marker on a geographic map." .
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A point marker on a geographic map." .
 
 diag:markerLatitude a owl:DatatypeProperty ;
     rdfs:domain diag:MapMarker ;
     rdfs:range xsd:decimal ;
-    rdfs:label "latitude" .
+    rdfs:label "latitude" ;
+    rdfs:comment "WGS84 latitude in degrees (-90 to 90)." .
 
 diag:markerLongitude a owl:DatatypeProperty ;
     rdfs:domain diag:MapMarker ;
     rdfs:range xsd:decimal ;
-    rdfs:label "longitude" .
+    rdfs:label "longitude" ;
+    rdfs:comment "WGS84 longitude in degrees (-180 to 180)." .
 
 diag:markerLabel a owl:DatatypeProperty ;
     rdfs:domain diag:MapMarker ;
     rdfs:range xsd:string ;
     rdfs:label "marker label" .
 
+diag:markerSize a owl:DatatypeProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "marker size" ;
+    rdfs:comment "Size in pixels or relative units." .
+
+diag:markerColor a owl:ObjectProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range vao:Color ;
+    rdfs:label "marker color" .
+
+diag:markerValue a owl:DatatypeProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "marker value" ;
+    rdfs:comment "Data value for proportional sizing or coloring." .
+
+diag:markerIcon a owl:DatatypeProperty ;
+    rdfs:domain diag:MapMarker ;
+    rdfs:range xsd:string ;
+    rdfs:label "marker icon" ;
+    rdfs:comment "Icon identifier for custom marker shape." .
+
+# Map Route (connection between points)
+diag:MapRoute a owl:Class ;
+    rdfs:label "Map Route" ;
+    rdfs:subClassOf vao:VisualComponent ;
+    rdfs:comment "A path or connection between geographic points." .
+
+diag:routeStart a owl:ObjectProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range diag:MapMarker ;
+    rdfs:label "route start" ;
+    rdfs:comment "Starting point of the route." .
+
+diag:routeEnd a owl:ObjectProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range diag:MapMarker ;
+    rdfs:label "route end" ;
+    rdfs:comment "Ending point of the route." .
+
+diag:routeWaypoints a owl:ObjectProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range diag:MapMarker ;
+    rdfs:label "route waypoints" ;
+    rdfs:comment "Intermediate points along the route." .
+
+diag:routeStyle a owl:DatatypeProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range xsd:string ;
+    rdfs:label "route style" ;
+    rdfs:comment "Style: solid, dashed, dotted, greatCircle, curved." .
+
+diag:routeColor a owl:ObjectProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range vao:Color ;
+    rdfs:label "route color" .
+
+diag:routeWidth a owl:DatatypeProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "route width" ;
+    rdfs:comment "Stroke width in pixels." .
+
+diag:routeLabel a owl:DatatypeProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range xsd:string ;
+    rdfs:label "route label" .
+
+diag:routeValue a owl:DatatypeProperty ;
+    rdfs:domain diag:MapRoute ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "route value" ;
+    rdfs:comment "Data value for proportional width or coloring (e.g., flow volume)." .
+
+# =============================================================================
+# Geographic Map Types
+# =============================================================================
+
+# Base GeographicMap (already defined above, extending properties here)
+
+diag:ChoroplethMap a owl:Class ;
+    rdfs:label "Choropleth Map" ;
+    rdfs:subClassOf diag:GeographicMap ;
+    rdfs:comment "Thematic map with regions colored by data values." .
+
+diag:ProportionalSymbolMap a owl:Class ;
+    rdfs:label "Proportional Symbol Map" ;
+    rdfs:subClassOf diag:GeographicMap ;
+    rdfs:comment "Map with markers sized proportionally to data values." .
+
+diag:FlowMap a owl:Class ;
+    rdfs:label "Flow Map" ;
+    rdfs:subClassOf diag:GeographicMap ;
+    rdfs:comment "Map showing movement or connections between locations." .
+
+diag:DotDensityMap a owl:Class ;
+    rdfs:label "Dot Density Map" ;
+    rdfs:subClassOf diag:GeographicMap ;
+    rdfs:comment "Map with dots representing quantity in areas." .
+
+# =============================================================================
+# Geographic Map Properties
+# =============================================================================
+
+# Region and Bounds
+diag:mapRegion a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "map region" ;
+    rdfs:comment "Named region preset: world, europe, germany, dach, nordic, americas, north-america, south-america, asia, asia-pacific, middle-east, africa." .
+
+diag:mapBounds a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "map bounds" ;
+    rdfs:comment "Custom bounds as 'minLon,minLat,maxLon,maxLat' (e.g., '5.8,47.2,15.1,55.1')." .
+
+# Subdivision Display
+diag:showSubdivisions a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "show subdivisions" ;
+    rdfs:comment "Whether to show administrative subdivisions within countries." .
+
+diag:subdivisionLevel a owl:ObjectProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range diag:AdministrativeLevel ;
+    rdfs:label "subdivision level" ;
+    rdfs:comment "Which administrative level to display (State, District, etc.)." .
+
+diag:subdivisionCountry a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "subdivision country" ;
+    rdfs:comment "ISO code of country for which to show subdivisions (e.g., 'DE')." .
+
+# Highlighting
+diag:highlightedCountries a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "highlighted countries" ;
+    rdfs:comment "Comma-separated ISO country codes to highlight." .
+
+diag:highlightedSubdivisions a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "highlighted subdivisions" ;
+    rdfs:comment "Comma-separated subdivision codes to highlight (e.g., 'DE-BY,DE-NW')." .
+
+diag:highlightColor a owl:ObjectProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range vao:Color ;
+    rdfs:label "highlight color" ;
+    rdfs:comment "Fill color for highlighted regions." .
+
+# Visual Settings
+diag:showGraticule a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "show graticule" ;
+    rdfs:comment "Whether to show latitude/longitude grid lines." .
+
+diag:showLabels a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "show labels" ;
+    rdfs:comment "Whether to show region name labels." .
+
+diag:projection a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "projection" ;
+    rdfs:comment "Map projection: mercator, equalArea, equirectangular, orthographic, natural-earth." .
+
+diag:simplificationTolerance a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "simplification tolerance" ;
+    rdfs:comment "Geometry simplification in degrees (lower = more detail, higher = smoother). Default auto-calculated from zoom." .
+
+# Data Binding for Choropleth
+diag:hasGeoRegion a owl:ObjectProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range diag:GeoRegion ;
+    rdfs:label "has geo region" ;
+    rdfs:comment "Geographic regions with optional data values." .
+
+diag:colorScale a owl:DatatypeProperty ;
+    rdfs:domain diag:ChoroplethMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "color scale" ;
+    rdfs:comment "Color scale: sequential, diverging, categorical. Named scales: viridis, blues, reds, spectral." .
+
+diag:colorScaleMin a owl:DatatypeProperty ;
+    rdfs:domain diag:ChoroplethMap ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "color scale minimum" ;
+    rdfs:comment "Minimum value for color scale domain." .
+
+diag:colorScaleMax a owl:DatatypeProperty ;
+    rdfs:domain diag:ChoroplethMap ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "color scale maximum" ;
+    rdfs:comment "Maximum value for color scale domain." .
+
+# Markers and Routes
 diag:hasMarker a owl:ObjectProperty ;
     rdfs:domain diag:GeographicMap ;
     rdfs:range diag:MapMarker ;
     rdfs:label "has marker" .
+
+diag:hasRoute a owl:ObjectProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range diag:MapRoute ;
+    rdfs:label "has route" .
+
+# Data Source (for dynamic loading)
+diag:boundarySource a owl:DatatypeProperty ;
+    rdfs:domain diag:GeographicMap ;
+    rdfs:range xsd:string ;
+    rdfs:label "boundary source" ;
+    rdfs:comment "Data source: natural-earth, gadm, custom. Resolution: 10m, 50m, 110m." .
 
 # =============================================================================
 # Isotype Properties
