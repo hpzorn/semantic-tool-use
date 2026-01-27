@@ -1,0 +1,183 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix idea: <http://semantic-tool-use.org/ontology/idea-pool#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# ============================================================================
+# IDEA SHAPE - Core Validation
+# ============================================================================
+
+idea:IdeaShape a sh:NodeShape ;
+    sh:targetClass idea:Idea ;
+    rdfs:label "Idea Shape"@en ;
+    rdfs:comment "Validates that ideas have required metadata"@en ;
+
+    # Required: title (via skos:prefLabel or rdfs:label)
+    sh:property [
+        sh:path skos:prefLabel ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:maxLength 200 ;
+        sh:message "Idea must have exactly one title (skos:prefLabel) between 1-200 characters"
+    ] ;
+
+    # Optional but recommended: description
+    sh:property [
+        sh:path dcterms:description ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:severity sh:Warning ;
+        sh:message "Idea should have a description (dcterms:description)"
+    ] ;
+
+    # Lifecycle must be valid value
+    sh:property [
+        sh:path idea:lifecycle ;
+        sh:maxCount 1 ;
+        sh:in ("seed" "active" "backlog" "done" "archived") ;
+        sh:message "Lifecycle must be one of: seed, active, backlog, done, archived"
+    ] ;
+
+    # Priority must be positive integer if present
+    sh:property [
+        sh:path idea:priority ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 1 ;
+        sh:message "Priority must be a positive integer"
+    ] ;
+
+    # Effort must be valid value if present
+    sh:property [
+        sh:path idea:effort ;
+        sh:maxCount 1 ;
+        sh:in ("small" "medium" "large" "epic") ;
+        sh:message "Effort must be one of: small, medium, large, epic"
+    ] ;
+
+    # Confidence must be between 0 and 1
+    sh:property [
+        sh:path idea:confidence ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0.0 ;
+        sh:maxInclusive 1.0 ;
+        sh:message "Confidence must be between 0.0 and 1.0"
+    ] ;
+
+    # Wikidata reference must be valid URI
+    sh:property [
+        sh:path idea:wikidataRef ;
+        sh:datatype xsd:anyURI ;
+        sh:pattern "^http://www.wikidata.org/entity/Q[0-9]+$" ;
+        sh:message "Wikidata reference must be a valid Wikidata entity URI (e.g., http://www.wikidata.org/entity/Q12345)"
+    ] ;
+
+    # Tags should exist (warning only)
+    sh:property [
+        sh:path dcterms:subject ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message "Consider adding tags (dcterms:subject) to improve discoverability"
+    ] ;
+
+    # Creation date should exist
+    sh:property [
+        sh:path dcterms:created ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:severity sh:Warning ;
+        sh:message "Idea should have a creation date (dcterms:created)"
+    ] .
+
+# ============================================================================
+# SEED SHAPE - Additional validation for seeds
+# ============================================================================
+
+idea:SeedShape a sh:NodeShape ;
+    sh:targetClass idea:Seed ;
+    rdfs:label "Seed Shape"@en ;
+    rdfs:comment "Validates seed-specific constraints"@en ;
+
+    # Seeds should have lifecycle = "seed"
+    sh:property [
+        sh:path idea:lifecycle ;
+        sh:hasValue "seed" ;
+        sh:severity sh:Warning ;
+        sh:message "Seed should have lifecycle='seed'"
+    ] .
+
+# ============================================================================
+# PROJECT SHAPE - Additional validation for projects
+# ============================================================================
+
+idea:ProjectShape a sh:NodeShape ;
+    sh:targetClass idea:Project ;
+    rdfs:label "Project Shape"@en ;
+    rdfs:comment "Validates project-specific constraints"@en ;
+
+    # Projects must have description
+    sh:property [
+        sh:path dcterms:description ;
+        sh:minCount 1 ;
+        sh:message "Project must have a description"
+    ] ;
+
+    # Projects should have effort estimate
+    sh:property [
+        sh:path idea:effort ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "Project should have an effort estimate"
+    ] .
+
+# ============================================================================
+# DEPENDENCY VALIDATION
+# ============================================================================
+
+idea:DependencyShape a sh:NodeShape ;
+    sh:targetSubjectsOf idea:dependsOn ;
+    rdfs:label "Dependency Shape"@en ;
+    rdfs:comment "Validates idea dependencies"@en ;
+
+    # Cannot depend on self
+    sh:sparql [
+        sh:message "Idea cannot depend on itself" ;
+        sh:select """
+            PREFIX idea: <http://semantic-tool-use.org/ontology/idea-pool#>
+            SELECT $this
+            WHERE {
+                $this idea:dependsOn $this .
+            }
+        """
+    ] .
+
+# ============================================================================
+# ACTIVE IDEA CONSTRAINTS
+# ============================================================================
+
+idea:ActiveIdeaShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            PREFIX idea: <http://semantic-tool-use.org/ontology/idea-pool#>
+            SELECT ?this
+            WHERE {
+                ?this idea:lifecycle "active" .
+            }
+        """
+    ] ;
+    rdfs:label "Active Idea Shape"@en ;
+    rdfs:comment "Constraints for ideas in active development"@en ;
+
+    # Active ideas should have priority
+    sh:property [
+        sh:path idea:priority ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "Active ideas should have a priority assigned"
+    ] .

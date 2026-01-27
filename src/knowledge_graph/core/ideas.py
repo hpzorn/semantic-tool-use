@@ -47,7 +47,15 @@ STU = NAMESPACES["stu"]
 
 @dataclass
 class Idea:
-    """Represents an idea in the knowledge graph."""
+    """Represents an idea in the knowledge graph.
+
+    Custom properties per PRD RQ3 (SKOS+DC with 5 custom properties):
+    - lifecycle: Current state of the idea (seed, backlog, researching, etc.)
+    - vision: High-level goal or vision statement
+    - requirements: List of requirements for implementation
+    - considerations: List of considerations, constraints, or trade-offs
+    - useCases: List of use cases or applications
+    """
     id: str  # e.g., "idea-1" or "idea-17a"
     title: str
     description: str = ""
@@ -60,6 +68,11 @@ class Idea:
     wikidata_refs: list[str] = field(default_factory=list)  # list of Q-numbers
     parent: str | None = None  # parent idea ID for sub-ideas
     children: list[str] = field(default_factory=list)  # child idea IDs
+    # PRD custom properties (RQ3: 5 custom properties for SKOS+DC)
+    vision: str | None = None
+    requirements: list[str] = field(default_factory=list)
+    considerations: list[str] = field(default_factory=list)
+    use_cases: list[str] = field(default_factory=list)
 
     @property
     def uri(self) -> str:
@@ -242,6 +255,102 @@ class IdeasStore:
             f"{RDF}Property"
         )
 
+        # =================================================================
+        # PRD Custom Properties (RQ3: 5 custom properties for SKOS+DC)
+        # =================================================================
+
+        # idea:vision - High-level goal or vision statement
+        self._store.add_triple(
+            f"{IDEA}vision",
+            f"{RDF}type",
+            f"{RDF}Property"
+        )
+        self._store.add_triple(
+            f"{IDEA}vision",
+            f"{RDFS}domain",
+            f"{IDEA}Idea"
+        )
+        self._store.add_triple(
+            f"{IDEA}vision",
+            f"{RDFS}range",
+            f"{XSD}string"
+        )
+        self._store.add_triple(
+            f"{IDEA}vision",
+            f"{RDFS}label",
+            "Vision statement for the idea",
+            is_literal=True
+        )
+
+        # idea:requirements - List of requirements for implementation
+        self._store.add_triple(
+            f"{IDEA}requirements",
+            f"{RDF}type",
+            f"{RDF}Property"
+        )
+        self._store.add_triple(
+            f"{IDEA}requirements",
+            f"{RDFS}domain",
+            f"{IDEA}Idea"
+        )
+        self._store.add_triple(
+            f"{IDEA}requirements",
+            f"{RDFS}range",
+            f"{XSD}string"
+        )
+        self._store.add_triple(
+            f"{IDEA}requirements",
+            f"{RDFS}label",
+            "A requirement for implementing the idea",
+            is_literal=True
+        )
+
+        # idea:considerations - List of considerations, constraints, or trade-offs
+        self._store.add_triple(
+            f"{IDEA}considerations",
+            f"{RDF}type",
+            f"{RDF}Property"
+        )
+        self._store.add_triple(
+            f"{IDEA}considerations",
+            f"{RDFS}domain",
+            f"{IDEA}Idea"
+        )
+        self._store.add_triple(
+            f"{IDEA}considerations",
+            f"{RDFS}range",
+            f"{XSD}string"
+        )
+        self._store.add_triple(
+            f"{IDEA}considerations",
+            f"{RDFS}label",
+            "A consideration, constraint, or trade-off for the idea",
+            is_literal=True
+        )
+
+        # idea:useCases - List of use cases or applications
+        self._store.add_triple(
+            f"{IDEA}useCases",
+            f"{RDF}type",
+            f"{RDF}Property"
+        )
+        self._store.add_triple(
+            f"{IDEA}useCases",
+            f"{RDFS}domain",
+            f"{IDEA}Idea"
+        )
+        self._store.add_triple(
+            f"{IDEA}useCases",
+            f"{RDFS}range",
+            f"{XSD}string"
+        )
+        self._store.add_triple(
+            f"{IDEA}useCases",
+            f"{RDFS}label",
+            "A use case or application of the idea",
+            is_literal=True
+        )
+
         self._store.flush()
 
     def create_idea(self, idea: Idea) -> str:
@@ -306,6 +415,19 @@ class IdeasStore:
 
         for child_id in idea.children:
             self._store.add_triple(uri, f"{IDEA}child", f"{IDEAS}{child_id}")
+
+        # PRD custom properties (RQ3: 5 custom properties)
+        if idea.vision:
+            self._store.add_triple(uri, f"{IDEA}vision", idea.vision, is_literal=True)
+
+        for req in idea.requirements:
+            self._store.add_triple(uri, f"{IDEA}requirements", req, is_literal=True)
+
+        for consideration in idea.considerations:
+            self._store.add_triple(uri, f"{IDEA}considerations", consideration, is_literal=True)
+
+        for use_case in idea.use_cases:
+            self._store.add_triple(uri, f"{IDEA}useCases", use_case, is_literal=True)
 
         self._store.flush()
         logger.info(f"Created idea: {idea.id}")
@@ -379,6 +501,36 @@ class IdeasStore:
         """
         children = [r["childId"] for r in self._store.query(children_query)]
 
+        # Get PRD custom properties
+        vision_query = f"""
+        SELECT ?vision WHERE {{
+            <{uri}> idea:vision ?vision .
+        }}
+        """
+        vision_results = self._store.query(vision_query)
+        vision = vision_results.bindings[0].get("vision") if vision_results.bindings else None
+
+        requirements_query = f"""
+        SELECT ?req WHERE {{
+            <{uri}> idea:requirements ?req .
+        }}
+        """
+        requirements = [r["req"] for r in self._store.query(requirements_query) if r.get("req")]
+
+        considerations_query = f"""
+        SELECT ?consideration WHERE {{
+            <{uri}> idea:considerations ?consideration .
+        }}
+        """
+        considerations = [r["consideration"] for r in self._store.query(considerations_query) if r.get("consideration")]
+
+        use_cases_query = f"""
+        SELECT ?useCase WHERE {{
+            <{uri}> idea:useCases ?useCase .
+        }}
+        """
+        use_cases = [r["useCase"] for r in self._store.query(use_cases_query) if r.get("useCase")]
+
         # Parse created date
         created = datetime.now(timezone.utc)
         if row.get("created"):
@@ -405,6 +557,10 @@ class IdeasStore:
             wikidata_refs=wikidata_refs,
             parent=parent,
             children=children,
+            vision=vision,
+            requirements=requirements,
+            considerations=considerations,
+            use_cases=use_cases,
         )
 
     def update_idea(self, idea: Idea) -> None:
@@ -432,6 +588,11 @@ class IdeasStore:
         self._store.remove_triple(uri, f"{IDEA}wikidataRef")
         self._store.remove_triple(uri, f"{IDEA}parent")
         self._store.remove_triple(uri, f"{IDEA}child")
+        # PRD custom properties
+        self._store.remove_triple(uri, f"{IDEA}vision")
+        self._store.remove_triple(uri, f"{IDEA}requirements")
+        self._store.remove_triple(uri, f"{IDEA}considerations")
+        self._store.remove_triple(uri, f"{IDEA}useCases")
 
         # Add updated data
         self._store.add_triple(uri, f"{SKOS}prefLabel", idea.title, is_literal=True)
@@ -465,6 +626,19 @@ class IdeasStore:
 
         for child_id in idea.children:
             self._store.add_triple(uri, f"{IDEA}child", f"{IDEAS}{child_id}")
+
+        # PRD custom properties
+        if idea.vision:
+            self._store.add_triple(uri, f"{IDEA}vision", idea.vision, is_literal=True)
+
+        for req in idea.requirements:
+            self._store.add_triple(uri, f"{IDEA}requirements", req, is_literal=True)
+
+        for consideration in idea.considerations:
+            self._store.add_triple(uri, f"{IDEA}considerations", consideration, is_literal=True)
+
+        for use_case in idea.use_cases:
+            self._store.add_triple(uri, f"{IDEA}useCases", use_case, is_literal=True)
 
         self._store.flush()
         logger.info(f"Updated idea: {idea.id}")

@@ -1,0 +1,177 @@
+@prefix idea: <http://semantic-tool-use.org/ontology/idea-pool#> .
+@prefix stu: <http://semantic-tool-use.org/ontology/tool-use#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+# ============================================================================
+# ONTOLOGY DECLARATION
+# ============================================================================
+
+<http://semantic-tool-use.org/ontology/idea-pool> a owl:Ontology ;
+    rdfs:label "Idea Pool Ontology"@en ;
+    rdfs:comment "Ontology for managing ideas as RDF instances with SKOS alignment"@en ;
+    owl:versionInfo "0.1.0" ;
+    owl:imports <http://semantic-tool-use.org/ontology/tool-use> ;
+    dcterms:creator "Semantic Tool Use Project" ;
+    dcterms:created "2026-01-26"^^xsd:date .
+
+# ============================================================================
+# CORE CLASSES
+# ============================================================================
+
+idea:Idea a owl:Class ;
+    rdfs:subClassOf stu:Resource ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Idea"@en ;
+    rdfs:comment "A captured idea in the idea pool, represented as both a semantic resource and a SKOS concept for interoperability"@en .
+
+idea:Seed a owl:Class ;
+    rdfs:subClassOf idea:Idea ;
+    rdfs:label "Seed"@en ;
+    rdfs:comment "A nascent idea that needs development"@en .
+
+idea:Project a owl:Class ;
+    rdfs:subClassOf idea:Idea ;
+    rdfs:label "Project"@en ;
+    rdfs:comment "A fully developed idea with implementation potential"@en .
+
+# ============================================================================
+# LIFECYCLE STATES
+# ============================================================================
+
+idea:LifecycleState a owl:Class ;
+    rdfs:subClassOf stu:ResourceState ;
+    rdfs:label "Lifecycle State"@en ;
+    rdfs:comment "The lifecycle state of an idea"@en .
+
+idea:SeedState a idea:LifecycleState ;
+    rdfs:label "Seed"@en ;
+    rdfs:comment "Initial capture state - needs development"@en .
+
+idea:ActiveState a idea:LifecycleState ;
+    rdfs:label "Active"@en ;
+    rdfs:comment "Currently being worked on"@en .
+
+idea:BacklogState a idea:LifecycleState ;
+    rdfs:label "Backlog"@en ;
+    rdfs:comment "Parked for future consideration"@en .
+
+idea:DoneState a idea:LifecycleState ;
+    rdfs:label "Done"@en ;
+    rdfs:comment "Completed or implemented"@en .
+
+idea:ArchivedState a idea:LifecycleState ;
+    rdfs:label "Archived"@en ;
+    rdfs:comment "No longer relevant, kept for history"@en .
+
+# ============================================================================
+# OBJECT PROPERTIES
+# ============================================================================
+
+idea:relatesTo a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:Idea ;
+    rdfs:subPropertyOf skos:related ;
+    rdfs:label "relates to"@en ;
+    rdfs:comment "General relationship between ideas"@en .
+
+idea:dependsOn a owl:ObjectProperty, owl:TransitiveProperty ;
+    rdfs:subPropertyOf idea:relatesTo ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:Idea ;
+    rdfs:label "depends on"@en ;
+    rdfs:comment "This idea requires another idea to be completed first"@en .
+
+idea:blockedBy a owl:ObjectProperty ;
+    rdfs:subPropertyOf idea:dependsOn ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:Idea ;
+    rdfs:label "blocked by"@en ;
+    rdfs:comment "This idea cannot proceed until another idea is resolved"@en .
+
+idea:parentIdea a owl:ObjectProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:Idea ;
+    rdfs:subPropertyOf skos:broader ;
+    rdfs:label "parent idea"@en ;
+    rdfs:comment "The parent idea this is derived from"@en .
+
+idea:childIdea a owl:ObjectProperty ;
+    owl:inverseOf idea:parentIdea ;
+    rdfs:subPropertyOf skos:narrower ;
+    rdfs:label "child idea"@en ;
+    rdfs:comment "A sub-idea derived from this idea"@en .
+
+idea:hasLifecycleState a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:subPropertyOf stu:hasState ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:LifecycleState ;
+    rdfs:label "has lifecycle state"@en ;
+    rdfs:comment "The current lifecycle state of the idea"@en .
+
+idea:crystallizedFrom a owl:ObjectProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:Seed ;
+    rdfs:label "crystallized from"@en ;
+    rdfs:comment "Links a developed idea to the seed it originated from"@en .
+
+# ============================================================================
+# DATA PROPERTIES
+# ============================================================================
+
+idea:lifecycle a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle"@en ;
+    rdfs:comment "Lifecycle state as string: seed, active, backlog, done, archived"@en .
+
+idea:priority a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:integer ;
+    rdfs:label "priority"@en ;
+    rdfs:comment "Priority ranking (lower is higher priority)"@en .
+
+idea:effort a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "effort"@en ;
+    rdfs:comment "Estimated effort: small, medium, large, epic"@en .
+
+idea:wikidataRef a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "Wikidata reference"@en ;
+    rdfs:comment "Reference to a Wikidata entity for factual grounding"@en .
+
+idea:originalMarkdownPath a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "original markdown path"@en ;
+    rdfs:comment "Path to the original markdown file if imported"@en .
+
+idea:confidence a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "confidence"@en ;
+    rdfs:comment "Confidence score (0.0-1.0) in the idea's viability"@en .
+
+# ============================================================================
+# ALIGNMENT TO SKOS/DUBLIN CORE
+# ============================================================================
+
+# Map SKOS properties for interoperability
+# skos:prefLabel - idea title (use rdfs:label)
+# skos:definition - idea description (use dcterms:description)
+# skos:note - additional notes
+# skos:related - related ideas (via idea:relatesTo)
+# skos:broader/narrower - parent/child ideas
+
+# Dublin Core properties
+# dcterms:creator - author
+# dcterms:created - creation date
+# dcterms:modified - last modified date
+# dcterms:subject - tags (use with URIs or literals)

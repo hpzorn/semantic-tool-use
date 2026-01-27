@@ -121,7 +121,7 @@ class TestIdeasStore:
         )
 
         uri = ideas_store.create_idea(idea)
-        assert uri == "http://ideasralph.org/ideas/idea-1"
+        assert uri == "http://semantic-tool-use.org/ideas/idea-1"
 
     def test_get_idea(self, ideas_store):
         """Test retrieving an idea."""
@@ -411,7 +411,7 @@ class TestUnifiedQueries:
 
         # Query memory
         memory_results = store.query(f"""
-            PREFIX memory: <http://ideasralph.org/memory/>
+            PREFIX memory: <http://semantic-tool-use.org/memory/>
             SELECT ?fact ?subject ?object WHERE {{
                 GRAPH <{GRAPH_MEMORY}> {{
                     ?fact memory:subject ?subject ;

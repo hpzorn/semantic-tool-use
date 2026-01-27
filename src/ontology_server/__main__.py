@@ -2,9 +2,10 @@
 
 Run with: python -m ontology_server
 
-The server can operate in two modes:
+The server can operate in multiple modes:
 1. MCP stdio mode (default): For Claude Code integration
 2. HTTP mode: REST API + MCP SSE (use --http flag)
+3. Combined mode: Include A-Box (knowledge graph) tools (use --enable-abox flag)
 """
 
 import argparse
@@ -96,6 +97,23 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help=f"Logging level (default: {settings.log_level})"
     )
+    parser.add_argument(
+        "--enable-abox",
+        action="store_true",
+        help="Enable A-Box (knowledge graph) tools for ideas, agent memory, and Wikidata"
+    )
+    parser.add_argument(
+        "--kg-persist",
+        type=Path,
+        default=None,
+        help="Path for knowledge graph persistence (default: in-memory)"
+    )
+    parser.add_argument(
+        "--ideas-dir",
+        type=Path,
+        default=None,
+        help="Directory to migrate ideas from on startup (requires --enable-abox)"
+    )
 
     args = parser.parse_args()
 
@@ -136,17 +154,43 @@ def main():
     # Initialize validator
     validator = SHACLValidator(shapes_path if shapes_path.exists() else None)
 
-    # Create MCP server
-    mcp = create_mcp_server(cli_settings, store, validator)
+    # Optionally initialize knowledge graph for A-Box functionality
+    kg_store = None
+    if args.enable_abox:
+        try:
+            from knowledge_graph import KnowledgeGraphStore
+
+            # Initialize knowledge graph store
+            kg_persist = str(args.kg_persist) if args.kg_persist else None
+            kg_store = KnowledgeGraphStore(kg_persist)
+            logger.info(f"Knowledge graph initialized (persist={kg_persist or 'in-memory'})")
+
+            # Optionally migrate ideas
+            if args.ideas_dir and args.ideas_dir.exists():
+                from knowledge_graph.migration import migrate_ideas
+                logger.info(f"Migrating ideas from {args.ideas_dir}")
+                stats = migrate_ideas(args.ideas_dir, kg_store)
+                logger.info(f"Migration complete: {stats}")
+
+        except ImportError as e:
+            logger.error(f"Failed to enable A-Box: {e}")
+            logger.error("Install pyoxigraph: pip install pyoxigraph")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to initialize knowledge graph: {e}")
+            sys.exit(1)
+
+    # Create MCP server (with optional knowledge graph integration)
+    mcp = create_mcp_server(cli_settings, store, validator, kg_store)
 
     if args.http:
-        # HTTP mode: Run with uvicorn
+        # HTTP mode: Run with uvicorn (MCP available via SSE at /sse)
         logger.info(f"Starting HTTP server on {cli_settings.host}:{cli_settings.port}")
         try:
             import uvicorn
             from .api.app import create_app
 
-            app = create_app(cli_settings, store, validator)
+            app = create_app(cli_settings, store, validator, kg_store)
             uvicorn.run(app, host=cli_settings.host, port=cli_settings.port)
         except ImportError:
             logger.error("HTTP mode requires uvicorn. Install with: pip install uvicorn[standard]")
@@ -154,8 +198,13 @@ def main():
     else:
         # MCP stdio mode (default)
         logger.info("Starting MCP server in stdio mode")
-        logger.info("Tools available: list_ontologies, get_ontology, query_ontology, "
-                   "get_classes, get_properties, add_triple, validate_instance, search_ontology")
+        tools = ["list_ontologies", "get_ontology", "query_ontology",
+                 "get_classes", "get_properties", "add_triple", "validate_instance", "search_ontology"]
+        if kg_store:
+            tools.extend(["query_ideas", "get_idea", "create_idea", "update_idea",
+                         "store_fact", "recall_facts", "forget_fact",
+                         "lookup_wikidata", "query_wikidata", "get_kg_stats"])
+        logger.info(f"Tools available: {', '.join(tools)}")
         mcp.run()
 
 

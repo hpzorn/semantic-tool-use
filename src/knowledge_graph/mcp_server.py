@@ -513,6 +513,60 @@ def create_mcp_server(
         """
         return wikidata_cache.get_stats()
 
+    @mcp.tool()
+    def query_wikidata(
+        sparql: str,
+        cache_entities: bool = True,
+        timeout: int = 30
+    ) -> dict[str, Any]:
+        """
+        Execute a SPARQL query against the Wikidata endpoint.
+
+        Use this for discovery queries to find entities you don't know the QID for.
+
+        Args:
+            sparql: SPARQL query. Common prefixes (wd:, wdt:, etc.) are auto-added.
+            cache_entities: Cache discovered entities for fast re-lookup.
+            timeout: Query timeout in seconds.
+
+        Returns:
+            Query results with rows and metadata.
+
+        Example:
+            # German cities with population > 100k
+            query_wikidata('''
+                SELECT ?city ?cityLabel ?population ?coord WHERE {
+                    ?city wdt:P31 wd:Q515 .
+                    ?city wdt:P17 wd:Q183 .
+                    ?city wdt:P1082 ?population .
+                    ?city wdt:P625 ?coord .
+                    FILTER(?population > 100000)
+                    SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+                }
+                ORDER BY DESC(?population) LIMIT 20
+            ''')
+
+        Common properties:
+            wdt:P31  - instance of
+            wdt:P17  - country
+            wdt:P625 - coordinates
+            wdt:P1082 - population
+        """
+        results = wikidata_cache.query(
+            sparql,
+            cache_entities=cache_entities,
+            timeout=timeout
+        )
+
+        if results and "error" in results[0]:
+            return {"error": results[0]["error"], "results": []}
+
+        return {
+            "count": len(results),
+            "results": results,
+            "cached": cache_entities,
+        }
+
     # =========================================================================
     # UNIFIED SPARQL
     # =========================================================================
@@ -540,8 +594,8 @@ def create_mcp_server(
 
         Available graphs:
         - Default graph: Ideas
-        - <http://ideasralph.org/graphs/memory>: Agent memory
-        - <http://ideasralph.org/graphs/wikidata>: Wikidata cache
+        - <http://semantic-tool-use.org/graphs/memory>: Agent memory
+        - <http://semantic-tool-use.org/graphs/wikidata>: Wikidata cache
 
         Example:
             # Find ideas related to a Wikidata entity

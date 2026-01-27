@@ -223,8 +223,8 @@ def verify_unified_endpoint():
     result = store.query(f"""
         SELECT ?s ?o WHERE {{
             GRAPH <{GRAPH_MEMORY}> {{
-                ?fact <http://ideasralph.org/memory/subject> ?s ;
-                      <http://ideasralph.org/memory/object> ?o .
+                ?fact <http://semantic-tool-use.org/memory/subject> ?s ;
+                      <http://semantic-tool-use.org/memory/object> ?o .
             }}
         }}
     """)

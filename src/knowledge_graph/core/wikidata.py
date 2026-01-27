@@ -13,6 +13,7 @@ from typing import Any
 from dataclasses import dataclass, field
 import urllib.request
 import urllib.error
+import urllib.parse
 import json
 
 from .store import KnowledgeGraphStore, NAMESPACES, GRAPH_WIKIDATA
@@ -61,7 +62,7 @@ class WikidataCache:
     - Batch lookup
     - Search by label
 
-    All cached data is stored in the named graph <http://ideasralph.org/graphs/wikidata>.
+    All cached data is stored in the named graph <http://semantic-tool-use.org/graphs/wikidata>.
     """
 
     def __init__(self, store: KnowledgeGraphStore, ttl_days: int = DEFAULT_TTL_DAYS):
@@ -143,7 +144,7 @@ class WikidataCache:
             # Add User-Agent header as required by Wikidata
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "IdeasRalphKnowledgeGraph/1.0 (https://ideasralph.org)"}
+                headers={"User-Agent": "SemanticToolUse/1.0 (https://semantic-tool-use.org)"}
             )
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode("utf-8"))
@@ -492,3 +493,123 @@ class WikidataCache:
             "ttl_days": self._ttl.days,
             "graph_triples": self._store.count_triples(self._graph),
         }
+
+    def query(
+        self,
+        sparql: str,
+        cache_entities: bool = True,
+        timeout: int = 30
+    ) -> list[dict[str, Any]]:
+        """
+        Execute a SPARQL query against the Wikidata endpoint.
+
+        Use this for discovery queries like:
+        - Finding cities in a region with coordinates
+        - Getting population data for countries
+        - Discovering entities by type and properties
+
+        Args:
+            sparql: SPARQL query string. Common prefixes are auto-added.
+            cache_entities: If True, cache any QIDs found in results.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            List of result rows as dictionaries.
+
+        Example:
+            # Find German cities with population > 100k
+            cache.query('''
+                SELECT ?city ?cityLabel ?population ?coord WHERE {
+                    ?city wdt:P31 wd:Q515 .          # instance of city
+                    ?city wdt:P17 wd:Q183 .          # country: Germany
+                    ?city wdt:P1082 ?population .    # population
+                    ?city wdt:P625 ?coord .          # coordinates
+                    FILTER(?population > 100000)
+                    SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+                }
+                ORDER BY DESC(?population)
+                LIMIT 50
+            ''')
+        """
+        # Add common prefixes if not present
+        prefixes = ""
+        if "PREFIX" not in sparql.upper():
+            prefixes = """
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+"""
+        full_query = prefixes + sparql
+
+        try:
+            # Prepare request
+            data = urllib.parse.urlencode({
+                "query": full_query,
+                "format": "json"
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                WIKIDATA_SPARQL,
+                data=data,
+                headers={
+                    "User-Agent": "SemanticToolUse/1.0 (https://semantic-tool-use.org)",
+                    "Accept": "application/sparql-results+json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                method="POST"
+            )
+
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                result = json.loads(response.read().decode("utf-8"))
+
+            # Parse results
+            rows = []
+            qids_to_cache = set()
+
+            for binding in result.get("results", {}).get("bindings", []):
+                row = {}
+                for var, value in binding.items():
+                    val_type = value.get("type")
+                    val = value.get("value")
+
+                    # Extract QID from entity URIs for caching
+                    if val_type == "uri" and val and val.startswith(WD):
+                        qid = val.replace(WD, "")
+                        if qid.startswith("Q"):
+                            qids_to_cache.add(qid)
+
+                    row[var] = val
+                rows.append(row)
+
+            logger.info(f"Wikidata query returned {len(rows)} results")
+
+            # Optionally cache discovered entities
+            if cache_entities and qids_to_cache:
+                logger.debug(f"Caching {len(qids_to_cache)} discovered entities")
+                for qid in list(qids_to_cache)[:50]:  # Limit to avoid overwhelming
+                    try:
+                        self.lookup(qid)
+                    except Exception as e:
+                        logger.warning(f"Failed to cache {qid}: {e}")
+
+            return rows
+
+        except urllib.error.HTTPError as e:
+            logger.error(f"Wikidata SPARQL error: {e.code} {e.reason}")
+            if e.code == 429:
+                return [{"error": "Rate limited. Try again later.", "code": 429}]
+            return [{"error": f"HTTP {e.code}: {e.reason}", "code": e.code}]
+        except urllib.error.URLError as e:
+            logger.error(f"Wikidata connection error: {e}")
+            return [{"error": f"Connection failed: {e.reason}"}]
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse Wikidata response: {e}")
+            return [{"error": "Invalid response from Wikidata"}]
+        except TimeoutError:
+            logger.error(f"Wikidata query timed out after {timeout}s")
+            return [{"error": f"Query timed out after {timeout}s"}]
+        except Exception as e:
+            logger.error(f"Unexpected error querying Wikidata: {e}")
+            return [{"error": str(e)}]
