@@ -1,0 +1,580 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix vao: <http://visual-artifacts.org/ontology/composition#> .
+@prefix vaoint: <http://visual-artifacts.org/ontology/composition/intent#> .
+
+# ============================================================================
+# VAO INTENT MAPPING ONTOLOGY
+# ============================================================================
+# Maps user intents to composition pattern recommendations with preference scores
+# Version: 1.0.0
+#
+# Based on research findings:
+# - 13 intent categories from Amar et al. task vocabulary
+# - 18 composition patterns
+# - 100% coverage, 54% determinism (multiple valid patterns per intent)
+# - Uses preference-ordered recommendations, not deterministic mapping
+# ============================================================================
+
+# ============================================================================
+# SECTION 1: INTENT CATEGORY DEFINITIONS
+# ============================================================================
+# 13 intent categories aligned with Amar et al. (2005) task vocabulary
+# Extended for dashboard-specific use cases
+# ============================================================================
+
+vaoint:IntentCategory a owl:Class ;
+    rdfs:label "Intent Category" ;
+    rdfs:comment "A category of user intent for dashboard creation." ;
+    skos:definition "Semantic classification of what users want to achieve with a dashboard." .
+
+# -----------------------------------------------------------------------------
+# Monitoring Intents
+# -----------------------------------------------------------------------------
+
+vaoint:MonitorStatus a vaoint:IntentCategory ;
+    rdfs:label "Monitor Status" ;
+    skos:prefLabel "Monitor Status" ;
+    rdfs:comment "Intent to monitor system or entity status and health." ;
+    skos:definition "User wants to track the current state of systems, services, or processes and detect when something is wrong." ;
+    skos:altLabel "track health", "monitor systems", "watch status", "system monitoring" ;
+    skos:broader vaoint:MonitoringIntentFamily ;
+    skos:example "Create a dashboard to monitor server health and uptime" ;
+    skos:example "Track website availability and response times" ;
+    skos:example "Monitor system health and detect anomalies" .
+
+vaoint:MonitorKPI a vaoint:IntentCategory ;
+    rdfs:label "Monitor KPI" ;
+    skos:prefLabel "Monitor KPI" ;
+    rdfs:comment "Intent to track key performance indicators over time." ;
+    skos:definition "User wants to monitor key business or operational metrics, typically with historical context." ;
+    skos:altLabel "track metrics", "monitor performance", "KPI tracking", "metric monitoring" ;
+    skos:broader vaoint:MonitoringIntentFamily ;
+    skos:example "I need to track our key sales KPIs" ;
+    skos:example "Dashboard for monitoring application performance metrics" ;
+    skos:example "Track sales KPIs with regional breakdown" .
+
+vaoint:DetectAnomaly a vaoint:IntentCategory ;
+    rdfs:label "Detect Anomaly" ;
+    skos:prefLabel "Detect Anomaly" ;
+    rdfs:comment "Intent to identify outliers, anomalies, or exceptions." ;
+    skos:definition "User wants to spot unusual patterns, outliers, or deviations that require attention." ;
+    skos:altLabel "find outliers", "spot anomalies", "detect exceptions", "anomaly detection" ;
+    skos:broader vaoint:MonitoringIntentFamily ;
+    skos:example "Show me system alerts and anomalies" ;
+    skos:example "Detect unusual patterns in transaction data" .
+
+# -----------------------------------------------------------------------------
+# Analysis Intents
+# -----------------------------------------------------------------------------
+
+vaoint:AnalyzeTrend a vaoint:IntentCategory ;
+    rdfs:label "Analyze Trend" ;
+    skos:prefLabel "Analyze Trend" ;
+    rdfs:comment "Intent to understand patterns over time." ;
+    skos:definition "User wants to see how metrics change over time, identify trends, seasonality, or growth patterns." ;
+    skos:altLabel "time series", "temporal analysis", "trend analysis", "over time" ;
+    skos:broader vaoint:AnalysisIntentFamily ;
+    skos:example "Show revenue growth over the last 12 months" ;
+    skos:example "I want to see how user signups have changed over time" ;
+    skos:example "Display monthly cost trends for the past year" .
+
+vaoint:CompareCategories a vaoint:IntentCategory ;
+    rdfs:label "Compare Categories" ;
+    skos:prefLabel "Compare Categories" ;
+    rdfs:comment "Intent to compare values across categories or entities." ;
+    skos:definition "User wants to compare performance, metrics, or attributes across different groups, segments, or entities." ;
+    skos:altLabel "comparison", "versus", "contrast", "rank", "benchmark" ;
+    skos:broader vaoint:AnalysisIntentFamily ;
+    skos:example "Compare sales performance across regions" ;
+    skos:example "Show how different product lines are performing vs each other" ;
+    skos:example "Rank top 10 customers by revenue" .
+
+vaoint:AnalyzeDistribution a vaoint:IntentCategory ;
+    rdfs:label "Analyze Distribution" ;
+    skos:prefLabel "Analyze Distribution" ;
+    rdfs:comment "Intent to understand data distribution or spread." ;
+    skos:definition "User wants to see how data is distributed, including central tendency, spread, and shape." ;
+    skos:altLabel "histogram", "spread", "distribution", "frequency" ;
+    skos:broader vaoint:AnalysisIntentFamily ;
+    skos:example "Show the distribution of response times" ;
+    skos:example "What's the spread of customer order values?" ;
+    skos:example "Display histogram of user session lengths" .
+
+vaoint:ExploreCorrelation a vaoint:IntentCategory ;
+    rdfs:label "Explore Correlation" ;
+    skos:prefLabel "Explore Correlation" ;
+    rdfs:comment "Intent to explore relationships between variables." ;
+    skos:definition "User wants to understand how two or more variables relate to each other." ;
+    skos:altLabel "relationship", "correlation", "association", "scatter" ;
+    skos:broader vaoint:AnalysisIntentFamily ;
+    skos:example "Is there a relationship between ad spend and conversions?" ;
+    skos:example "Show correlation between temperature and energy usage" ;
+    skos:example "How does price affect demand?" .
+
+vaoint:PartToWhole a vaoint:IntentCategory ;
+    rdfs:label "Part to Whole" ;
+    skos:prefLabel "Part to Whole" ;
+    rdfs:comment "Intent to understand composition and proportions." ;
+    skos:definition "User wants to see how parts contribute to a whole, including percentages and proportions." ;
+    skos:altLabel "breakdown", "composition", "proportion", "percentage", "share" ;
+    skos:broader vaoint:AnalysisIntentFamily ;
+    skos:example "Show revenue breakdown by product category" ;
+    skos:example "What percentage of traffic comes from each channel?" ;
+    skos:example "Display budget allocation across departments" .
+
+vaoint:AnalyzeGeographic a vaoint:IntentCategory ;
+    rdfs:label "Analyze Geographic" ;
+    skos:prefLabel "Analyze Geographic" ;
+    rdfs:comment "Intent to analyze data with geographic dimension." ;
+    skos:definition "User wants to see data distributed across geographic regions or locations." ;
+    skos:altLabel "map", "geographic", "location", "regional", "spatial" ;
+    skos:broader vaoint:AnalysisIntentFamily ;
+    skos:example "Show sales by region on a map" ;
+    skos:example "Where are our customers located?" ;
+    skos:example "Geographic distribution of store performance" .
+
+# -----------------------------------------------------------------------------
+# Exploration Intents
+# -----------------------------------------------------------------------------
+
+vaoint:DrillDown a vaoint:IntentCategory ;
+    rdfs:label "Drill Down" ;
+    skos:prefLabel "Drill Down" ;
+    rdfs:comment "Intent to explore details behind summary data." ;
+    skos:definition "User wants to go from aggregate/summary views to detailed underlying data." ;
+    skos:altLabel "details", "explore", "dig deeper", "granular" ;
+    skos:broader vaoint:ExplorationIntentFamily ;
+    skos:example "I want to explore the raw transaction data" ;
+    skos:example "Show me the details behind these numbers" ;
+    skos:example "Executive overview with drill-down capability" .
+
+vaoint:InvestigateRecords a vaoint:IntentCategory ;
+    rdfs:label "Investigate Records" ;
+    skos:prefLabel "Investigate Records" ;
+    rdfs:comment "Intent to examine individual records or items." ;
+    skos:definition "User wants to see and interact with individual data records, events, or items." ;
+    skos:altLabel "records", "list", "items", "events", "logs" ;
+    skos:broader vaoint:ExplorationIntentFamily ;
+    skos:example "List all failed orders with details" ;
+    skos:example "Show recent log entries" ;
+    skos:example "Table of customer records with filtering" .
+
+# -----------------------------------------------------------------------------
+# Overview Intents
+# -----------------------------------------------------------------------------
+
+vaoint:ExecutiveOverview a vaoint:IntentCategory ;
+    rdfs:label "Executive Overview" ;
+    skos:prefLabel "Executive Overview" ;
+    rdfs:comment "Intent to get high-level strategic summary for leadership." ;
+    skos:definition "User wants a clean, high-level view suitable for executives with key metrics and trends." ;
+    skos:altLabel "executive", "leadership", "board", "summary", "strategic" ;
+    skos:broader vaoint:OverviewIntentFamily ;
+    skos:example "Executive dashboard for the board meeting" ;
+    skos:example "High-level summary of company performance" ;
+    skos:example "Snapshot of key business metrics for leadership" .
+
+vaoint:OperationalOverview a vaoint:IntentCategory ;
+    rdfs:label "Operational Overview" ;
+    skos:prefLabel "Operational Overview" ;
+    rdfs:comment "Intent to get operational view for day-to-day work." ;
+    skos:definition "User wants a working dashboard for operational teams with actionable metrics and details." ;
+    skos:altLabel "operational", "daily", "team", "working", "tactical" ;
+    skos:broader vaoint:OverviewIntentFamily ;
+    skos:example "Daily operations dashboard for the team" ;
+    skos:example "Overview of today's workflow and activities" .
+
+# -----------------------------------------------------------------------------
+# Intent Family Groupings
+# -----------------------------------------------------------------------------
+
+vaoint:IntentFamily a owl:Class ;
+    rdfs:label "Intent Family" ;
+    rdfs:comment "A grouping of related intent categories." .
+
+vaoint:MonitoringIntentFamily a vaoint:IntentFamily ;
+    rdfs:label "Monitoring Intent Family" ;
+    rdfs:comment "Intents focused on tracking and alerting." .
+
+vaoint:AnalysisIntentFamily a vaoint:IntentFamily ;
+    rdfs:label "Analysis Intent Family" ;
+    rdfs:comment "Intents focused on understanding and analyzing data." .
+
+vaoint:ExplorationIntentFamily a vaoint:IntentFamily ;
+    rdfs:label "Exploration Intent Family" ;
+    rdfs:comment "Intents focused on exploring and investigating data." .
+
+vaoint:OverviewIntentFamily a vaoint:IntentFamily ;
+    rdfs:label "Overview Intent Family" ;
+    rdfs:comment "Intents focused on summary views at different levels." .
+
+# ============================================================================
+# SECTION 2: INTENT-TO-PATTERN MAPPINGS
+# ============================================================================
+# Maps each intent to compatible patterns with preference scores
+# Higher score = better match for the intent
+# Scores range 0.0-1.0
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Properties for Intent-Pattern Mapping
+# -----------------------------------------------------------------------------
+
+vaoint:suggestsPattern a owl:ObjectProperty ;
+    rdfs:label "suggests pattern" ;
+    rdfs:domain vaoint:IntentCategory ;
+    rdfs:range vaoint:PatternRecommendation ;
+    rdfs:comment "Associates an intent with a pattern recommendation." .
+
+vaoint:PatternRecommendation a owl:Class ;
+    rdfs:label "Pattern Recommendation" ;
+    rdfs:comment "A recommended pattern for an intent with preference score." .
+
+vaoint:pattern a owl:ObjectProperty ;
+    rdfs:label "pattern" ;
+    rdfs:domain vaoint:PatternRecommendation ;
+    rdfs:range vao:CompositionPattern ;
+    rdfs:comment "The recommended composition pattern." .
+
+vaoint:preferenceScore a owl:DatatypeProperty ;
+    rdfs:label "preference score" ;
+    rdfs:domain vaoint:PatternRecommendation ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Preference score (0.0-1.0) indicating how well the pattern matches the intent. Higher = better match." .
+
+vaoint:rationale a owl:DatatypeProperty ;
+    rdfs:label "rationale" ;
+    rdfs:domain vaoint:PatternRecommendation ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Explanation of why this pattern suits this intent." .
+
+# -----------------------------------------------------------------------------
+# Monitor Status Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:MonitorStatus vaoint:suggestsPattern vaoint:MonitorStatus_StatusMonitor ;
+    vaoint:suggestsPattern vaoint:MonitorStatus_AlertDashboard ;
+    vaoint:suggestsPattern vaoint:MonitorStatus_OperationsOverview .
+
+vaoint:MonitorStatus_StatusMonitor a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:StatusMonitorPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Status Monitor pattern directly addresses status monitoring with health indicators and alerts." .
+
+vaoint:MonitorStatus_AlertDashboard a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:AlertDashboardPattern ;
+    vaoint:preferenceScore 0.85 ;
+    vaoint:rationale "Alert Dashboard emphasizes anomalies and issues requiring attention." .
+
+vaoint:MonitorStatus_OperationsOverview a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:OperationsOverviewPattern ;
+    vaoint:preferenceScore 0.70 ;
+    vaoint:rationale "Operations Overview provides balanced monitoring for day-to-day operations." .
+
+# -----------------------------------------------------------------------------
+# Monitor KPI Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:MonitorKPI vaoint:suggestsPattern vaoint:MonitorKPI_HeroKPI ;
+    vaoint:suggestsPattern vaoint:MonitorKPI_TrendFocus ;
+    vaoint:suggestsPattern vaoint:MonitorKPI_ExecutiveSummary ;
+    vaoint:suggestsPattern vaoint:MonitorKPI_KPIGrid ;
+    vaoint:suggestsPattern vaoint:MonitorKPI_KPIWithDetails .
+
+vaoint:MonitorKPI_HeroKPI a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:HeroKPIPattern ;
+    vaoint:preferenceScore 0.90 ;
+    vaoint:rationale "Hero KPI pattern centers on a single dominant metric with supporting context." .
+
+vaoint:MonitorKPI_TrendFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:TrendFocusPattern ;
+    vaoint:preferenceScore 0.80 ;
+    vaoint:rationale "Trend Focus shows KPI evolution over time." .
+
+vaoint:MonitorKPI_ExecutiveSummary a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:ExecutiveSummaryPattern ;
+    vaoint:preferenceScore 0.75 ;
+    vaoint:rationale "Executive Summary provides clean KPI view for leadership." .
+
+vaoint:MonitorKPI_KPIGrid a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:KPIGridPattern ;
+    vaoint:preferenceScore 0.70 ;
+    vaoint:rationale "KPI Grid shows multiple metrics with equal weight." .
+
+vaoint:MonitorKPI_KPIWithDetails a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:KPIWithDetailsPattern ;
+    vaoint:preferenceScore 0.65 ;
+    vaoint:rationale "KPI with Details combines metrics with drill-down capability." .
+
+# -----------------------------------------------------------------------------
+# Detect Anomaly Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:DetectAnomaly vaoint:suggestsPattern vaoint:DetectAnomaly_StatusMonitor ;
+    vaoint:suggestsPattern vaoint:DetectAnomaly_AlertDashboard .
+
+vaoint:DetectAnomaly_StatusMonitor a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:StatusMonitorPattern ;
+    vaoint:preferenceScore 0.85 ;
+    vaoint:rationale "Status Monitor includes alert lists and status indicators for anomaly detection." .
+
+vaoint:DetectAnomaly_AlertDashboard a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:AlertDashboardPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Alert Dashboard prioritizes anomalies and exceptions requiring attention." .
+
+# -----------------------------------------------------------------------------
+# Analyze Trend Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:AnalyzeTrend vaoint:suggestsPattern vaoint:AnalyzeTrend_TrendFocus ;
+    vaoint:suggestsPattern vaoint:AnalyzeTrend_MultiTrend .
+
+vaoint:AnalyzeTrend_TrendFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:TrendFocusPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Trend Focus pattern emphasizes time-series visualization for single metric trends." .
+
+vaoint:AnalyzeTrend_MultiTrend a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:MultiTrendPattern ;
+    vaoint:preferenceScore 0.85 ;
+    vaoint:rationale "Multi-Trend enables comparative trend analysis across multiple metrics." .
+
+# -----------------------------------------------------------------------------
+# Compare Categories Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:CompareCategories vaoint:suggestsPattern vaoint:CompareCategories_ComparisonFocus ;
+    vaoint:suggestsPattern vaoint:CompareCategories_MultiTrend ;
+    vaoint:suggestsPattern vaoint:CompareCategories_SmallMultiples ;
+    vaoint:suggestsPattern vaoint:CompareCategories_GeoComparison .
+
+vaoint:CompareCategories_ComparisonFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:ComparisonFocusPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Comparison Focus pattern directly supports side-by-side category comparison." .
+
+vaoint:CompareCategories_MultiTrend a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:MultiTrendPattern ;
+    vaoint:preferenceScore 0.75 ;
+    vaoint:rationale "Multi-Trend enables comparison over time across categories." .
+
+vaoint:CompareCategories_SmallMultiples a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:SmallMultiplesPattern ;
+    vaoint:preferenceScore 0.85 ;
+    vaoint:rationale "Small Multiples enables systematic visual comparison across many categories." .
+
+vaoint:CompareCategories_GeoComparison a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:GeoComparisonPattern ;
+    vaoint:preferenceScore 0.60 ;
+    vaoint:rationale "Geographic Comparison suits comparison when geography is a key dimension." .
+
+# -----------------------------------------------------------------------------
+# Analyze Distribution Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:AnalyzeDistribution vaoint:suggestsPattern vaoint:AnalyzeDistribution_DistributionAnalysis ;
+    vaoint:suggestsPattern vaoint:AnalyzeDistribution_SmallMultiples .
+
+vaoint:AnalyzeDistribution_DistributionAnalysis a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:DistributionAnalysisPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Distribution Analysis pattern designed for histogram, box plot, and density visualizations." .
+
+vaoint:AnalyzeDistribution_SmallMultiples a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:SmallMultiplesPattern ;
+    vaoint:preferenceScore 0.70 ;
+    vaoint:rationale "Small Multiples enables distribution comparison across categories." .
+
+# -----------------------------------------------------------------------------
+# Explore Correlation Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:ExploreCorrelation vaoint:suggestsPattern vaoint:ExploreCorrelation_CorrelationExplorer .
+
+vaoint:ExploreCorrelation_CorrelationExplorer a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:CorrelationExplorerPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Correlation Explorer pattern supports scatter plots and relationship visualization." .
+
+# -----------------------------------------------------------------------------
+# Part to Whole Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:PartToWhole vaoint:suggestsPattern vaoint:PartToWhole_CompositionFocus .
+
+vaoint:PartToWhole_CompositionFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:CompositionFocusPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Composition Focus pattern designed for pie charts, treemaps, and stacked visualizations." .
+
+# -----------------------------------------------------------------------------
+# Analyze Geographic Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:AnalyzeGeographic vaoint:suggestsPattern vaoint:AnalyzeGeographic_GeoFocus ;
+    vaoint:suggestsPattern vaoint:AnalyzeGeographic_GeoComparison .
+
+vaoint:AnalyzeGeographic_GeoFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:GeoFocusPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Geographic Focus pattern centers on map visualization for spatial data." .
+
+vaoint:AnalyzeGeographic_GeoComparison a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:GeoComparisonPattern ;
+    vaoint:preferenceScore 0.80 ;
+    vaoint:rationale "Geographic Comparison combines map with comparison charts for regional analysis." .
+
+# -----------------------------------------------------------------------------
+# Drill Down Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:DrillDown vaoint:suggestsPattern vaoint:DrillDown_ListFocus ;
+    vaoint:suggestsPattern vaoint:DrillDown_TableExplorer ;
+    vaoint:suggestsPattern vaoint:DrillDown_KPIWithDetails .
+
+vaoint:DrillDown_ListFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:ListFocusPattern ;
+    vaoint:preferenceScore 0.80 ;
+    vaoint:rationale "List Focus provides detailed item-level view for drill-down." .
+
+vaoint:DrillDown_TableExplorer a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:TableExplorerPattern ;
+    vaoint:preferenceScore 0.90 ;
+    vaoint:rationale "Table Explorer provides comprehensive data exploration with filtering." .
+
+vaoint:DrillDown_KPIWithDetails a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:KPIWithDetailsPattern ;
+    vaoint:preferenceScore 0.75 ;
+    vaoint:rationale "KPI with Details combines summary metrics with drill-down table." .
+
+# -----------------------------------------------------------------------------
+# Investigate Records Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:InvestigateRecords vaoint:suggestsPattern vaoint:InvestigateRecords_ListFocus ;
+    vaoint:suggestsPattern vaoint:InvestigateRecords_TableExplorer .
+
+vaoint:InvestigateRecords_ListFocus a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:ListFocusPattern ;
+    vaoint:preferenceScore 0.85 ;
+    vaoint:rationale "List Focus suits event-based record investigation." .
+
+vaoint:InvestigateRecords_TableExplorer a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:TableExplorerPattern ;
+    vaoint:preferenceScore 0.90 ;
+    vaoint:rationale "Table Explorer provides full record exploration with sorting and filtering." .
+
+# -----------------------------------------------------------------------------
+# Executive Overview Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:ExecutiveOverview vaoint:suggestsPattern vaoint:ExecutiveOverview_HeroKPI ;
+    vaoint:suggestsPattern vaoint:ExecutiveOverview_ExecutiveSummary .
+
+vaoint:ExecutiveOverview_HeroKPI a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:HeroKPIPattern ;
+    vaoint:preferenceScore 0.80 ;
+    vaoint:rationale "Hero KPI provides clean single-metric focus for executives." .
+
+vaoint:ExecutiveOverview_ExecutiveSummary a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:ExecutiveSummaryPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Executive Summary pattern designed specifically for leadership consumption." .
+
+# -----------------------------------------------------------------------------
+# Operational Overview Intent Mappings
+# -----------------------------------------------------------------------------
+
+vaoint:OperationalOverview vaoint:suggestsPattern vaoint:OperationalOverview_OperationsOverview ;
+    vaoint:suggestsPattern vaoint:OperationalOverview_KPIGrid .
+
+vaoint:OperationalOverview_OperationsOverview a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:OperationsOverviewPattern ;
+    vaoint:preferenceScore 0.95 ;
+    vaoint:rationale "Operations Overview pattern designed for day-to-day operational monitoring." .
+
+vaoint:OperationalOverview_KPIGrid a vaoint:PatternRecommendation ;
+    vaoint:pattern vao:KPIGridPattern ;
+    vaoint:preferenceScore 0.75 ;
+    vaoint:rationale "KPI Grid provides comprehensive metric overview for operations." .
+
+# ============================================================================
+# SECTION 3: INTENT DETECTION KEYWORDS
+# ============================================================================
+# Keywords and phrases that indicate specific intents
+# Used for NL intent classification
+# ============================================================================
+
+vaoint:hasKeyword a owl:DatatypeProperty ;
+    rdfs:label "has keyword" ;
+    rdfs:domain vaoint:IntentCategory ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Keywords that indicate this intent." .
+
+vaoint:MonitorStatus vaoint:hasKeyword "monitor", "status", "health", "uptime", "availability", "online", "offline", "state", "alerts" .
+
+vaoint:MonitorKPI vaoint:hasKeyword "KPI", "metrics", "performance", "track", "measure", "indicator" .
+
+vaoint:DetectAnomaly vaoint:hasKeyword "anomaly", "outlier", "unusual", "exception", "alert", "warning", "issue", "problem" .
+
+vaoint:AnalyzeTrend vaoint:hasKeyword "trend", "over time", "growth", "decline", "change", "evolution", "history", "temporal" .
+
+vaoint:CompareCategories vaoint:hasKeyword "compare", "versus", "vs", "rank", "top", "bottom", "benchmark", "contrast" .
+
+vaoint:AnalyzeDistribution vaoint:hasKeyword "distribution", "histogram", "spread", "frequency", "percentile", "range" .
+
+vaoint:ExploreCorrelation vaoint:hasKeyword "correlation", "relationship", "scatter", "association", "affect", "impact" .
+
+vaoint:PartToWhole vaoint:hasKeyword "breakdown", "composition", "percentage", "share", "proportion", "allocation" .
+
+vaoint:AnalyzeGeographic vaoint:hasKeyword "map", "geographic", "region", "location", "territory", "spatial", "where" .
+
+vaoint:DrillDown vaoint:hasKeyword "details", "drill", "explore", "underlying", "behind", "granular" .
+
+vaoint:InvestigateRecords vaoint:hasKeyword "records", "list", "items", "logs", "events", "entries", "table" .
+
+vaoint:ExecutiveOverview vaoint:hasKeyword "executive", "leadership", "board", "summary", "overview", "strategic", "high-level" .
+
+vaoint:OperationalOverview vaoint:hasKeyword "operational", "operations", "daily", "team", "workflow", "tactical" .
+
+# ============================================================================
+# SECTION 4: SPARQL QUERIES FOR PATTERN SELECTION
+# ============================================================================
+# Example SPARQL queries for pattern recommendation
+# These are documented here for reference; actual queries in API layer
+# ============================================================================
+
+# Query: Get top patterns for an intent, ordered by preference score
+# PREFIX vaoint: <http://visual-artifacts.org/ontology/composition/intent#>
+# PREFIX vao: <http://visual-artifacts.org/ontology/composition#>
+#
+# SELECT ?pattern ?score ?rationale
+# WHERE {
+#     vaoint:MonitorKPI vaoint:suggestsPattern ?rec .
+#     ?rec vaoint:pattern ?pattern .
+#     ?rec vaoint:preferenceScore ?score .
+#     OPTIONAL { ?rec vaoint:rationale ?rationale }
+# }
+# ORDER BY DESC(?score)
+
+# Query: Get all intents that suggest a specific pattern
+# PREFIX vaoint: <http://visual-artifacts.org/ontology/composition/intent#>
+# PREFIX vao: <http://visual-artifacts.org/ontology/composition#>
+#
+# SELECT ?intent ?score
+# WHERE {
+#     ?intent vaoint:suggestsPattern ?rec .
+#     ?rec vaoint:pattern vao:ExecutiveSummaryPattern .
+#     ?rec vaoint:preferenceScore ?score .
+# }
+# ORDER BY DESC(?score)
+
+# ============================================================================
+# END OF INTENT MAPPING
+# ============================================================================

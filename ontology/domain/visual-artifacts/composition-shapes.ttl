@@ -1,0 +1,772 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix vao: <http://visual-artifacts.org/ontology/composition#> .
+@prefix vaosh: <http://visual-artifacts.org/ontology/composition/shapes#> .
+
+# ============================================================================
+# VAO COMPOSITION SHAPES (SHACL)
+# ============================================================================
+# SHACL validation shapes for VAO composition patterns
+# Version: 1.0.0
+#
+# Constraint types:
+# - SHACL Core: cardinality, type restrictions, property constraints
+# - SHACL-SPARQL: computed values, aggregates, conditional constraints
+#
+# Based on RQ2 research: 100% of constraints expressible (6 Core, 4 SPARQL)
+# ============================================================================
+
+# ============================================================================
+# SECTION 1: COMPOSITION INSTANCE VALIDATION
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Shape: Composition Instance Basic Structure
+# Type: SHACL Core
+# -----------------------------------------------------------------------------
+
+vaosh:CompositionInstanceShape a sh:NodeShape ;
+    sh:targetClass vao:CompositionInstance ;
+    rdfs:label "Composition Instance Shape" ;
+    rdfs:comment "Validates the basic structure of a composition instance." ;
+
+    # Must be based on a pattern
+    sh:property [
+        sh:path vao:instanceOf ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class vao:CompositionPattern ;
+        sh:message "Composition instance must be based on exactly one pattern."
+    ] ;
+
+    # Must have at least one slot
+    sh:property [
+        sh:path vao:hasSlot ;
+        sh:minCount 1 ;
+        sh:message "Composition instance must have at least one slot."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: At Least One Primary Tier Slot Required
+# Type: SHACL-SPARQL
+# Ensures every composition has a hero or hero_split slot
+# -----------------------------------------------------------------------------
+
+vaosh:PrimarySlotRequiredShape a sh:NodeShape ;
+    sh:targetClass vao:CompositionInstance ;
+    rdfs:label "Primary Slot Required Shape" ;
+    rdfs:comment "Validates that composition has at least one primary tier slot." ;
+
+    sh:sparql [
+        sh:message "Composition must have at least one primary tier slot (hero or hero_split)." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ] ;
+            sh:declare [ sh:prefix "rdf" ; sh:namespace "http://www.w3.org/1999/02/22-rdf-syntax-ns#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this a vao:CompositionInstance .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?slot .
+                    ?slot vao:slotTypeOf ?slotType .
+                    FILTER (?slotType IN (vao:HeroSlot, vao:HeroSplitSlot))
+                }
+            }
+        """
+    ] .
+
+# ============================================================================
+# SECTION 2: SLOT INSTANCE VALIDATION
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Shape: Slot Instance Basic Structure
+# Type: SHACL Core
+# -----------------------------------------------------------------------------
+
+vaosh:SlotInstanceShape a sh:NodeShape ;
+    sh:targetClass vao:SlotInstance ;
+    rdfs:label "Slot Instance Shape" ;
+    rdfs:comment "Validates the basic structure of a slot instance." ;
+
+    # Must have a slot type
+    sh:property [
+        sh:path vao:slotTypeOf ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "Slot instance must have exactly one slot type."
+    ] ;
+
+    # Must have at least one artifact (unless auxiliary)
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:minCount 0 ;
+        sh:message "Slot instance may contain artifacts."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Hero Slot Cardinality
+# Type: SHACL Core
+# Hero slot must contain exactly 1 artifact
+# -----------------------------------------------------------------------------
+
+vaosh:HeroSlotCardinalityShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:HeroSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Hero Slot Cardinality Shape" ;
+    rdfs:comment "Hero slot must contain exactly 1 artifact." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "Hero slot must contain exactly 1 artifact."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Hero Slot Artifact Type Constraint
+# Type: SHACL Core
+# Hero artifact must be HeroCompatibleArtifact
+# -----------------------------------------------------------------------------
+
+vaosh:HeroSlotArtifactTypeShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:HeroSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Hero Slot Artifact Type Shape" ;
+    rdfs:comment "Hero slot artifacts must be hero-compatible." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:class vao:HeroCompatibleArtifact ;
+        sh:message "Hero slot can only contain hero-compatible artifacts (TimeSeriesChart, BarChart, KPICard, ScatterPlot, Heatmap, GeoMap, Treemap, SmallMultiples)."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Hero Slot Cannot Contain DataTable
+# Type: SHACL Core (negation)
+# DataTable artifacts are not allowed in hero slots
+# -----------------------------------------------------------------------------
+
+vaosh:HeroSlotNoTableShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:HeroSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Hero Slot No Table Shape" ;
+    rdfs:comment "Hero slot cannot contain DataTable artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:not [ sh:class vao:DataTable ] ;
+        sh:message "Hero slot cannot contain DataTable artifacts."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Hero Split Slot Cardinality
+# Type: SHACL Core
+# Hero split slot must contain 2-3 artifacts
+# -----------------------------------------------------------------------------
+
+vaosh:HeroSplitSlotCardinalityShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:HeroSplitSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Hero Split Slot Cardinality Shape" ;
+    rdfs:comment "Hero split slot must contain 2-3 artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:minCount 2 ;
+        sh:maxCount 3 ;
+        sh:message "Hero split slot must contain 2-3 artifacts."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: KPI Bank Slot Cardinality
+# Type: SHACL Core
+# KPI Bank must have 3-8 KPI cards
+# -----------------------------------------------------------------------------
+
+vaosh:KPIBankSlotCardinalityShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:KPIBankSlot .
+            }
+        """
+    ] ;
+    rdfs:label "KPI Bank Slot Cardinality Shape" ;
+    rdfs:comment "KPI Bank must contain 3-8 KPI-compatible artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:minCount 3 ;
+        sh:maxCount 8 ;
+        sh:message "KPI Bank must contain 3-8 artifacts."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: KPI Bank Slot Artifact Type Constraint
+# Type: SHACL Core
+# KPI Bank artifacts must be KPI-compatible
+# -----------------------------------------------------------------------------
+
+vaosh:KPIBankSlotArtifactTypeShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:KPIBankSlot .
+            }
+        """
+    ] ;
+    rdfs:label "KPI Bank Slot Artifact Type Shape" ;
+    rdfs:comment "KPI Bank can only contain KPI-compatible artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:class vao:KPICompatibleArtifact ;
+        sh:message "KPI Bank can only contain KPI-compatible artifacts (KPICard, KPICardCompact, SparklineCard, GaugeChart, BulletChart)."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Detail Table Slot Cardinality
+# Type: SHACL Core
+# Detail table slot can have 0-2 tables
+# -----------------------------------------------------------------------------
+
+vaosh:DetailTableSlotCardinalityShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:DetailTableSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Detail Table Slot Cardinality Shape" ;
+    rdfs:comment "Detail table slot can contain 0-2 artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:maxCount 2 ;
+        sh:class vao:DetailCompatibleArtifact ;
+        sh:message "Detail table slot can contain at most 2 detail-compatible artifacts."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Detail List Slot Cardinality
+# Type: SHACL Core
+# -----------------------------------------------------------------------------
+
+vaosh:DetailListSlotCardinalityShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:DetailListSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Detail List Slot Cardinality Shape" ;
+    rdfs:comment "Detail list slot can contain 0-2 artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:maxCount 2 ;
+        sh:class vao:DetailCompatibleArtifact ;
+        sh:message "Detail list slot can contain at most 2 detail-compatible artifacts."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Navigation/Filter Slot Artifact Type Constraint
+# Type: SHACL Core
+# -----------------------------------------------------------------------------
+
+vaosh:NavigationFilterSlotArtifactTypeShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:NavigationFilterSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Navigation Filter Slot Artifact Type Shape" ;
+    rdfs:comment "Navigation/Filter slot can only contain navigation-compatible artifacts." ;
+
+    sh:property [
+        sh:path vao:containsArtifact ;
+        sh:class vao:NavigationCompatibleArtifact ;
+        sh:message "Navigation/Filter slot can only contain navigation-compatible artifacts (FilterBar, DateRangePicker, SegmentSelector)."
+    ] .
+
+# ============================================================================
+# SECTION 3: AGGREGATE AND COMPUTED CONSTRAINTS (SHACL-SPARQL)
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Shape: Supporting Slots Total Limit
+# Type: SHACL-SPARQL (aggregate constraint)
+# Supporting slots cannot exceed 4 artifacts total across all supporting slots
+# -----------------------------------------------------------------------------
+
+vaosh:SupportingSlotsTotalLimitShape a sh:NodeShape ;
+    sh:targetClass vao:CompositionInstance ;
+    rdfs:label "Supporting Slots Total Limit Shape" ;
+    rdfs:comment "Supporting slots cannot exceed 4 artifacts total." ;
+
+    sh:sparql [
+        sh:message "Supporting slots cannot exceed 4 artifacts total (found {?count})." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this (COUNT(?artifact) AS ?count)
+            WHERE {
+                $this vao:hasSlot ?slot .
+                ?slot vao:slotTypeOf ?slotType .
+                FILTER (?slotType IN (
+                    vao:SupportingTrendSlot,
+                    vao:SupportingBreakdownSlot,
+                    vao:SupportingComparisonSlot
+                ))
+                ?slot vao:containsArtifact ?artifact .
+            }
+            GROUP BY $this
+            HAVING (COUNT(?artifact) > 4)
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Hero Slot Aspect Ratio Constraint
+# Type: SHACL-SPARQL (computed constraint)
+# Hero slot aspect ratio must be >= 2:1 (landscape orientation)
+# -----------------------------------------------------------------------------
+
+vaosh:HeroSlotAspectRatioShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf vao:HeroSlot .
+            }
+        """
+    ] ;
+    rdfs:label "Hero Slot Aspect Ratio Shape" ;
+    rdfs:comment "Hero slot aspect ratio must be >= 2:1 (landscape)." ;
+
+    sh:sparql [
+        sh:message "Hero slot aspect ratio must be >= 2:1 (landscape). Found {?width}:{?height} = {?ratio}." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this ?width ?height ((?width / ?height) AS ?ratio)
+            WHERE {
+                $this vao:aspectRatioWidth ?width .
+                $this vao:aspectRatioHeight ?height .
+                FILTER (?width / ?height < 2)
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Detail Slots Position Constraint
+# Type: SHACL Core (numeric range)
+# Detail slots must be in lower half of layout (gridPosition >= 50)
+# -----------------------------------------------------------------------------
+
+vaosh:DetailSlotPositionShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:slotTypeOf ?slotType .
+                FILTER (?slotType IN (vao:DetailTableSlot, vao:DetailListSlot))
+            }
+        """
+    ] ;
+    rdfs:label "Detail Slot Position Shape" ;
+    rdfs:comment "Detail slots must be positioned in lower half of layout." ;
+
+    sh:property [
+        sh:path vao:gridPosition ;
+        sh:minInclusive 50 ;
+        sh:message "Detail slots must be positioned in lower half of layout (gridPosition >= 50)."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: KPI Bank Implies Supporting Slot
+# Type: SHACL-SPARQL (conditional/implication constraint)
+# If pattern has KPIBank, it should have at least one supporting slot
+# NOTE: This is a soft recommendation, severity = Warning
+# -----------------------------------------------------------------------------
+
+vaosh:KPIBankImpliesSupportingShape a sh:NodeShape ;
+    sh:targetClass vao:CompositionInstance ;
+    rdfs:label "KPI Bank Implies Supporting Shape" ;
+    rdfs:comment "If composition has KPI Bank, it should also have supporting slots." ;
+    sh:severity sh:Warning ;
+
+    sh:sparql [
+        sh:message "Composition with KPI Bank should have at least one supporting slot for context." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:hasSlot ?kpiBank .
+                ?kpiBank vao:slotTypeOf vao:KPIBankSlot .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?supporting .
+                    ?supporting vao:slotTypeOf ?supportType .
+                    FILTER (?supportType IN (
+                        vao:SupportingTrendSlot,
+                        vao:SupportingBreakdownSlot,
+                        vao:SupportingComparisonSlot
+                    ))
+                }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Maximum Slots Per Composition
+# Type: SHACL Core
+# Compositions should not exceed 8 slots for usability
+# -----------------------------------------------------------------------------
+
+vaosh:MaxSlotsShape a sh:NodeShape ;
+    sh:targetClass vao:CompositionInstance ;
+    rdfs:label "Maximum Slots Shape" ;
+    rdfs:comment "Composition should not exceed 8 slots for usability." ;
+    sh:severity sh:Warning ;
+
+    sh:property [
+        sh:path vao:hasSlot ;
+        sh:maxCount 8 ;
+        sh:message "Composition should not exceed 8 slots for usability."
+    ] .
+
+# ============================================================================
+# SECTION 4: PATTERN-SPECIFIC VALIDATION SHAPES
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Shape: Executive Summary Pattern Requirements
+# Type: SHACL-SPARQL
+# Executive Summary pattern requires: hero, kpi_bank, and trend
+# -----------------------------------------------------------------------------
+
+vaosh:ExecutiveSummaryPatternShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:instanceOf vao:ExecutiveSummaryPattern .
+            }
+        """
+    ] ;
+    rdfs:label "Executive Summary Pattern Shape" ;
+    rdfs:comment "Validates Executive Summary pattern requirements." ;
+
+    # Must have hero slot
+    sh:sparql [
+        sh:message "Executive Summary pattern requires a hero slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:ExecutiveSummaryPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?hero .
+                    ?hero vao:slotTypeOf vao:HeroSlot .
+                }
+            }
+        """
+    ] ;
+
+    # Must have KPI bank
+    sh:sparql [
+        sh:message "Executive Summary pattern requires a KPI bank slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:ExecutiveSummaryPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?kpi .
+                    ?kpi vao:slotTypeOf vao:KPIBankSlot .
+                }
+            }
+        """
+    ] ;
+
+    # Must have at least one supporting trend slot
+    sh:sparql [
+        sh:message "Executive Summary pattern requires at least one supporting trend slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:ExecutiveSummaryPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?trend .
+                    ?trend vao:slotTypeOf vao:SupportingTrendSlot .
+                }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Status Monitor Pattern Requirements
+# Type: SHACL-SPARQL
+# Status Monitor pattern requires: kpi_bank and detail_list
+# -----------------------------------------------------------------------------
+
+vaosh:StatusMonitorPatternShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:instanceOf vao:StatusMonitorPattern .
+            }
+        """
+    ] ;
+    rdfs:label "Status Monitor Pattern Shape" ;
+    rdfs:comment "Validates Status Monitor pattern requirements." ;
+
+    # Must have KPI bank
+    sh:sparql [
+        sh:message "Status Monitor pattern requires a KPI bank slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:StatusMonitorPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?kpi .
+                    ?kpi vao:slotTypeOf vao:KPIBankSlot .
+                }
+            }
+        """
+    ] ;
+
+    # Must have detail list
+    sh:sparql [
+        sh:message "Status Monitor pattern requires at least one detail list slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:StatusMonitorPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?list .
+                    ?list vao:slotTypeOf vao:DetailListSlot .
+                }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Shape: Table Explorer Pattern Requirements
+# Type: SHACL-SPARQL
+# Table Explorer pattern requires: detail_table and navigation_filter
+# -----------------------------------------------------------------------------
+
+vaosh:TableExplorerPatternShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT ?this
+            WHERE {
+                ?this vao:instanceOf vao:TableExplorerPattern .
+            }
+        """
+    ] ;
+    rdfs:label "Table Explorer Pattern Shape" ;
+    rdfs:comment "Validates Table Explorer pattern requirements." ;
+
+    # Must have detail table
+    sh:sparql [
+        sh:message "Table Explorer pattern requires a detail table slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:TableExplorerPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?table .
+                    ?table vao:slotTypeOf vao:DetailTableSlot .
+                }
+            }
+        """
+    ] ;
+
+    # Must have navigation/filter slot
+    sh:sparql [
+        sh:message "Table Explorer pattern requires a navigation/filter slot." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this vao:instanceOf vao:TableExplorerPattern .
+                FILTER NOT EXISTS {
+                    $this vao:hasSlot ?nav .
+                    ?nav vao:slotTypeOf vao:NavigationFilterSlot .
+                }
+            }
+        """
+    ] .
+
+# ============================================================================
+# SECTION 5: ARTIFACT INSTANCE VALIDATION
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Shape: Artifact Instance Basic Structure
+# Type: SHACL Core
+# -----------------------------------------------------------------------------
+
+vaosh:ArtifactInstanceShape a sh:NodeShape ;
+    sh:targetClass vao:Artifact ;
+    rdfs:label "Artifact Instance Shape" ;
+    rdfs:comment "Validates artifact instances have required properties." ;
+
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 0 ;
+        sh:datatype xsd:string ;
+        sh:message "Artifact label must be a string."
+    ] .
+
+# ============================================================================
+# SECTION 6: CROSS-SLOT VALIDATION
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Shape: No Duplicate Artifacts Across Slots
+# Type: SHACL-SPARQL
+# Same artifact instance should not appear in multiple slots
+# -----------------------------------------------------------------------------
+
+vaosh:NoDuplicateArtifactsShape a sh:NodeShape ;
+    sh:targetClass vao:CompositionInstance ;
+    rdfs:label "No Duplicate Artifacts Shape" ;
+    rdfs:comment "Same artifact should not appear in multiple slots." ;
+
+    sh:sparql [
+        sh:message "Artifact {?artifact} appears in multiple slots within the same composition." ;
+        sh:prefixes [
+            sh:declare [ sh:prefix "vao" ; sh:namespace "http://visual-artifacts.org/ontology/composition#"^^xsd:anyURI ]
+        ] ;
+        sh:select """
+            SELECT $this ?artifact (COUNT(?slot) AS ?slotCount)
+            WHERE {
+                $this vao:hasSlot ?slot .
+                ?slot vao:containsArtifact ?artifact .
+            }
+            GROUP BY $this ?artifact
+            HAVING (COUNT(?slot) > 1)
+        """
+    ] .
+
+# ============================================================================
+# END OF SHAPES
+# ============================================================================
