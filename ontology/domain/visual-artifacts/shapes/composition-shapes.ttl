@@ -1,0 +1,333 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+# =============================================================================
+# SHACL Shapes for Composition Pattern Validation
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Composition Shape - validates composition instances
+# -----------------------------------------------------------------------------
+
+comp:CompositionShape a sh:NodeShape ;
+    sh:targetClass comp:Composition ;
+    rdfs:label "Composition Shape" ;
+    rdfs:comment "Validates that a composition instance is properly formed." ;
+
+    # Must reference a pattern
+    sh:property [
+        sh:path comp:usesPattern ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class comp:CompositionPattern ;
+        sh:message "Composition must use exactly one composition pattern."
+    ] ;
+
+    # Should have a title
+    sh:property [
+        sh:path comp:compositionTitle ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "Composition should have a title."
+    ] ;
+
+    # May have an intent
+    sh:property [
+        sh:path comp:hasIntent ;
+        sh:class comp:CompositionIntent ;
+        sh:message "Intent must be a valid CompositionIntent."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Composition Slot Shape
+# -----------------------------------------------------------------------------
+
+comp:CompositionSlotShape a sh:NodeShape ;
+    sh:targetClass comp:CompositionSlot ;
+    rdfs:label "Composition Slot Shape" ;
+    rdfs:comment "Validates composition slot definitions." ;
+
+    # Must have a name
+    sh:property [
+        sh:path comp:slotName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "Slot must have a unique name."
+    ] ;
+
+    # Must have a role
+    sh:property [
+        sh:path comp:slotRole ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class comp:SlotRole ;
+        sh:message "Slot must have exactly one semantic role."
+    ] ;
+
+    # Size ratio must be between 0 and 1
+    sh:property [
+        sh:path comp:slotSizeRatio ;
+        sh:minInclusive 0.0 ;
+        sh:maxInclusive 1.0 ;
+        sh:datatype xsd:decimal ;
+        sh:message "Slot size ratio must be between 0.0 and 1.0."
+    ] ;
+
+    # Min artifacts must be non-negative
+    sh:property [
+        sh:path comp:minArtifacts ;
+        sh:minInclusive 0 ;
+        sh:datatype xsd:integer ;
+        sh:message "Minimum artifacts must be non-negative."
+    ] ;
+
+    # Max artifacts must be positive
+    sh:property [
+        sh:path comp:maxArtifacts ;
+        sh:minInclusive 1 ;
+        sh:datatype xsd:integer ;
+        sh:message "Maximum artifacts must be at least 1."
+    ] ;
+
+    # Position must be specified
+    sh:property [
+        sh:path comp:slotPosition ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Slot must specify a position."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Composition Pattern Shape
+# -----------------------------------------------------------------------------
+
+comp:CompositionPatternShape a sh:NodeShape ;
+    sh:targetClass comp:CompositionPattern ;
+    rdfs:label "Composition Pattern Shape" ;
+    rdfs:comment "Validates composition pattern definitions." ;
+
+    # Must have a name
+    sh:property [
+        sh:path comp:patternName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "Pattern must have a name."
+    ] ;
+
+    # Must have at least one slot
+    sh:property [
+        sh:path comp:hasSlot ;
+        sh:minCount 1 ;
+        sh:class comp:CompositionSlot ;
+        sh:message "Pattern must define at least one slot."
+    ] ;
+
+    # Should have a use case description
+    sh:property [
+        sh:path comp:useCase ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Pattern should describe its use case."
+    ] ;
+
+    # Min slots must be positive
+    sh:property [
+        sh:path comp:minSlots ;
+        sh:minInclusive 1 ;
+        sh:datatype xsd:integer ;
+        sh:message "Minimum slots must be at least 1."
+    ] ;
+
+    # Max slots must be >= min slots (enforced via SPARQL-based constraint)
+    sh:property [
+        sh:path comp:maxSlots ;
+        sh:minInclusive 1 ;
+        sh:datatype xsd:integer ;
+        sh:message "Maximum slots must be at least 1."
+    ] ;
+
+    # Visual weight must be valid
+    sh:property [
+        sh:path comp:visualWeight ;
+        sh:in ("balanced" "top-heavy" "left-heavy" "right-heavy" "centered") ;
+        sh:message "Visual weight must be one of: balanced, top-heavy, left-heavy, right-heavy, centered."
+    ] ;
+
+    # Reading flow must be valid
+    sh:property [
+        sh:path comp:readingFlow ;
+        sh:in ("Z-pattern" "F-pattern" "top-down" "left-right" "center-out") ;
+        sh:message "Reading flow must be one of: Z-pattern, F-pattern, top-down, left-right, center-out."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Slot Size Ratio Sum Constraint
+# (All slot size ratios in a pattern should approximately sum to 1.0)
+# -----------------------------------------------------------------------------
+
+comp:SlotSizeRatioSumRule a sh:NodeShape ;
+    sh:targetClass comp:CompositionPattern ;
+    rdfs:label "Slot Size Ratio Sum Rule" ;
+    rdfs:comment """Validates that the sum of slot size ratios is approximately 1.0.
+    This is an informational constraint - exact validation requires SPARQL.""" ;
+    sh:severity sh:Warning ;
+    sh:message "Consider: slot size ratios should approximately sum to 1.0 for complete coverage." .
+
+# -----------------------------------------------------------------------------
+# Required Slot Constraint
+# -----------------------------------------------------------------------------
+
+comp:RequiredSlotShape a sh:NodeShape ;
+    sh:targetClass comp:CompositionSlot ;
+    rdfs:label "Required Slot Shape" ;
+    rdfs:comment "Validates required slots have minArtifacts >= 1." ;
+
+    # If isRequired is true, minArtifacts should be >= 1
+    sh:sparql [
+        sh:message "Required slots must have minArtifacts >= 1." ;
+        sh:select """
+            PREFIX comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#>
+            SELECT $this
+            WHERE {
+                $this comp:isRequired true .
+                $this comp:minArtifacts ?min .
+                FILTER(?min < 1)
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Hero Role Constraints
+# -----------------------------------------------------------------------------
+
+comp:HeroRoleConstraintShape a sh:NodeShape ;
+    sh:targetClass comp:CompositionPattern ;
+    rdfs:label "Hero Role Constraint" ;
+    rdfs:comment "Patterns with hero slots should have appropriate visual weight." ;
+    sh:severity sh:Info ;
+
+    sh:sparql [
+        sh:message "Patterns with hero slots typically have non-balanced visual weight." ;
+        sh:select """
+            PREFIX comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#>
+            SELECT $this
+            WHERE {
+                $this comp:hasSlot ?slot .
+                ?slot comp:slotRole comp:HeroRole .
+                $this comp:visualWeight "balanced" .
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Artifact Fills Slot Constraint
+# -----------------------------------------------------------------------------
+
+comp:ArtifactInSlotShape a sh:NodeShape ;
+    sh:targetSubjectsOf comp:fillsSlot ;
+    rdfs:label "Artifact Fills Slot Shape" ;
+    rdfs:comment "Validates that artifacts filling slots are proper VisualArtifacts." ;
+
+    sh:property [
+        sh:path [ sh:inversePath rdf:type ] ;
+        sh:class vao:VisualArtifact ;
+        sh:message "Only VisualArtifacts can fill composition slots."
+    ] .
+
+# -----------------------------------------------------------------------------
+# Intent Alignment Validation
+# (Advisory: check if pattern is suitable for stated intent)
+# -----------------------------------------------------------------------------
+
+comp:IntentAlignmentShape a sh:NodeShape ;
+    sh:targetClass comp:Composition ;
+    rdfs:label "Intent Alignment Shape" ;
+    rdfs:comment "Advises when composition intent doesn't match pattern suitability." ;
+    sh:severity sh:Warning ;
+
+    sh:sparql [
+        sh:message "Consider: the composition intent may not align with the pattern's suitability." ;
+        sh:select """
+            PREFIX comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#>
+            SELECT $this
+            WHERE {
+                $this comp:usesPattern ?pattern .
+                $this comp:hasIntent ?intent .
+                FILTER NOT EXISTS {
+                    ?pattern comp:suitableFor ?intent .
+                }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Grid Comparison Specific Constraints
+# -----------------------------------------------------------------------------
+
+comp:GridComparisonShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            PREFIX comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#>
+            SELECT ?this
+            WHERE {
+                ?this comp:usesPattern comp:GridComparison .
+            }
+        """
+    ] ;
+    rdfs:label "Grid Comparison Validation" ;
+    rdfs:comment "Validates compositions using the Grid Comparison pattern." ;
+    sh:severity sh:Warning ;
+
+    sh:message "Grid Comparison works best with exactly 4 or 9 artifacts for 2x2 or 3x3 layouts." .
+
+# -----------------------------------------------------------------------------
+# KPI Dashboard Specific Constraints
+# -----------------------------------------------------------------------------
+
+comp:KPIDashboardShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            PREFIX comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#>
+            SELECT ?this
+            WHERE {
+                ?this comp:usesPattern comp:KPIDashboard .
+            }
+        """
+    ] ;
+    rdfs:label "KPI Dashboard Validation" ;
+    rdfs:comment "Validates compositions using the KPI Dashboard pattern." ;
+    sh:severity sh:Info ;
+
+    sh:message "KPI Dashboard pattern expects 3-6 KPI cards in the summary row." .
+
+# -----------------------------------------------------------------------------
+# Narrative Flow Specific Constraints
+# -----------------------------------------------------------------------------
+
+comp:NarrativeFlowShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            PREFIX comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#>
+            SELECT ?this
+            WHERE {
+                ?this comp:usesPattern comp:NarrativeFlow .
+            }
+        """
+    ] ;
+    rdfs:label "Narrative Flow Validation" ;
+    rdfs:comment "Validates compositions using the Narrative Flow pattern." ;
+    sh:severity sh:Info ;
+
+    sh:message "Narrative Flow works best with vertical aspect ratios (9:16 or 4:5)." .

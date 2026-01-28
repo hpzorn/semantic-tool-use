@@ -1,0 +1,925 @@
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix comp: <http://semantic-tool-use.org/ontology/visual-artifacts/composition#> .
+@prefix viz: <http://semantic-tool-use.org/ontology/visual-artifacts/visualization#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+
+<http://semantic-tool-use.org/ontology/visual-artifacts/composition>
+    a owl:Ontology ;
+    rdfs:label "VAO Composition Patterns Ontology" ;
+    rdfs:comment """Ontology for modeling visual composition patterns used in
+    dashboards, infographics, and multi-artifact layouts. Based on principles
+    from Tufte, Few, and dashboard design systems (Grafana, Tableau).""" ;
+    owl:versionInfo "1.0.0" ;
+    dc:creator "Semantic Tool Use Project" ;
+    dc:created "2026-01-27"^^xsd:date ;
+    owl:imports <http://semantic-tool-use.org/ontology/visual-artifacts> .
+
+# =============================================================================
+# Core Composition Classes
+# =============================================================================
+
+comp:CompositionPattern a owl:Class ;
+    rdfs:label "Composition Pattern" ;
+    rdfs:comment """A reusable pattern for arranging multiple visual artifacts
+    into a coherent composition. Patterns define semantic slots, constraints,
+    and layout relationships.""" ;
+    rdfs:subClassOf vao:Layout .
+
+comp:CompositionSlot a owl:Class ;
+    rdfs:label "Composition Slot" ;
+    rdfs:comment """A semantic slot within a composition pattern that holds
+    a visual artifact. Slots have roles (hero, supporting, detail) and
+    constraints (artifact types, sizing).""" .
+
+comp:Composition a owl:Class ;
+    rdfs:label "Composition" ;
+    rdfs:comment """An instantiated composition combining multiple visual
+    artifacts according to a composition pattern.""" ;
+    rdfs:subClassOf vao:VisualArtifact .
+
+comp:CompositionIntent a owl:Class ;
+    rdfs:label "Composition Intent" ;
+    rdfs:comment """The analytical or communicative purpose of a composition,
+    used for pattern inference.""" .
+
+# =============================================================================
+# Semantic Slot Roles
+# =============================================================================
+
+comp:SlotRole a owl:Class ;
+    rdfs:label "Slot Role" ;
+    rdfs:comment "The semantic role of a slot within a composition pattern." .
+
+comp:HeroRole a comp:SlotRole ;
+    rdfs:label "Hero" ;
+    rdfs:comment """Primary focal point of the composition. Receives the most
+    visual weight and attention. Typically 50-70% of composition area.""" ;
+    skos:example "Main chart, key metric, primary visualization" .
+
+comp:SupportingRole a comp:SlotRole ;
+    rdfs:label "Supporting" ;
+    rdfs:comment """Secondary elements that provide context for the hero.
+    Support the main message without competing for attention.""" ;
+    skos:example "Breakdown charts, comparison metrics, trend indicators" .
+
+comp:ContextRole a comp:SlotRole ;
+    rdfs:label "Context" ;
+    rdfs:comment """Background information that frames the composition.
+    Often includes titles, descriptions, legends, or reference data.""" ;
+    skos:example "Title bar, legend, annotation panel, filters" .
+
+comp:DetailRole a comp:SlotRole ;
+    rdfs:label "Detail" ;
+    rdfs:comment """Granular information available on demand or for deep dives.
+    May be de-emphasized or shown on interaction.""" ;
+    skos:example "Data tables, tooltips, drill-down views" .
+
+comp:SummaryRole a comp:SlotRole ;
+    rdfs:label "Summary" ;
+    rdfs:comment """High-level aggregations or key takeaways. Typically KPIs,
+    scorecards, or summary statistics.""" ;
+    skos:example "KPI cards, summary numbers, status indicators" .
+
+# =============================================================================
+# Composition Slot Properties
+# =============================================================================
+
+comp:hasSlot a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range comp:CompositionSlot ;
+    rdfs:label "has slot" ;
+    rdfs:comment "Defines a slot within this composition pattern." .
+
+comp:slotRole a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range comp:SlotRole ;
+    rdfs:label "slot role" ;
+    rdfs:comment "The semantic role of this slot." .
+
+comp:slotName a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range xsd:string ;
+    rdfs:label "slot name" ;
+    rdfs:comment "Unique name for referencing this slot within the pattern." .
+
+comp:slotPosition a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range xsd:string ;
+    rdfs:label "slot position" ;
+    rdfs:comment """Position within the layout grid. Values like 'top-left',
+    'top-right', 'bottom-span', 'center', or grid coordinates '1,1'.""" .
+
+comp:slotSizeRatio a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "slot size ratio" ;
+    rdfs:comment "Relative size as fraction of total area (0.0-1.0)." .
+
+comp:acceptsArtifactType a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range owl:Class ;
+    rdfs:label "accepts artifact type" ;
+    rdfs:comment "OWL class of artifacts that can fill this slot." .
+
+comp:minArtifacts a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range xsd:integer ;
+    rdfs:label "minimum artifacts" ;
+    rdfs:comment "Minimum number of artifacts for this slot (0 = optional)." .
+
+comp:maxArtifacts a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range xsd:integer ;
+    rdfs:label "maximum artifacts" ;
+    rdfs:comment "Maximum number of artifacts this slot can hold." .
+
+comp:isRequired a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionSlot ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "is required" ;
+    rdfs:comment "Whether this slot must be filled for a valid composition." .
+
+# =============================================================================
+# Composition Pattern Properties
+# =============================================================================
+
+comp:patternName a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range xsd:string ;
+    rdfs:label "pattern name" ;
+    rdfs:comment "Human-readable name for the pattern." .
+
+comp:useCase a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range xsd:string ;
+    rdfs:label "use case" ;
+    rdfs:comment "Description of when to use this pattern." .
+
+comp:suitableFor a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range comp:CompositionIntent ;
+    rdfs:label "suitable for" ;
+    rdfs:comment "Intents this pattern is well-suited for." .
+
+comp:minSlots a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range xsd:integer ;
+    rdfs:label "minimum slots" ;
+    rdfs:comment "Minimum number of filled slots for this pattern." .
+
+comp:maxSlots a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range xsd:integer ;
+    rdfs:label "maximum slots" ;
+    rdfs:comment "Maximum number of artifacts the pattern supports." .
+
+comp:recommendedAspectRatio a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range vao:BoundingBox ;
+    rdfs:label "recommended aspect ratio" ;
+    rdfs:comment "Aspect ratios that work well with this pattern." .
+
+comp:visualWeight a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range xsd:string ;
+    rdfs:label "visual weight" ;
+    rdfs:comment "How visual weight is distributed: 'balanced', 'top-heavy', 'left-heavy', 'centered'." .
+
+comp:readingFlow a owl:DatatypeProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range xsd:string ;
+    rdfs:label "reading flow" ;
+    rdfs:comment "Expected eye movement: 'Z-pattern', 'F-pattern', 'top-down', 'center-out'." .
+
+# =============================================================================
+# Composition Intent Classes (for pattern inference)
+# =============================================================================
+
+comp:CompareValues a comp:CompositionIntent ;
+    rdfs:label "Compare Values" ;
+    rdfs:comment "Compare multiple metrics or categories side by side." ;
+    skos:example "Sales by region, performance across teams" .
+
+comp:ShowTrend a comp:CompositionIntent ;
+    rdfs:label "Show Trend" ;
+    rdfs:comment "Display temporal changes or progression over time." ;
+    skos:example "Revenue over quarters, user growth timeline" .
+
+comp:ShowDistribution a comp:CompositionIntent ;
+    rdfs:label "Show Distribution" ;
+    rdfs:comment "Display how values are spread across a range." ;
+    skos:example "Age demographics, score distribution" .
+
+comp:ShowRelationship a comp:CompositionIntent ;
+    rdfs:label "Show Relationship" ;
+    rdfs:comment "Reveal correlations or connections between variables." ;
+    skos:example "Price vs. sales, effort vs. impact" .
+
+comp:ShowPartToWhole a comp:CompositionIntent ;
+    rdfs:label "Show Part-to-Whole" ;
+    rdfs:comment "Display how components contribute to a total." ;
+    skos:example "Market share, budget allocation" .
+
+comp:ShowHierarchy a comp:CompositionIntent ;
+    rdfs:label "Show Hierarchy" ;
+    rdfs:comment "Display nested or tree-like structures." ;
+    skos:example "Organization chart, file system, taxonomy" .
+
+comp:MonitorStatus a comp:CompositionIntent ;
+    rdfs:label "Monitor Status" ;
+    rdfs:comment "Track current state of key metrics against targets." ;
+    skos:example "SLA dashboard, health metrics, KPI tracking" .
+
+comp:TellStory a comp:CompositionIntent ;
+    rdfs:label "Tell Story" ;
+    rdfs:comment "Guide viewer through a narrative with data." ;
+    skos:example "Quarterly review, impact report, case study" .
+
+comp:ExploreData a comp:CompositionIntent ;
+    rdfs:label "Explore Data" ;
+    rdfs:comment "Enable interactive discovery and drill-down." ;
+    skos:example "Analytics dashboard, data exploration tool" .
+
+# =============================================================================
+# Composition Pattern Instances
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Pattern 1: Grid Comparison (2x2, 3x3)
+# -----------------------------------------------------------------------------
+
+comp:GridComparison a comp:CompositionPattern ;
+    rdfs:label "Grid Comparison" ;
+    comp:patternName "Grid Comparison" ;
+    rdfs:comment """Equal-sized grid of visualizations for direct comparison.
+    Each cell has equal visual weight. Best for 4-9 related metrics.
+    Based on Tufte's small multiples principle.""" ;
+    comp:useCase "Comparing metrics across regions, time periods, or categories" ;
+    comp:suitableFor comp:CompareValues ;
+    comp:minSlots 4 ;
+    comp:maxSlots 9 ;
+    comp:visualWeight "balanced" ;
+    comp:readingFlow "Z-pattern" ;
+    comp:recommendedAspectRatio vao:Aspect16x9, vao:Aspect1x1 ;
+    comp:hasSlot comp:GridComparison_Cell1, comp:GridComparison_Cell2,
+                 comp:GridComparison_Cell3, comp:GridComparison_Cell4 .
+
+comp:GridComparison_Cell1 a comp:CompositionSlot ;
+    comp:slotName "cell-1" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "top-left" ;
+    comp:slotSizeRatio 0.25 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+comp:GridComparison_Cell2 a comp:CompositionSlot ;
+    comp:slotName "cell-2" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "top-right" ;
+    comp:slotSizeRatio 0.25 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+comp:GridComparison_Cell3 a comp:CompositionSlot ;
+    comp:slotName "cell-3" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-left" ;
+    comp:slotSizeRatio 0.25 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+comp:GridComparison_Cell4 a comp:CompositionSlot ;
+    comp:slotName "cell-4" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-right" ;
+    comp:slotSizeRatio 0.25 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+# -----------------------------------------------------------------------------
+# Pattern 2: Hero with Supporting
+# -----------------------------------------------------------------------------
+
+comp:HeroWithSupporting a comp:CompositionPattern ;
+    rdfs:label "Hero with Supporting" ;
+    comp:patternName "Hero with Supporting" ;
+    rdfs:comment """Primary visualization with 2-4 supporting elements.
+    Hero gets 60-70% of visual weight. Supporting elements provide context
+    without competing. Based on Few's dashboard design principles.""" ;
+    comp:useCase "Highlighting a key metric with contextual breakdowns" ;
+    comp:suitableFor comp:MonitorStatus, comp:TellStory ;
+    comp:minSlots 2 ;
+    comp:maxSlots 5 ;
+    comp:visualWeight "top-heavy" ;
+    comp:readingFlow "F-pattern" ;
+    comp:recommendedAspectRatio vao:Aspect16x9 ;
+    comp:hasSlot comp:HeroWithSupporting_Hero, comp:HeroWithSupporting_Support1,
+                 comp:HeroWithSupporting_Support2, comp:HeroWithSupporting_Support3 .
+
+comp:HeroWithSupporting_Hero a comp:CompositionSlot ;
+    comp:slotName "hero" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "top-span" ;
+    comp:slotSizeRatio 0.6 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+comp:HeroWithSupporting_Support1 a comp:CompositionSlot ;
+    comp:slotName "supporting-1" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-left" ;
+    comp:slotSizeRatio 0.13 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+comp:HeroWithSupporting_Support2 a comp:CompositionSlot ;
+    comp:slotName "supporting-2" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-center" ;
+    comp:slotSizeRatio 0.13 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+comp:HeroWithSupporting_Support3 a comp:CompositionSlot ;
+    comp:slotName "supporting-3" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-right" ;
+    comp:slotSizeRatio 0.13 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+# -----------------------------------------------------------------------------
+# Pattern 3: KPI Dashboard
+# -----------------------------------------------------------------------------
+
+comp:KPIDashboard a comp:CompositionPattern ;
+    rdfs:label "KPI Dashboard" ;
+    comp:patternName "KPI Dashboard" ;
+    rdfs:comment """Summary KPIs at top with detail charts below.
+    Top row shows 3-6 key metrics at a glance. Lower section provides
+    supporting trends and breakdowns. Common in executive dashboards.""" ;
+    comp:useCase "Executive summaries, status monitoring, performance tracking" ;
+    comp:suitableFor comp:MonitorStatus, comp:CompareValues ;
+    comp:minSlots 4 ;
+    comp:maxSlots 10 ;
+    comp:visualWeight "top-heavy" ;
+    comp:readingFlow "top-down" ;
+    comp:recommendedAspectRatio vao:Aspect16x9 ;
+    comp:hasSlot comp:KPIDashboard_KPIRow, comp:KPIDashboard_MainChart,
+                 comp:KPIDashboard_Detail1, comp:KPIDashboard_Detail2 .
+
+comp:KPIDashboard_KPIRow a comp:CompositionSlot ;
+    comp:slotName "kpi-row" ;
+    comp:slotRole comp:SummaryRole ;
+    comp:slotPosition "top-span" ;
+    comp:slotSizeRatio 0.2 ;
+    comp:minArtifacts 3 ;
+    comp:maxArtifacts 6 ;
+    comp:isRequired true ;
+    rdfs:comment "Row of KPI cards showing key metrics." .
+
+comp:KPIDashboard_MainChart a comp:CompositionSlot ;
+    comp:slotName "main-chart" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "middle-span" ;
+    comp:slotSizeRatio 0.5 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Primary trend or comparison chart." .
+
+comp:KPIDashboard_Detail1 a comp:CompositionSlot ;
+    comp:slotName "detail-1" ;
+    comp:slotRole comp:DetailRole ;
+    comp:slotPosition "bottom-left" ;
+    comp:slotSizeRatio 0.15 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+comp:KPIDashboard_Detail2 a comp:CompositionSlot ;
+    comp:slotName "detail-2" ;
+    comp:slotRole comp:DetailRole ;
+    comp:slotPosition "bottom-right" ;
+    comp:slotSizeRatio 0.15 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+# -----------------------------------------------------------------------------
+# Pattern 4: Timeline with Metrics
+# -----------------------------------------------------------------------------
+
+comp:TimelineWithMetrics a comp:CompositionPattern ;
+    rdfs:label "Timeline with Metrics" ;
+    comp:patternName "Timeline with Metrics" ;
+    rdfs:comment """Temporal visualization as hero with summary metrics.
+    Shows trend over time with point-in-time comparisons. Ideal for
+    time-series data with current-state KPIs.""" ;
+    comp:useCase "Tracking temporal changes with current state context" ;
+    comp:suitableFor comp:ShowTrend, comp:MonitorStatus ;
+    comp:minSlots 2 ;
+    comp:maxSlots 6 ;
+    comp:visualWeight "left-heavy" ;
+    comp:readingFlow "F-pattern" ;
+    comp:recommendedAspectRatio vao:Aspect16x9 ;
+    comp:hasSlot comp:TimelineWithMetrics_Timeline, comp:TimelineWithMetrics_Current,
+                 comp:TimelineWithMetrics_Summary1, comp:TimelineWithMetrics_Summary2 .
+
+comp:TimelineWithMetrics_Timeline a comp:CompositionSlot ;
+    comp:slotName "timeline" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "left-major" ;
+    comp:slotSizeRatio 0.65 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Primary time-series visualization." .
+
+comp:TimelineWithMetrics_Current a comp:CompositionSlot ;
+    comp:slotName "current-value" ;
+    comp:slotRole comp:SummaryRole ;
+    comp:slotPosition "right-top" ;
+    comp:slotSizeRatio 0.15 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Current/latest value highlight." .
+
+comp:TimelineWithMetrics_Summary1 a comp:CompositionSlot ;
+    comp:slotName "summary-1" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "right-middle" ;
+    comp:slotSizeRatio 0.1 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+comp:TimelineWithMetrics_Summary2 a comp:CompositionSlot ;
+    comp:slotName "summary-2" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "right-bottom" ;
+    comp:slotSizeRatio 0.1 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+# -----------------------------------------------------------------------------
+# Pattern 5: Split Comparison
+# -----------------------------------------------------------------------------
+
+comp:SplitComparison a comp:CompositionPattern ;
+    rdfs:label "Split Comparison" ;
+    comp:patternName "Split Comparison" ;
+    rdfs:comment """Side-by-side comparison of two related visualizations.
+    Equal weight to both sides. Ideal for before/after, A/B testing,
+    or comparing two time periods.""" ;
+    comp:useCase "Before/after comparison, A/B testing results, period comparison" ;
+    comp:suitableFor comp:CompareValues ;
+    comp:minSlots 2 ;
+    comp:maxSlots 4 ;
+    comp:visualWeight "balanced" ;
+    comp:readingFlow "left-right" ;
+    comp:recommendedAspectRatio vao:Aspect16x9 ;
+    comp:hasSlot comp:SplitComparison_Left, comp:SplitComparison_Right,
+                 comp:SplitComparison_LeftLabel, comp:SplitComparison_RightLabel .
+
+comp:SplitComparison_Left a comp:CompositionSlot ;
+    comp:slotName "left" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "left-half" ;
+    comp:slotSizeRatio 0.45 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+comp:SplitComparison_Right a comp:CompositionSlot ;
+    comp:slotName "right" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "right-half" ;
+    comp:slotSizeRatio 0.45 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true .
+
+comp:SplitComparison_LeftLabel a comp:CompositionSlot ;
+    comp:slotName "left-label" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "left-header" ;
+    comp:slotSizeRatio 0.05 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+comp:SplitComparison_RightLabel a comp:CompositionSlot ;
+    comp:slotName "right-label" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "right-header" ;
+    comp:slotSizeRatio 0.05 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false .
+
+# -----------------------------------------------------------------------------
+# Pattern 6: Narrative Flow
+# -----------------------------------------------------------------------------
+
+comp:NarrativeFlow a comp:CompositionPattern ;
+    rdfs:label "Narrative Flow" ;
+    comp:patternName "Narrative Flow" ;
+    rdfs:comment """Sequential storytelling with 3-5 stages. Guides viewer
+    through a data story from context to insight to action. Based on
+    Knaflic's storytelling with data principles.""" ;
+    comp:useCase "Data stories, quarterly reviews, impact reports, case studies" ;
+    comp:suitableFor comp:TellStory ;
+    comp:minSlots 3 ;
+    comp:maxSlots 5 ;
+    comp:visualWeight "balanced" ;
+    comp:readingFlow "top-down" ;
+    comp:recommendedAspectRatio vao:Aspect9x16, vao:Aspect4x5 ;
+    comp:hasSlot comp:NarrativeFlow_Context, comp:NarrativeFlow_Challenge,
+                 comp:NarrativeFlow_Solution, comp:NarrativeFlow_Impact,
+                 comp:NarrativeFlow_Action .
+
+comp:NarrativeFlow_Context a comp:CompositionSlot ;
+    comp:slotName "context" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "stage-1" ;
+    comp:slotSizeRatio 0.2 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Sets the scene - what is the situation?" .
+
+comp:NarrativeFlow_Challenge a comp:CompositionSlot ;
+    comp:slotName "challenge" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "stage-2" ;
+    comp:slotSizeRatio 0.25 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "The problem or opportunity - why does it matter?" .
+
+comp:NarrativeFlow_Solution a comp:CompositionSlot ;
+    comp:slotName "solution" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "stage-3" ;
+    comp:slotSizeRatio 0.2 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false ;
+    rdfs:comment "What was done or proposed?" .
+
+comp:NarrativeFlow_Impact a comp:CompositionSlot ;
+    comp:slotName "impact" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "stage-4" ;
+    comp:slotSizeRatio 0.25 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Results and outcomes - what changed?" .
+
+comp:NarrativeFlow_Action a comp:CompositionSlot ;
+    comp:slotName "action" ;
+    comp:slotRole comp:SummaryRole ;
+    comp:slotPosition "stage-5" ;
+    comp:slotSizeRatio 0.1 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false ;
+    rdfs:comment "Call to action - what next?" .
+
+# -----------------------------------------------------------------------------
+# Pattern 7: Quadrant Analysis
+# -----------------------------------------------------------------------------
+
+comp:QuadrantAnalysis a comp:CompositionPattern ;
+    rdfs:label "Quadrant Analysis" ;
+    comp:patternName "Quadrant Analysis" ;
+    rdfs:comment """Strategic 2x2 matrix with distinct quadrant meanings.
+    Each quadrant represents a category or action. Classic strategy tool
+    (BCG Matrix, Eisenhower Matrix, effort/impact).""" ;
+    comp:useCase "Strategic prioritization, portfolio analysis, classification" ;
+    comp:suitableFor comp:ShowRelationship, comp:CompareValues ;
+    comp:minSlots 4 ;
+    comp:maxSlots 5 ;
+    comp:visualWeight "balanced" ;
+    comp:readingFlow "center-out" ;
+    comp:recommendedAspectRatio vao:Aspect1x1, vao:Aspect16x9 ;
+    comp:hasSlot comp:QuadrantAnalysis_Q1, comp:QuadrantAnalysis_Q2,
+                 comp:QuadrantAnalysis_Q3, comp:QuadrantAnalysis_Q4,
+                 comp:QuadrantAnalysis_Center .
+
+comp:QuadrantAnalysis_Q1 a comp:CompositionSlot ;
+    comp:slotName "quadrant-1" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "top-right" ;
+    comp:slotSizeRatio 0.22 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "High-high quadrant (e.g., Stars, Do First)" .
+
+comp:QuadrantAnalysis_Q2 a comp:CompositionSlot ;
+    comp:slotName "quadrant-2" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "top-left" ;
+    comp:slotSizeRatio 0.22 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Low-high quadrant (e.g., Question Marks, Schedule)" .
+
+comp:QuadrantAnalysis_Q3 a comp:CompositionSlot ;
+    comp:slotName "quadrant-3" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-left" ;
+    comp:slotSizeRatio 0.22 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Low-low quadrant (e.g., Dogs, Eliminate)" .
+
+comp:QuadrantAnalysis_Q4 a comp:CompositionSlot ;
+    comp:slotName "quadrant-4" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "bottom-right" ;
+    comp:slotSizeRatio 0.22 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "High-low quadrant (e.g., Cash Cows, Delegate)" .
+
+comp:QuadrantAnalysis_Center a comp:CompositionSlot ;
+    comp:slotName "center" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "center" ;
+    comp:slotSizeRatio 0.12 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false ;
+    rdfs:comment "Central label or brand element." .
+
+# -----------------------------------------------------------------------------
+# Pattern 8: Detail-on-Demand
+# -----------------------------------------------------------------------------
+
+comp:DetailOnDemand a comp:CompositionPattern ;
+    rdfs:label "Detail-on-Demand" ;
+    comp:patternName "Detail-on-Demand" ;
+    rdfs:comment """Overview visualization with expandable detail panel.
+    Follows Shneiderman's Visual Information Seeking Mantra:
+    Overview first, zoom and filter, details on demand.""" ;
+    comp:useCase "Data exploration, interactive analysis, drill-down interfaces" ;
+    comp:suitableFor comp:ExploreData ;
+    comp:minSlots 2 ;
+    comp:maxSlots 4 ;
+    comp:visualWeight "left-heavy" ;
+    comp:readingFlow "F-pattern" ;
+    comp:recommendedAspectRatio vao:Aspect16x9 ;
+    comp:hasSlot comp:DetailOnDemand_Overview, comp:DetailOnDemand_Detail,
+                 comp:DetailOnDemand_Filters .
+
+comp:DetailOnDemand_Overview a comp:CompositionSlot ;
+    comp:slotName "overview" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "left-major" ;
+    comp:slotSizeRatio 0.6 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Primary overview visualization." .
+
+comp:DetailOnDemand_Detail a comp:CompositionSlot ;
+    comp:slotName "detail" ;
+    comp:slotRole comp:DetailRole ;
+    comp:slotPosition "right-major" ;
+    comp:slotSizeRatio 0.35 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 3 ;
+    comp:isRequired true ;
+    rdfs:comment "Detail panel showing selected item(s)." .
+
+comp:DetailOnDemand_Filters a comp:CompositionSlot ;
+    comp:slotName "filters" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "top-span" ;
+    comp:slotSizeRatio 0.05 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false ;
+    rdfs:comment "Filter controls or navigation." .
+
+# -----------------------------------------------------------------------------
+# Pattern 9: Infographic Strip
+# -----------------------------------------------------------------------------
+
+comp:InfographicStrip a comp:CompositionPattern ;
+    rdfs:label "Infographic Strip" ;
+    comp:patternName "Infographic Strip" ;
+    rdfs:comment """Horizontal or vertical strip of related visuals.
+    Flows as a sequence of connected insights. Common in social media
+    carousels and scrollable infographics.""" ;
+    comp:useCase "Social media carousels, scrollable content, step-by-step guides" ;
+    comp:suitableFor comp:TellStory, comp:ShowTrend ;
+    comp:minSlots 3 ;
+    comp:maxSlots 10 ;
+    comp:visualWeight "balanced" ;
+    comp:readingFlow "left-right" ;
+    comp:recommendedAspectRatio vao:Aspect1x1, vao:Aspect4x5 ;
+    comp:hasSlot comp:InfographicStrip_Panel .
+
+comp:InfographicStrip_Panel a comp:CompositionSlot ;
+    comp:slotName "panel" ;
+    comp:slotRole comp:SupportingRole ;
+    comp:slotPosition "sequential" ;
+    comp:slotSizeRatio 0.1 ;
+    comp:minArtifacts 3 ;
+    comp:maxArtifacts 10 ;
+    comp:isRequired true ;
+    rdfs:comment "Individual panels in the strip sequence." .
+
+# -----------------------------------------------------------------------------
+# Pattern 10: Focus with Context
+# -----------------------------------------------------------------------------
+
+comp:FocusWithContext a comp:CompositionPattern ;
+    rdfs:label "Focus with Context" ;
+    comp:patternName "Focus with Context" ;
+    rdfs:comment """Detailed focus area with surrounding context.
+    Shows zoomed-in detail while maintaining overall awareness.
+    Based on focus+context visualization principles.""" ;
+    comp:useCase "Geographic drill-down, time-series zoom, hierarchical navigation" ;
+    comp:suitableFor comp:ExploreData, comp:ShowHierarchy ;
+    comp:minSlots 2 ;
+    comp:maxSlots 3 ;
+    comp:visualWeight "centered" ;
+    comp:readingFlow "center-out" ;
+    comp:recommendedAspectRatio vao:Aspect16x9, vao:Aspect4x3 ;
+    comp:hasSlot comp:FocusWithContext_Focus, comp:FocusWithContext_Context,
+                 comp:FocusWithContext_Navigation .
+
+comp:FocusWithContext_Focus a comp:CompositionSlot ;
+    comp:slotName "focus" ;
+    comp:slotRole comp:HeroRole ;
+    comp:slotPosition "center" ;
+    comp:slotSizeRatio 0.6 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Detailed focus area." .
+
+comp:FocusWithContext_Context a comp:CompositionSlot ;
+    comp:slotName "context" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "surround" ;
+    comp:slotSizeRatio 0.35 ;
+    comp:minArtifacts 1 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired true ;
+    rdfs:comment "Contextual overview (often minimap or breadcrumb)." .
+
+comp:FocusWithContext_Navigation a comp:CompositionSlot ;
+    comp:slotName "navigation" ;
+    comp:slotRole comp:ContextRole ;
+    comp:slotPosition "edge" ;
+    comp:slotSizeRatio 0.05 ;
+    comp:minArtifacts 0 ;
+    comp:maxArtifacts 1 ;
+    comp:isRequired false ;
+    rdfs:comment "Navigation controls for changing focus." .
+
+# =============================================================================
+# Composition Instance Properties
+# =============================================================================
+
+comp:usesPattern a owl:ObjectProperty ;
+    rdfs:domain comp:Composition ;
+    rdfs:range comp:CompositionPattern ;
+    rdfs:label "uses pattern" ;
+    rdfs:comment "The composition pattern this instance follows." .
+
+comp:fillsSlot a owl:ObjectProperty ;
+    rdfs:domain vao:VisualArtifact ;
+    rdfs:range comp:CompositionSlot ;
+    rdfs:label "fills slot" ;
+    rdfs:comment "The slot this artifact fills in a composition." .
+
+comp:hasIntent a owl:ObjectProperty ;
+    rdfs:domain comp:Composition ;
+    rdfs:range comp:CompositionIntent ;
+    rdfs:label "has intent" ;
+    rdfs:comment "The communicative intent of this composition." .
+
+comp:compositionTitle a owl:DatatypeProperty ;
+    rdfs:domain comp:Composition ;
+    rdfs:range xsd:string ;
+    rdfs:label "composition title" .
+
+comp:targetAudience a owl:DatatypeProperty ;
+    rdfs:domain comp:Composition ;
+    rdfs:range xsd:string ;
+    rdfs:label "target audience" ;
+    rdfs:comment "Intended audience for the composition." .
+
+# =============================================================================
+# Pattern Constraints (for SHACL validation)
+# =============================================================================
+
+comp:PatternConstraint a owl:Class ;
+    rdfs:label "Pattern Constraint" ;
+    rdfs:comment "A constraint that must be satisfied for a valid composition." .
+
+comp:hasConstraint a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range comp:PatternConstraint ;
+    rdfs:label "has constraint" .
+
+comp:ArtifactTypeConstraint a comp:PatternConstraint ;
+    rdfs:label "Artifact Type Constraint" ;
+    rdfs:comment "Constraint on what artifact types can fill a slot." .
+
+comp:SizeRatioConstraint a comp:PatternConstraint ;
+    rdfs:label "Size Ratio Constraint" ;
+    rdfs:comment "Constraint on relative sizes within the composition." .
+
+comp:ConsistencyConstraint a comp:PatternConstraint ;
+    rdfs:label "Consistency Constraint" ;
+    rdfs:comment "Constraint requiring consistent styling across slots." .
+
+# =============================================================================
+# Design Principles (informational)
+# =============================================================================
+
+comp:DesignPrinciple a owl:Class ;
+    rdfs:label "Design Principle" ;
+    rdfs:comment "A visualization design principle that informs pattern usage." .
+
+comp:basedOnPrinciple a owl:ObjectProperty ;
+    rdfs:domain comp:CompositionPattern ;
+    rdfs:range comp:DesignPrinciple ;
+    rdfs:label "based on principle" .
+
+comp:SmallMultiples a comp:DesignPrinciple ;
+    rdfs:label "Small Multiples (Tufte)" ;
+    rdfs:comment """Repeated mini-charts that allow comparison through
+    consistent scales and layouts. From Tufte's Visual Display of
+    Quantitative Information.""" ;
+    dc:creator "Edward Tufte" .
+
+comp:DataInkRatio a comp:DesignPrinciple ;
+    rdfs:label "Data-Ink Ratio (Tufte)" ;
+    rdfs:comment """Maximize the proportion of ink devoted to data.
+    Avoid chartjunk and non-data elements.""" ;
+    dc:creator "Edward Tufte" .
+
+comp:VisualHierarchy a comp:DesignPrinciple ;
+    rdfs:label "Visual Hierarchy (Few)" ;
+    rdfs:comment """Establish clear importance through size, position,
+    and contrast. Most important information gets most visual weight.""" ;
+    dc:creator "Stephen Few" .
+
+comp:PreattentiveProcessing a comp:DesignPrinciple ;
+    rdfs:label "Preattentive Processing (Few)" ;
+    rdfs:comment """Use visual attributes (color, size, position) that
+    are processed preattentively for immediate comprehension.""" ;
+    dc:creator "Stephen Few" .
+
+comp:OverviewFirstDetailOnDemand a comp:DesignPrinciple ;
+    rdfs:label "Overview First, Details on Demand (Shneiderman)" ;
+    rdfs:comment """Start with overview, allow zoom and filter,
+    provide details on demand. Visual Information Seeking Mantra.""" ;
+    dc:creator "Ben Shneiderman" .
+
+comp:StorytellingWithData a comp:DesignPrinciple ;
+    rdfs:label "Storytelling with Data (Knaflic)" ;
+    rdfs:comment """Structure data presentations as stories with
+    context, conflict, and resolution.""" ;
+    dc:creator "Cole Nussbaumer Knaflic" .
+
+# Link patterns to their foundational principles
+comp:GridComparison comp:basedOnPrinciple comp:SmallMultiples .
+comp:HeroWithSupporting comp:basedOnPrinciple comp:VisualHierarchy .
+comp:KPIDashboard comp:basedOnPrinciple comp:VisualHierarchy, comp:PreattentiveProcessing .
+comp:DetailOnDemand comp:basedOnPrinciple comp:OverviewFirstDetailOnDemand .
+comp:NarrativeFlow comp:basedOnPrinciple comp:StorytellingWithData .
+comp:QuadrantAnalysis comp:basedOnPrinciple comp:PreattentiveProcessing .
