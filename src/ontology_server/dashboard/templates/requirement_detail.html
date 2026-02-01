@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}{{ subject }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="requirement-detail">
+    <a href="{{ dashboard_url(request, 'prd_detail', context=context) }}" class="back-link">&larr; {{ context | upper }}</a>
+
+    {% if not found %}
+    <div class="prd-error">{{ error }}</div>
+    {% else %}
+
+    <h1>{{ title }}</h1>
+    <div class="req-meta">
+        <code>{{ subject }}</code>
+        <span class="status-badge badge-{{ status | lower }}">{{ status }}</span>
+        <span class="priority-badge priority-{{ priority | lower }}">{{ priority }}</span>
+    </div>
+
+    {# ── Properties ── #}
+    <table class="property-table">
+        <thead>
+            <tr><th>Property</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Task ID</td><td><code>{{ taskId }}</code></td></tr>
+            <tr><td>Phase</td><td>{{ phase }}</td></tr>
+            <tr><td>Priority</td><td><span class="priority-badge priority-{{ priority | lower }}">{{ priority }}</span></td></tr>
+            <tr><td>Status</td><td><span class="status-badge badge-{{ status | lower }}">{{ status }}</span></td></tr>
+            <tr><td>Action</td><td><code>{{ action }}</code></td></tr>
+            {% if files %}<tr><td>Files</td><td><code>{{ files }}</code></td></tr>{% endif %}
+            {% if verification %}<tr><td>Verification</td><td>{{ verification }}</td></tr>{% endif %}
+        </tbody>
+    </table>
+
+    {# ── Description ── #}
+    {% if description %}
+    <h2>Description</h2>
+    <div class="req-description">{{ description }}</div>
+    {% endif %}
+
+    {# ── Depends On ── #}
+    <h2>Depends On</h2>
+    {% if deps_detail %}
+    <table class="dep-table">
+        <thead>
+            <tr><th>Task</th><th>Title</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for dep in deps_detail %}
+            <tr>
+                <td>
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=dep.subject) }}">
+                        <code>{{ dep.taskId }}</code>
+                    </a>
+                </td>
+                <td>
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=dep.subject) }}">
+                        {{ dep.title }}
+                    </a>
+                </td>
+                <td><span class="status-badge badge-{{ dep.status | lower }}">{{ dep.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No upstream dependencies (root requirement).</p>
+    {% endif %}
+
+    {# ── Depended By (reverse) ── #}
+    <h2>Required By</h2>
+    {% if depended_by_detail %}
+    <table class="dep-table">
+        <thead>
+            <tr><th>Task</th><th>Title</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for dep in depended_by_detail %}
+            <tr>
+                <td>
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=dep.subject) }}">
+                        <code>{{ dep.taskId }}</code>
+                    </a>
+                </td>
+                <td>
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=dep.subject) }}">
+                        {{ dep.title }}
+                    </a>
+                </td>
+                <td><span class="status-badge badge-{{ dep.status | lower }}">{{ dep.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No downstream dependents (leaf requirement).</p>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endblock %}
