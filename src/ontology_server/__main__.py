@@ -6,13 +6,20 @@ The server can operate in multiple modes:
 1. MCP stdio mode (default): For Claude Code integration
 2. HTTP mode: REST API + MCP SSE (use --http flag)
 3. Combined mode: Include A-Box (knowledge graph) tools (use --enable-abox flag)
+
+Feature flags:
+- --enable-abox: Enable knowledge graph tools (ideas, memory, wikidata)
+- --enable-llm: Enable LLM-powered analysis tools (requires ANTHROPIC_API_KEY)
+- --enable-search: Enable semantic search tools (requires sentence-transformers)
 """
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
+from .auth import get_or_create_api_key
 from .config import settings, Settings
 from .core.store import OntologyStore
 from .core.validation import SHACLValidator
@@ -103,6 +110,16 @@ def main():
         help="Enable A-Box (knowledge graph) tools for ideas, agent memory, and Wikidata"
     )
     parser.add_argument(
+        "--enable-llm",
+        action="store_true",
+        help="Enable LLM-powered analysis tools (requires ANTHROPIC_API_KEY)"
+    )
+    parser.add_argument(
+        "--enable-search",
+        action="store_true",
+        help="Enable semantic search tools (requires sentence-transformers)"
+    )
+    parser.add_argument(
         "--kg-persist",
         type=Path,
         default=None,
@@ -121,6 +138,14 @@ def main():
     setup_logging(args.log_level)
     logger = logging.getLogger(__name__)
 
+    # Resolve API key (env var → key file; opt-in via ONTOLOGY_AUTH_ENABLED=1)
+    api_key = ""
+    if os.environ.get("ONTOLOGY_AUTH_ENABLED") == "1":
+        api_key = get_or_create_api_key()
+        logger.info("Authentication: Bearer token required for all MCP connections")
+    else:
+        logger.info("Authentication: disabled (set ONTOLOGY_AUTH_ENABLED=1 to enable)")
+
     # Create settings with CLI overrides
     cli_settings = Settings(
         ontology_path=args.ontology_path,
@@ -128,6 +153,9 @@ def main():
         host=args.host,
         port=args.port,
         log_level=args.log_level,
+        enable_llm=args.enable_llm,
+        enable_search=args.enable_search,
+        api_key=api_key,
     )
 
     # Resolve paths
@@ -165,11 +193,11 @@ def main():
             kg_store = KnowledgeGraphStore(kg_persist)
             logger.info(f"Knowledge graph initialized (persist={kg_persist or 'in-memory'})")
 
-            # Optionally migrate ideas
+            # Optionally migrate ideas, seeds, and graph relationships
             if args.ideas_dir and args.ideas_dir.exists():
-                from knowledge_graph.migration import migrate_ideas
+                from knowledge_graph.migration import full_migration
                 logger.info(f"Migrating ideas from {args.ideas_dir}")
-                stats = migrate_ideas(args.ideas_dir, kg_store)
+                stats = full_migration(args.ideas_dir, kg_store)
                 logger.info(f"Migration complete: {stats}")
 
         except ImportError as e:
@@ -198,13 +226,39 @@ def main():
     else:
         # MCP stdio mode (default)
         logger.info("Starting MCP server in stdio mode")
+
+        # Build tool list for logging
         tools = ["list_ontologies", "get_ontology", "query_ontology",
                  "get_classes", "get_properties", "add_triple", "validate_instance", "search_ontology"]
         if kg_store:
-            tools.extend(["query_ideas", "get_idea", "create_idea", "update_idea",
-                         "store_fact", "recall_facts", "forget_fact",
-                         "lookup_wikidata", "query_wikidata", "get_kg_stats"])
-        logger.info(f"Tools available: {', '.join(tools)}")
+            tools.extend([
+                # Ideas
+                "query_ideas", "get_idea", "create_idea", "update_idea",
+                "delete_idea", "append_to_idea",
+                # Seeds
+                "capture_seed", "list_seeds", "read_seed", "crystallize_seed",
+                # Lifecycle
+                "set_lifecycle", "get_workable_ideas", "get_ralph_status",
+                "get_ideas_by_lifecycle", "move_to_backlog", "check_parent_completion",
+                # Dependencies
+                "add_dependency", "remove_dependency", "get_idea_dependencies", "create_sub_idea",
+                # Memory
+                "store_fact", "recall_facts", "forget_fact",
+                "recall_recent_facts", "forget_by_context", "get_memory_stats",
+                # Wikidata
+                "lookup_wikidata", "query_wikidata", "search_wikidata_cache", "get_wikidata_stats",
+                # Cross-graph
+                "sparql_query", "get_graph_stats", "export_idea_markdown",
+                "get_related_ideas", "get_ideas_by_wikidata", "get_all_tags",
+                "list_by_author", "extract_todos",
+            ])
+            if args.enable_search:
+                tools.extend(["semantic_search", "explore_concept"])
+            if args.enable_llm:
+                tools.extend(["check_novelty", "find_related_ideas_llm",
+                             "discover_categories", "merge_ideas"])
+
+        logger.info(f"Tools available ({len(tools)}): {', '.join(tools)}")
         mcp.run()
 
 

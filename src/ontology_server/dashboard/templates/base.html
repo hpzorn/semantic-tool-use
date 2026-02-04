@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Ontology Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ request.url_for('dashboard_static', path='style.css') }}">
+    <script src="{{ request.url_for('dashboard_static', path='htmx.min.js') }}" defer></script>
+    <script src="{{ request.url_for('dashboard_static', path='browser.js') }}" defer></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="{{ dashboard_url(request, 'dashboard') }}" class="nav-brand">Ontology Dashboard</a>
+            <ul class="nav-links">
+                <li><a href="{{ dashboard_url(request, 'dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ dashboard_url(request, 'idea_list') }}">Ideas</a></li>
+                <li><a href="{{ dashboard_url(request, 'prd_list') }}">PRDs</a></li>
+                <li><a href="{{ dashboard_url(request, 'facts_browser') }}">Facts</a></li>
+                <li><a href="{{ dashboard_url(request, 'instance_list') }}">Instances</a></li>
+                <li><form method="post" action="/dashboard/logout" style="display:inline"><button type="submit" style="background:none;border:none;color:inherit;cursor:pointer;font:inherit;padding:0">Logout</button></form></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>Ontology Dashboard &mdash; powered by ontology-server</p>
+    </footer>
+</body>
+</html>

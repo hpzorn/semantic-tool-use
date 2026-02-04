@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title | default(id, true) }} — Ideas{% endblock %}
+
+{% block content %}
+<div class="idea-detail">
+    <a href="{{ dashboard_url(request, 'idea_list') }}" class="back-link">&larr; All Ideas</a>
+
+    {% if error %}
+    <div class="prd-error">{{ error }}</div>
+    {% else %}
+
+    <h1>{{ title }}</h1>
+    <div class="req-meta">
+        <code>{{ id }}</code>
+        <span class="lifecycle-badge lc-{{ lifecycle }}">{{ lifecycle }}</span>
+        {% if priority is not none %}
+        <span class="priority-badge">P{{ priority }}</span>
+        {% endif %}
+        {% if author %}<span class="text-muted">by {{ author }}</span>{% endif %}
+    </div>
+
+    {# ── Properties ── #}
+    <table class="property-table">
+        <thead>
+            <tr><th>Property</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Created</td><td>{{ created[:19] if created else "—" }}</td></tr>
+            {% if description %}
+            <tr><td>Description</td><td>{{ description }}</td></tr>
+            {% endif %}
+            {% if agent %}
+            <tr><td>Agent</td><td><code>{{ agent }}</code></td></tr>
+            {% endif %}
+            {% if lifecycle_reason %}
+            <tr><td>Lifecycle Reason</td><td>{{ lifecycle_reason }}</td></tr>
+            {% endif %}
+            {% if lifecycle_updated %}
+            <tr><td>Lifecycle Updated</td><td>{{ lifecycle_updated[:19] }}</td></tr>
+            {% endif %}
+            {% if vision %}
+            <tr><td>Vision</td><td>{{ vision }}</td></tr>
+            {% endif %}
+            {% if parent %}
+            <tr><td>Parent</td><td><a href="{{ dashboard_url(request, 'idea_detail', idea_id=parent) }}"><code>{{ parent }}</code></a></td></tr>
+            {% endif %}
+            {% if crystallized_from %}
+            <tr><td>Crystallized From</td><td><code>{{ crystallized_from }}</code></td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    {# ── Content ── #}
+    {% if content %}
+    <h2>Content</h2>
+    <div class="idea-content">
+        <pre>{{ content }}</pre>
+    </div>
+    {% endif %}
+
+    {# ── Related Ideas ── #}
+    {% if related %}
+    <h2>Related Ideas</h2>
+    <div class="related-links">
+        {% for rel_id in related %}
+        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=rel_id) }}" class="dep-link">{{ rel_id }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Children ── #}
+    {% if children %}
+    <h2>Children</h2>
+    <div class="related-links">
+        {% for child_id in children %}
+        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=child_id) }}" class="dep-link">{{ child_id }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Dependencies ── #}
+    {% if blocks %}
+    <h2>Blocks</h2>
+    <div class="related-links">
+        {% for b_id in blocks %}
+        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=b_id) }}" class="dep-link">{{ b_id }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if blocked_by %}
+    <h2>Blocked By</h2>
+    <div class="related-links">
+        {% for b_id in blocked_by %}
+        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=b_id) }}" class="dep-link">{{ b_id }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Tags ── #}
+    {% if tags %}
+    <h2>Tags</h2>
+    <div class="tag-list">
+        {% for tag in tags %}
+        <span class="tag-chip">{{ tag }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Wikidata Refs ── #}
+    {% if wikidata_refs %}
+    <h2>Wikidata References</h2>
+    <div class="related-links">
+        {% for qid in wikidata_refs %}
+        <a href="https://www.wikidata.org/wiki/{{ qid }}" target="_blank" class="dep-link">{{ qid }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endblock %}

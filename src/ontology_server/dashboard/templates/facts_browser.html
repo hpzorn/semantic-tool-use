@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Facts Browser — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="facts-browser">
+    <h1>A-Box Facts Browser</h1>
+    <p class="subtitle">Navigate the agent memory store by context</p>
+
+    {% if contexts %}
+    <div class="prd-cards">
+        {% for ctx in contexts %}
+        <a href="{{ dashboard_url(request, 'facts_context', context=ctx) }}" class="prd-card">
+            <div class="prd-card-header">
+                <span class="prd-number">{{ ctx }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No fact contexts found in the memory store.</div>
+    {% endif %}
+</div>
+{% endblock %}

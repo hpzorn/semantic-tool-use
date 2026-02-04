@@ -1,0 +1,15 @@
+{# HTMX partial: instance table rows (swapped into #instance-tbody) #}
+{% for inst in instances %}
+<tr>
+    <td>
+        <a href="{{ dashboard_url(request, 'instance_detail', instance_uri=inst.uri) }}">
+            {{ inst.label | default(inst.uri, true) }}
+        </a>
+    </td>
+    <td>{{ inst.class_uri | default("—", true) }}</td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="2" class="empty-state">No instances found.</td>
+</tr>
+{% endfor %}

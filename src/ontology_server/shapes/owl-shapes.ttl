@@ -1,0 +1,269 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix osh: <http://semantic-tool-use.org/shapes/owl#> .
+
+# =============================================================================
+# Upper Ontology SHACL Shapes: OWL Best Practices
+# =============================================================================
+# Generic validation rules for well-formed OWL ontologies.
+# These shapes enforce common best practices regardless of domain.
+
+# -----------------------------------------------------------------------------
+# OWL Class Shape
+# -----------------------------------------------------------------------------
+osh:ClassShape a sh:NodeShape ;
+    sh:targetClass owl:Class ;
+    rdfs:label "OWL Class Shape" ;
+    rdfs:comment "Validates OWL classes follow best practices" ;
+
+    # Classes should have a human-readable label
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "OWL Class should have an rdfs:label" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Labels should be strings
+    sh:property [
+        sh:path rdfs:label ;
+        sh:or (
+            [ sh:datatype xsd:string ]
+            [ sh:datatype rdf:langString ]
+        ) ;
+        sh:message "rdfs:label should be a string or language-tagged string" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Classes should have a comment/description
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:minCount 1 ;
+        sh:message "OWL Class should have an rdfs:comment describing its purpose" ;
+        sh:severity sh:Info
+    ] .
+
+# -----------------------------------------------------------------------------
+# OWL Object Property Shape
+# -----------------------------------------------------------------------------
+osh:ObjectPropertyShape a sh:NodeShape ;
+    sh:targetClass owl:ObjectProperty ;
+    rdfs:label "OWL Object Property Shape" ;
+    rdfs:comment "Validates OWL object properties follow best practices" ;
+
+    # Properties should have a label
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "OWL ObjectProperty should have an rdfs:label" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Properties should have a domain
+    sh:property [
+        sh:path rdfs:domain ;
+        sh:minCount 1 ;
+        sh:message "OWL ObjectProperty should have an rdfs:domain" ;
+        sh:severity sh:Info
+    ] ;
+
+    # Properties should have a range
+    sh:property [
+        sh:path rdfs:range ;
+        sh:minCount 1 ;
+        sh:message "OWL ObjectProperty should have an rdfs:range" ;
+        sh:severity sh:Info
+    ] .
+
+# -----------------------------------------------------------------------------
+# OWL Datatype Property Shape
+# -----------------------------------------------------------------------------
+osh:DatatypePropertyShape a sh:NodeShape ;
+    sh:targetClass owl:DatatypeProperty ;
+    rdfs:label "OWL Datatype Property Shape" ;
+    rdfs:comment "Validates OWL datatype properties follow best practices" ;
+
+    # Properties should have a label
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "OWL DatatypeProperty should have an rdfs:label" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Datatype properties should have a domain
+    sh:property [
+        sh:path rdfs:domain ;
+        sh:minCount 1 ;
+        sh:message "OWL DatatypeProperty should have an rdfs:domain" ;
+        sh:severity sh:Info
+    ] ;
+
+    # Datatype properties should have a range (datatype)
+    sh:property [
+        sh:path rdfs:range ;
+        sh:minCount 1 ;
+        sh:message "OWL DatatypeProperty should have an rdfs:range specifying the datatype" ;
+        sh:severity sh:Warning
+    ] .
+
+# -----------------------------------------------------------------------------
+# OWL Named Individual Shape
+# -----------------------------------------------------------------------------
+osh:NamedIndividualShape a sh:NodeShape ;
+    sh:targetClass owl:NamedIndividual ;
+    rdfs:label "OWL Named Individual Shape" ;
+    rdfs:comment "Validates OWL named individuals follow best practices" ;
+
+    # Individuals should have a label
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "OWL NamedIndividual should have an rdfs:label" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Individuals should be typed (have at least one rdf:type besides NamedIndividual)
+    sh:property [
+        sh:path rdf:type ;
+        sh:minCount 2 ;
+        sh:message "OWL NamedIndividual should have a specific type (not just owl:NamedIndividual)" ;
+        sh:severity sh:Info
+    ] .
+
+# -----------------------------------------------------------------------------
+# OWL Annotation Property Shape
+# -----------------------------------------------------------------------------
+osh:AnnotationPropertyShape a sh:NodeShape ;
+    sh:targetClass owl:AnnotationProperty ;
+    rdfs:label "OWL Annotation Property Shape" ;
+    rdfs:comment "Validates OWL annotation properties follow best practices" ;
+
+    # Annotation properties should have a label
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "OWL AnnotationProperty should have an rdfs:label" ;
+        sh:severity sh:Info
+    ] .
+
+# -----------------------------------------------------------------------------
+# Subclass Consistency Shape
+# -----------------------------------------------------------------------------
+osh:SubclassShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this rdfs:subClassOf ?parent .
+                FILTER(?this != ?parent)
+                FILTER(isIRI(?this))
+            }
+        """
+    ] ;
+    rdfs:label "Subclass Consistency Shape" ;
+    rdfs:comment "Validates subclass relationships are consistent" ;
+
+    # Subclass parent should exist as a class
+    sh:sparql [
+        sh:message "rdfs:subClassOf target should be a defined owl:Class" ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this ?parent WHERE {
+                $this rdfs:subClassOf ?parent .
+                FILTER(isIRI(?parent))
+                FILTER NOT EXISTS { ?parent a owl:Class }
+                FILTER(?parent != owl:Thing)
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Domain/Range Consistency Shape
+# -----------------------------------------------------------------------------
+osh:DomainRangeConsistencyShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                { ?this a owl:ObjectProperty }
+                UNION
+                { ?this a owl:DatatypeProperty }
+            }
+        """
+    ] ;
+    rdfs:label "Domain/Range Consistency Shape" ;
+    rdfs:comment "Validates domain and range references are consistent" ;
+
+    # Domain should reference a defined class
+    sh:sparql [
+        sh:message "rdfs:domain should reference a defined owl:Class" ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this ?domain WHERE {
+                $this rdfs:domain ?domain .
+                FILTER(isIRI(?domain))
+                FILTER NOT EXISTS { ?domain a owl:Class }
+                FILTER(?domain != owl:Thing)
+            }
+        """
+    ] ;
+
+    # Object property range should reference a class
+    sh:sparql [
+        sh:message "ObjectProperty rdfs:range should reference a defined owl:Class" ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this ?range WHERE {
+                $this a owl:ObjectProperty ;
+                    rdfs:range ?range .
+                FILTER(isIRI(?range))
+                FILTER NOT EXISTS { ?range a owl:Class }
+                FILTER(?range != owl:Thing)
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# URI Best Practices Shape
+# -----------------------------------------------------------------------------
+osh:URIBestPracticesShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                { ?this a owl:Class }
+                UNION { ?this a owl:ObjectProperty }
+                UNION { ?this a owl:DatatypeProperty }
+                UNION { ?this a owl:NamedIndividual }
+                FILTER(isIRI(?this))
+            }
+        """
+    ] ;
+    rdfs:label "URI Best Practices Shape" ;
+    rdfs:comment "Validates URI naming conventions" ;
+
+    # URIs should not contain spaces (encoded or not)
+    sh:sparql [
+        sh:message "URI should not contain spaces" ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                FILTER(CONTAINS(STR($this), " ") || CONTAINS(STR($this), "%20"))
+            }
+        """
+    ] ;
+
+    # URIs should use hash or slash namespace pattern
+    sh:sparql [
+        sh:message "URI should use # or / as namespace separator" ;
+        sh:severity sh:Info ;
+        sh:select """
+            SELECT $this WHERE {
+                FILTER(!CONTAINS(STR($this), "#") && !REGEX(STR($this), "/[^/]+$"))
+            }
+        """
+    ] .

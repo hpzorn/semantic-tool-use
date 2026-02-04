@@ -32,12 +32,17 @@ class Settings(BaseSettings):
     mcp_name: str = "ontology-server"
     mcp_version: str = "0.1.0"
 
+    # Authentication
+    api_key: str = ""  # Set via ONTOLOGY_API_KEY env var; auto-generated if empty
+
     # Logging
     log_level: str = "INFO"
 
     # Feature flags
     enable_rest_api: bool = True
     enable_websocket: bool = False  # Phase 5
+    enable_llm: bool = False  # LLM analysis tools (requires ANTHROPIC_API_KEY)
+    enable_search: bool = False  # Semantic search tools (requires sentence-transformers)
 
     def get_ontology_path(self) -> Path:
         """Get resolved ontology path."""

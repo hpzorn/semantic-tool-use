@@ -1,0 +1,17 @@
+{# HTMX partial: instance properties rows (swapped into #instance-properties) #}
+{% for prop in properties %}
+<tr>
+    <td><code>{{ prop.predicate }}</code></td>
+    <td>
+        {% if prop.object.startswith("http://") or prop.object.startswith("https://") %}
+        <a href="{{ dashboard_url(request, 'instance_detail', instance_uri=prop.object) }}">{{ prop.object }}</a>
+        {% else %}
+        {{ prop.object }}
+        {% endif %}
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="2" class="empty-state">No properties found.</td>
+</tr>
+{% endfor %}

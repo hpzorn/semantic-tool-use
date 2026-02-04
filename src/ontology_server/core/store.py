@@ -27,6 +27,50 @@ class OntologyStore:
         self._graphs: dict[str, Graph] = {}
         self._metadata: dict[str, dict[str, Any]] = {}
 
+    def load_ontology_from_string(self, ttl: str, uri: str) -> bool:
+        """Load ontology from Turtle string.
+
+        Args:
+            ttl: Turtle string containing the ontology
+            uri: Unique identifier for this ontology
+
+        Returns:
+            True if successful, False on parse error
+        """
+        try:
+            graph = Graph()
+            graph.parse(data=ttl, format="turtle")
+
+            # Bind common namespaces
+            graph.bind("vao", VAO)
+            graph.bind("pres", PRES)
+            graph.bind("social", SOCIAL)
+            graph.bind("diag", DIAG)
+            graph.bind("owl", OWL)
+            graph.bind("rdfs", RDFS)
+
+            self._graphs[uri] = graph
+
+            # Collect metadata
+            classes = list(graph.subjects(RDF.type, OWL.Class))
+            properties = list(graph.subjects(RDF.type, OWL.ObjectProperty)) + \
+                         list(graph.subjects(RDF.type, OWL.DatatypeProperty))
+            individuals = list(graph.subjects(RDF.type, OWL.NamedIndividual))
+
+            self._metadata[uri] = {
+                "path": None,
+                "triple_count": len(graph),
+                "class_count": len(classes),
+                "property_count": len(properties),
+                "individual_count": len(individuals),
+            }
+
+            logger.info(f"Loaded ontology {uri} from string: {len(graph)} triples")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to parse ontology string: {e}")
+            return False
+
     def load_ontology(self, uri: str, path: Path) -> Graph:
         """Load ontology from TTL file.
 
@@ -305,14 +349,25 @@ class OntologyStore:
         results = self.query(sparql, ontology_uri)
         return [
             {
-                "uri": str(row.prop),
-                "type": str(row.type).split("#")[-1],
-                "label": str(row.label) if row.label else None,
-                "domain": str(row.domain) if row.domain else None,
-                "range": str(row.range_) if hasattr(row, 'range_') and row.range_ else None,
+                "uri": str(row[0]),  # ?prop
+                "type": str(row[1]).split("#")[-1],  # ?type
+                "label": str(row[2]) if row[2] else None,  # ?label
+                "domain": str(row[3]) if row[3] else None,  # ?domain
+                "range": str(row[4]) if row[4] else None,  # ?range
             }
             for row in results
         ]
+
+    def get_combined_graph(self) -> Graph:
+        """Get a combined graph containing all ontologies.
+
+        Returns:
+            Graph containing all triples from all loaded ontologies
+        """
+        combined = Graph()
+        for g in self._graphs.values():
+            combined += g
+        return combined
 
     def __len__(self) -> int:
         """Return total number of triples across all ontologies."""

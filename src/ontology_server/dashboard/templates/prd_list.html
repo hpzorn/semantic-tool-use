@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}PRDs — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="prd-list">
+    <h1>Product Requirements</h1>
+    <p class="subtitle">A-box PRD contexts from the ontology memory store</p>
+
+    {% if contexts %}
+    <div class="prd-cards">
+        {% for ctx in contexts %}
+        <a href="{{ dashboard_url(request, 'prd_detail', context=ctx.context) }}" class="prd-card">
+            <div class="prd-card-header">
+                <span class="prd-number">PRD-{{ ctx.prd_number }}</span>
+            </div>
+            <div class="prd-card-stats">
+                <div class="prd-stat">
+                    <span class="prd-stat-value">{{ ctx.requirement_count }}</span>
+                    <span class="prd-stat-label">requirements</span>
+                </div>
+                <div class="prd-stat">
+                    <span class="prd-stat-value">{{ ctx.fact_count }}</span>
+                    <span class="prd-stat-label">facts</span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No PRD contexts found in the memory store.</div>
+    {% endif %}
+</div>
+{% endblock %}

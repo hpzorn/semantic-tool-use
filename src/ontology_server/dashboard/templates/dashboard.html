@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <h1>Dashboard</h1>
+
+    <div class="summary-cards">
+        <a href="{{ dashboard_url(request, 'idea_list') }}" class="card card-link">
+            <span class="card-value">{{ idea_count | default(0) }}</span>
+            <span class="card-label">Ideas</span>
+        </a>
+        <a href="{{ dashboard_url(request, 'prd_list') }}" class="card card-link">
+            <span class="card-value">{{ prd_count | default(0) }}</span>
+            <span class="card-label">PRDs</span>
+        </a>
+        <a href="{{ dashboard_url(request, 'facts_browser') }}" class="card card-link">
+            <span class="card-value">{{ fact_context_count | default(0) }}</span>
+            <span class="card-label">Fact Contexts</span>
+        </a>
+        <div class="card">
+            <span class="card-value">{{ ontology_count }}</span>
+            <span class="card-label">Ontologies</span>
+        </div>
+        <div class="card">
+            <span class="card-value">{{ class_count }}</span>
+            <span class="card-label">Classes</span>
+        </div>
+        <a href="{{ dashboard_url(request, 'instance_list') }}" class="card card-link">
+            <span class="card-value">{{ instance_count }}</span>
+            <span class="card-label">Instances</span>
+        </a>
+    </div>
+
+    <h2>Loaded Ontologies</h2>
+    {% if ontologies %}
+    <table class="ontology-table">
+        <thead>
+            <tr>
+                <th>Ontology</th>
+                <th>Triples</th>
+                <th>Classes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ont in ontologies %}
+            <tr>
+                <td>
+                    <a href="{{ dashboard_url(request, 'instance_list') }}?ontology_uri={{ ont.uri | urlencode }}">
+                        {{ ont.label | default(ont.uri, true) }}
+                    </a>
+                </td>
+                <td>{{ ont.triple_count | default(0) }}</td>
+                <td>{{ ont.class_count | default(0) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No ontologies loaded. Load an ontology to get started.</p>
+    {% endif %}
+</section>
+{% endblock %}

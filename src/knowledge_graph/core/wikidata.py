@@ -15,8 +15,25 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import json
+import ssl
 
 from .store import KnowledgeGraphStore, NAMESPACES, GRAPH_WIKIDATA
+
+
+def _get_ssl_context() -> ssl.SSLContext:
+    """Get SSL context with proper certificate handling.
+
+    Tries certifi first (most reliable), then system defaults.
+    """
+    try:
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+        return context
+    except ImportError:
+        pass
+
+    # Fall back to default context with system certificates
+    return ssl.create_default_context()
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +163,8 @@ class WikidataCache:
                 url,
                 headers={"User-Agent": "SemanticToolUse/1.0 (https://semantic-tool-use.org)"}
             )
-            with urllib.request.urlopen(req, timeout=10) as response:
+            ssl_context = _get_ssl_context()
+            with urllib.request.urlopen(req, timeout=10, context=ssl_context) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             if "entities" not in data or qid not in data["entities"]:
@@ -561,7 +579,8 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                 method="POST"
             )
 
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            ssl_context = _get_ssl_context()
+            with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:
                 result = json.loads(response.read().decode("utf-8"))
 
             # Parse results

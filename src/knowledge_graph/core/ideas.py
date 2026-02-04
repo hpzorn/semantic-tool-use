@@ -18,9 +18,12 @@ Ontology:
 - skos:related for related ideas
 - idea:lifecycle for lifecycle state
 - idea:wikidataRef for Wikidata entity references
+- idea:content for full markdown content
+- idea:blocks / idea:blockedBy for dependencies
 """
 
 import re
+import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,15 +62,25 @@ class Idea:
     id: str  # e.g., "idea-1" or "idea-17a"
     title: str
     description: str = ""
+    content: str = ""  # Full markdown content
     author: str = "unknown"
     agent: str | None = None
     created: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     lifecycle: str = "seed"
+    lifecycle_updated: datetime | None = None
+    lifecycle_reason: str = ""
     tags: list[str] = field(default_factory=list)
     related: list[str] = field(default_factory=list)  # list of idea IDs
     wikidata_refs: list[str] = field(default_factory=list)  # list of Q-numbers
     parent: str | None = None  # parent idea ID for sub-ideas
     children: list[str] = field(default_factory=list)  # child idea IDs
+    blocks: list[str] = field(default_factory=list)  # idea IDs this blocks
+    blocked_by: list[str] = field(default_factory=list)  # idea IDs blocking this
+    is_seed: bool = False  # True if rdf:type includes idea:Seed
+    captured_at: datetime | None = None  # For seeds
+    crystallized_from: str | None = None  # Seed ID this was crystallized from
+    embedding: list[float] = field(default_factory=list)
+    priority: int | None = None
     # PRD custom properties (RQ3: 5 custom properties for SKOS+DC)
     vision: str | None = None
     requirements: list[str] = field(default_factory=list)
@@ -173,6 +186,10 @@ class IdeasStore:
             lang="en"
         )
 
+        # idea:Seed subclass
+        self._store.add_triple(f"{IDEA}Seed", f"{RDF}type", f"{OWL}Class")
+        self._store.add_triple(f"{IDEA}Seed", f"{RDFS}subClassOf", f"{IDEA}Idea")
+
         # =================================================================
         # Concept Scheme
         # =================================================================
@@ -189,167 +206,32 @@ class IdeasStore:
         )
 
         # Custom properties (T-Box)
-        # idea:lifecycle
-        self._store.add_triple(
-            f"{IDEA}lifecycle",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}lifecycle",
-            f"{RDFS}domain",
-            f"{SKOS}Concept"
-        )
-        self._store.add_triple(
-            f"{IDEA}lifecycle",
-            f"{RDFS}range",
-            f"{XSD}string"
-        )
-        self._store.add_triple(
-            f"{IDEA}lifecycle",
-            f"{RDFS}label",
-            "Lifecycle state of an idea",
-            is_literal=True
-        )
+        for prop, label, range_type in [
+            ("lifecycle", "Lifecycle state of an idea", f"{XSD}string"),
+            ("content", "Full markdown content", f"{XSD}string"),
+            ("lifecycleUpdated", "Timestamp of last lifecycle change", f"{XSD}dateTime"),
+            ("lifecycleReason", "Reason for lifecycle change", f"{XSD}string"),
+            ("capturedAt", "Timestamp when seed was captured", f"{XSD}dateTime"),
+            ("embeddingJson", "JSON-serialized embedding vector", f"{XSD}string"),
+            ("agent", "AI agent that created or worked on this idea", f"{XSD}string"),
+            ("vision", "Vision statement for the idea", f"{XSD}string"),
+            ("requirements", "A requirement for implementing the idea", f"{XSD}string"),
+            ("considerations", "A consideration, constraint, or trade-off", f"{XSD}string"),
+            ("useCases", "A use case or application of the idea", f"{XSD}string"),
+        ]:
+            self._store.add_triple(f"{IDEA}{prop}", f"{RDF}type", f"{RDF}Property")
+            self._store.add_triple(f"{IDEA}{prop}", f"{RDFS}domain", f"{SKOS}Concept")
+            self._store.add_triple(f"{IDEA}{prop}", f"{RDFS}range", range_type)
+            self._store.add_triple(f"{IDEA}{prop}", f"{RDFS}label", label, is_literal=True)
 
         # idea:wikidataRef
-        self._store.add_triple(
-            f"{IDEA}wikidataRef",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}wikidataRef",
-            f"{RDFS}domain",
-            f"{SKOS}Concept"
-        )
-        self._store.add_triple(
-            f"{IDEA}wikidataRef",
-            f"{RDFS}comment",
-            "Reference to a Wikidata entity",
-            is_literal=True
-        )
+        self._store.add_triple(f"{IDEA}wikidataRef", f"{RDF}type", f"{RDF}Property")
+        self._store.add_triple(f"{IDEA}wikidataRef", f"{RDFS}domain", f"{SKOS}Concept")
+        self._store.add_triple(f"{IDEA}wikidataRef", f"{RDFS}comment", "Reference to a Wikidata entity", is_literal=True)
 
-        # idea:agent
-        self._store.add_triple(
-            f"{IDEA}agent",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}agent",
-            f"{RDFS}comment",
-            "AI agent that created or worked on this idea",
-            is_literal=True
-        )
-
-        # idea:parent / idea:child for decomposition
-        self._store.add_triple(
-            f"{IDEA}parent",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}child",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-
-        # =================================================================
-        # PRD Custom Properties (RQ3: 5 custom properties for SKOS+DC)
-        # =================================================================
-
-        # idea:vision - High-level goal or vision statement
-        self._store.add_triple(
-            f"{IDEA}vision",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}vision",
-            f"{RDFS}domain",
-            f"{IDEA}Idea"
-        )
-        self._store.add_triple(
-            f"{IDEA}vision",
-            f"{RDFS}range",
-            f"{XSD}string"
-        )
-        self._store.add_triple(
-            f"{IDEA}vision",
-            f"{RDFS}label",
-            "Vision statement for the idea",
-            is_literal=True
-        )
-
-        # idea:requirements - List of requirements for implementation
-        self._store.add_triple(
-            f"{IDEA}requirements",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}requirements",
-            f"{RDFS}domain",
-            f"{IDEA}Idea"
-        )
-        self._store.add_triple(
-            f"{IDEA}requirements",
-            f"{RDFS}range",
-            f"{XSD}string"
-        )
-        self._store.add_triple(
-            f"{IDEA}requirements",
-            f"{RDFS}label",
-            "A requirement for implementing the idea",
-            is_literal=True
-        )
-
-        # idea:considerations - List of considerations, constraints, or trade-offs
-        self._store.add_triple(
-            f"{IDEA}considerations",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}considerations",
-            f"{RDFS}domain",
-            f"{IDEA}Idea"
-        )
-        self._store.add_triple(
-            f"{IDEA}considerations",
-            f"{RDFS}range",
-            f"{XSD}string"
-        )
-        self._store.add_triple(
-            f"{IDEA}considerations",
-            f"{RDFS}label",
-            "A consideration, constraint, or trade-off for the idea",
-            is_literal=True
-        )
-
-        # idea:useCases - List of use cases or applications
-        self._store.add_triple(
-            f"{IDEA}useCases",
-            f"{RDF}type",
-            f"{RDF}Property"
-        )
-        self._store.add_triple(
-            f"{IDEA}useCases",
-            f"{RDFS}domain",
-            f"{IDEA}Idea"
-        )
-        self._store.add_triple(
-            f"{IDEA}useCases",
-            f"{RDFS}range",
-            f"{XSD}string"
-        )
-        self._store.add_triple(
-            f"{IDEA}useCases",
-            f"{RDFS}label",
-            "A use case or application of the idea",
-            is_literal=True
-        )
+        # Object properties: parent/child, blocks/blockedBy, crystallizedFrom
+        for prop in ["parent", "child", "blocks", "blockedBy", "crystallizedFrom"]:
+            self._store.add_triple(f"{IDEA}{prop}", f"{RDF}type", f"{RDF}Property")
 
         self._store.flush()
 
@@ -373,6 +255,11 @@ class IdeasStore:
         self._store.add_triple(uri, f"{RDF}type", f"{IDEA}Idea")
         # Also explicitly type as skos:Concept for SKOS tooling compatibility
         self._store.add_triple(uri, f"{RDF}type", f"{SKOS}Concept")
+
+        # If it's a seed, also type as idea:Seed
+        if idea.is_seed:
+            self._store.add_triple(uri, f"{RDF}type", f"{IDEA}Seed")
+
         self._store.add_triple(uri, f"{SKOS}inScheme", f"{IDEA}IdeaPool")
         self._store.add_triple(uri, f"{SKOS}prefLabel", idea.title, is_literal=True)
 
@@ -389,8 +276,41 @@ class IdeasStore:
         # Custom properties
         self._store.add_triple(uri, f"{IDEA}lifecycle", idea.lifecycle, is_literal=True)
 
+        if idea.content:
+            self._store.add_triple(uri, f"{IDEA}content", idea.content, is_literal=True)
+
         if idea.agent:
             self._store.add_triple(uri, f"{IDEA}agent", idea.agent, is_literal=True)
+
+        if idea.lifecycle_updated:
+            self._store.add_triple(
+                uri, f"{IDEA}lifecycleUpdated",
+                idea.lifecycle_updated.isoformat(),
+                datatype=f"{XSD}dateTime"
+            )
+
+        if idea.lifecycle_reason:
+            self._store.add_triple(uri, f"{IDEA}lifecycleReason", idea.lifecycle_reason, is_literal=True)
+
+        if idea.captured_at:
+            self._store.add_triple(
+                uri, f"{IDEA}capturedAt",
+                idea.captured_at.isoformat(),
+                datatype=f"{XSD}dateTime"
+            )
+
+        if idea.crystallized_from:
+            self._store.add_triple(uri, f"{IDEA}crystallizedFrom", f"{IDEAS}{idea.crystallized_from}")
+
+        if idea.priority is not None:
+            self._store.add_triple(
+                uri, f"{IDEA}priority",
+                str(idea.priority),
+                datatype=f"{XSD}integer"
+            )
+
+        if idea.embedding:
+            self._store.add_triple(uri, f"{IDEA}embeddingJson", json.dumps(idea.embedding), is_literal=True)
 
         # Tags as dcterms:subject pointing to tag concepts
         for tag in idea.tags:
@@ -415,6 +335,12 @@ class IdeasStore:
 
         for child_id in idea.children:
             self._store.add_triple(uri, f"{IDEA}child", f"{IDEAS}{child_id}")
+
+        # Dependency relationships
+        for blocked_id in idea.blocks:
+            self._store.add_triple(uri, f"{IDEA}blocks", f"{IDEAS}{blocked_id}")
+        for blocker_id in idea.blocked_by:
+            self._store.add_triple(uri, f"{IDEA}blockedBy", f"{IDEAS}{blocker_id}")
 
         # PRD custom properties (RQ3: 5 custom properties)
         if idea.vision:
@@ -446,16 +372,25 @@ class IdeasStore:
         uri = f"{IDEAS}{idea_id}"
 
         query = f"""
-        SELECT ?title ?description ?author ?agent ?created ?lifecycle ?parent
+        SELECT ?title ?description ?content ?author ?agent ?created ?lifecycle
+               ?lifecycleUpdated ?lifecycleReason ?parent ?capturedAt
+               ?crystallizedFrom ?priority ?embeddingJson
         WHERE {{
             <{uri}> a skos:Concept ;
                     skos:prefLabel ?title .
             OPTIONAL {{ <{uri}> dcterms:description ?description }}
+            OPTIONAL {{ <{uri}> idea:content ?content }}
             OPTIONAL {{ <{uri}> dcterms:creator ?author }}
             OPTIONAL {{ <{uri}> idea:agent ?agent }}
             OPTIONAL {{ <{uri}> dcterms:created ?created }}
             OPTIONAL {{ <{uri}> idea:lifecycle ?lifecycle }}
+            OPTIONAL {{ <{uri}> idea:lifecycleUpdated ?lifecycleUpdated }}
+            OPTIONAL {{ <{uri}> idea:lifecycleReason ?lifecycleReason }}
             OPTIONAL {{ <{uri}> idea:parent ?parent }}
+            OPTIONAL {{ <{uri}> idea:capturedAt ?capturedAt }}
+            OPTIONAL {{ <{uri}> idea:crystallizedFrom ?crystallizedFrom }}
+            OPTIONAL {{ <{uri}> idea:priority ?priority }}
+            OPTIONAL {{ <{uri}> idea:embeddingJson ?embeddingJson }}
         }}
         """
 
@@ -464,6 +399,10 @@ class IdeasStore:
             return None
 
         row = results.bindings[0]
+
+        # Check if it's a seed
+        is_seed_query = f"ASK WHERE {{ <{uri}> a <{IDEA}Seed> }}"
+        is_seed = self._store.ask(is_seed_query)
 
         # Get tags
         tags_query = f"""
@@ -501,41 +440,57 @@ class IdeasStore:
         """
         children = [r["childId"] for r in self._store.query(children_query)]
 
-        # Get PRD custom properties
-        vision_query = f"""
-        SELECT ?vision WHERE {{
-            <{uri}> idea:vision ?vision .
+        # Get blocks
+        blocks_query = f"""
+        SELECT ?blockedId WHERE {{
+            <{uri}> idea:blocks ?blocked .
+            BIND(REPLACE(STR(?blocked), "{IDEAS}", "") AS ?blockedId)
         }}
         """
+        blocks = [r["blockedId"] for r in self._store.query(blocks_query)]
+
+        # Get blocked_by
+        blocked_by_query = f"""
+        SELECT ?blockerId WHERE {{
+            <{uri}> idea:blockedBy ?blocker .
+            BIND(REPLACE(STR(?blocker), "{IDEAS}", "") AS ?blockerId)
+        }}
+        """
+        blocked_by = [r["blockerId"] for r in self._store.query(blocked_by_query)]
+
+        # Get PRD custom properties
+        vision_query = f"SELECT ?vision WHERE {{ <{uri}> idea:vision ?vision }}"
         vision_results = self._store.query(vision_query)
         vision = vision_results.bindings[0].get("vision") if vision_results.bindings else None
 
-        requirements_query = f"""
-        SELECT ?req WHERE {{
-            <{uri}> idea:requirements ?req .
-        }}
-        """
+        requirements_query = f"SELECT ?req WHERE {{ <{uri}> idea:requirements ?req }}"
         requirements = [r["req"] for r in self._store.query(requirements_query) if r.get("req")]
 
-        considerations_query = f"""
-        SELECT ?consideration WHERE {{
-            <{uri}> idea:considerations ?consideration .
-        }}
-        """
-        considerations = [r["consideration"] for r in self._store.query(considerations_query) if r.get("consideration")]
+        considerations_query = f"SELECT ?c WHERE {{ <{uri}> idea:considerations ?c }}"
+        considerations = [r["c"] for r in self._store.query(considerations_query) if r.get("c")]
 
-        use_cases_query = f"""
-        SELECT ?useCase WHERE {{
-            <{uri}> idea:useCases ?useCase .
-        }}
-        """
-        use_cases = [r["useCase"] for r in self._store.query(use_cases_query) if r.get("useCase")]
+        use_cases_query = f"SELECT ?uc WHERE {{ <{uri}> idea:useCases ?uc }}"
+        use_cases = [r["uc"] for r in self._store.query(use_cases_query) if r.get("uc")]
 
-        # Parse created date
+        # Parse dates
         created = datetime.now(timezone.utc)
         if row.get("created"):
             try:
                 created = datetime.fromisoformat(row["created"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        lifecycle_updated = None
+        if row.get("lifecycleUpdated"):
+            try:
+                lifecycle_updated = datetime.fromisoformat(row["lifecycleUpdated"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        captured_at = None
+        if row.get("capturedAt"):
+            try:
+                captured_at = datetime.fromisoformat(row["capturedAt"].replace("Z", "+00:00"))
             except (ValueError, AttributeError):
                 pass
 
@@ -544,19 +499,50 @@ class IdeasStore:
         if row.get("parent"):
             parent = row["parent"].replace(IDEAS, "")
 
+        # Parse crystallizedFrom
+        crystallized_from = None
+        if row.get("crystallizedFrom"):
+            crystallized_from = row["crystallizedFrom"].replace(IDEAS, "")
+
+        # Parse priority
+        priority = None
+        if row.get("priority") is not None:
+            try:
+                priority = int(row["priority"])
+            except (ValueError, TypeError):
+                pass
+
+        # Parse embedding
+        embedding = []
+        if row.get("embeddingJson"):
+            try:
+                embedding = json.loads(row["embeddingJson"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         return Idea(
             id=idea_id,
             title=row.get("title", ""),
             description=row.get("description", ""),
+            content=row.get("content", ""),
             author=row.get("author", "unknown"),
             agent=row.get("agent"),
             created=created,
             lifecycle=row.get("lifecycle", "seed"),
+            lifecycle_updated=lifecycle_updated,
+            lifecycle_reason=row.get("lifecycleReason", ""),
             tags=tags,
             related=related,
             wikidata_refs=wikidata_refs,
             parent=parent,
             children=children,
+            blocks=blocks,
+            blocked_by=blocked_by,
+            is_seed=is_seed,
+            captured_at=captured_at,
+            crystallized_from=crystallized_from,
+            embedding=embedding,
+            priority=priority,
             vision=vision,
             requirements=requirements,
             considerations=considerations,
@@ -577,27 +563,25 @@ class IdeasStore:
             raise ValueError(f"Idea {idea.id} does not exist")
 
         # Remove old data (keeping rdf:type and skos:inScheme)
-        self._store.remove_triple(uri, f"{SKOS}prefLabel")
-        self._store.remove_triple(uri, f"{DCTERMS}description")
-        self._store.remove_triple(uri, f"{DCTERMS}creator")
-        self._store.remove_triple(uri, f"{DCTERMS}created")
-        self._store.remove_triple(uri, f"{IDEA}lifecycle")
-        self._store.remove_triple(uri, f"{IDEA}agent")
-        self._store.remove_triple(uri, f"{DCTERMS}subject")
-        self._store.remove_triple(uri, f"{SKOS}related")
-        self._store.remove_triple(uri, f"{IDEA}wikidataRef")
-        self._store.remove_triple(uri, f"{IDEA}parent")
-        self._store.remove_triple(uri, f"{IDEA}child")
-        # PRD custom properties
-        self._store.remove_triple(uri, f"{IDEA}vision")
-        self._store.remove_triple(uri, f"{IDEA}requirements")
-        self._store.remove_triple(uri, f"{IDEA}considerations")
-        self._store.remove_triple(uri, f"{IDEA}useCases")
+        for pred in [
+            f"{SKOS}prefLabel", f"{DCTERMS}description", f"{DCTERMS}creator",
+            f"{DCTERMS}created", f"{IDEA}lifecycle", f"{IDEA}agent",
+            f"{DCTERMS}subject", f"{SKOS}related", f"{IDEA}wikidataRef",
+            f"{IDEA}parent", f"{IDEA}child",
+            f"{IDEA}content", f"{IDEA}lifecycleUpdated", f"{IDEA}lifecycleReason",
+            f"{IDEA}capturedAt", f"{IDEA}crystallizedFrom", f"{IDEA}priority",
+            f"{IDEA}embeddingJson",
+            f"{IDEA}blocks", f"{IDEA}blockedBy",
+            f"{IDEA}vision", f"{IDEA}requirements", f"{IDEA}considerations", f"{IDEA}useCases",
+        ]:
+            self._store.remove_triple(uri, pred)
 
         # Add updated data
         self._store.add_triple(uri, f"{SKOS}prefLabel", idea.title, is_literal=True)
         if idea.description:
             self._store.add_triple(uri, f"{DCTERMS}description", idea.description, is_literal=True)
+        if idea.content:
+            self._store.add_triple(uri, f"{IDEA}content", idea.content, is_literal=True)
         self._store.add_triple(uri, f"{DCTERMS}creator", idea.author, is_literal=True)
         self._store.add_triple(
             uri, f"{DCTERMS}created",
@@ -608,6 +592,39 @@ class IdeasStore:
 
         if idea.agent:
             self._store.add_triple(uri, f"{IDEA}agent", idea.agent, is_literal=True)
+
+        if idea.lifecycle_updated:
+            self._store.add_triple(
+                uri, f"{IDEA}lifecycleUpdated",
+                idea.lifecycle_updated.isoformat(),
+                datatype=f"{XSD}dateTime"
+            )
+
+        if idea.lifecycle_reason:
+            self._store.add_triple(uri, f"{IDEA}lifecycleReason", idea.lifecycle_reason, is_literal=True)
+
+        if idea.captured_at:
+            self._store.add_triple(
+                uri, f"{IDEA}capturedAt",
+                idea.captured_at.isoformat(),
+                datatype=f"{XSD}dateTime"
+            )
+
+        if idea.crystallized_from:
+            self._store.add_triple(uri, f"{IDEA}crystallizedFrom", f"{IDEAS}{idea.crystallized_from}")
+
+        if idea.priority is not None:
+            self._store.add_triple(uri, f"{IDEA}priority", str(idea.priority), datatype=f"{XSD}integer")
+
+        if idea.embedding:
+            self._store.add_triple(uri, f"{IDEA}embeddingJson", json.dumps(idea.embedding), is_literal=True)
+
+        # Handle seed type
+        if idea.is_seed:
+            # Ensure seed type exists
+            seed_check = f"ASK WHERE {{ <{uri}> a <{IDEA}Seed> }}"
+            if not self._store.ask(seed_check):
+                self._store.add_triple(uri, f"{RDF}type", f"{IDEA}Seed")
 
         for tag in idea.tags:
             tag_uri = f"{IDEA}tag/{tag}"
@@ -626,6 +643,11 @@ class IdeasStore:
 
         for child_id in idea.children:
             self._store.add_triple(uri, f"{IDEA}child", f"{IDEAS}{child_id}")
+
+        for blocked_id in idea.blocks:
+            self._store.add_triple(uri, f"{IDEA}blocks", f"{IDEAS}{blocked_id}")
+        for blocker_id in idea.blocked_by:
+            self._store.add_triple(uri, f"{IDEA}blockedBy", f"{IDEAS}{blocker_id}")
 
         # PRD custom properties
         if idea.vision:
@@ -668,6 +690,36 @@ class IdeasStore:
         self._store.flush()
         logger.info(f"Deleted idea: {idea_id}")
         return True
+
+    def append_to_idea(self, idea_id: str, content: str) -> bool:
+        """
+        Append content to an existing idea's content field.
+
+        Args:
+            idea_id: The idea ID
+            content: Content to append
+
+        Returns:
+            True if successful
+        """
+        idea = self.get_idea(idea_id)
+        if not idea:
+            return False
+
+        existing = idea.content or ""
+        idea.content = existing + "\n\n" + content if existing else content
+        self.update_idea(idea)
+        return True
+
+    def get_next_id(self) -> str:
+        """Get the next available idea ID."""
+        existing = self.list_ideas(limit=10000)
+        max_num = 0
+        for i in existing:
+            match = re.match(r"idea-(\d+)", i["id"])
+            if match:
+                max_num = max(max_num, int(match.group(1)))
+        return f"idea-{max_num + 1}"
 
     def list_ideas(
         self,
@@ -730,7 +782,7 @@ class IdeasStore:
 
     def search_ideas(self, term: str, limit: int = 50) -> list[dict[str, Any]]:
         """
-        Search ideas by text in title or description.
+        Search ideas by text in title, description, or content.
 
         Args:
             term: Search term
@@ -749,10 +801,12 @@ class IdeasStore:
                   skos:inScheme <{IDEA}IdeaPool> ;
                   skos:prefLabel ?title .
             OPTIONAL {{ ?idea dcterms:description ?description }}
+            OPTIONAL {{ ?idea idea:content ?content }}
             OPTIONAL {{ ?idea idea:lifecycle ?lifecycle }}
             FILTER(
                 CONTAINS(LCASE(?title), "{term}") ||
-                CONTAINS(LCASE(?description), "{term}")
+                CONTAINS(LCASE(COALESCE(?description, "")), "{term}") ||
+                CONTAINS(LCASE(COALESCE(?content, "")), "{term}")
             )
         }}
         LIMIT {limit}

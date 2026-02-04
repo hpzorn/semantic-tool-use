@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ context }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="prd-detail">
+    <a href="{{ dashboard_url(request, 'prd_list') }}" class="back-link">&larr; All PRDs</a>
+    <h1>{{ context | upper }}</h1>
+    <p class="subtitle">{{ requirements | length }} requirements across {{ phases | length }} phases</p>
+
+    {% if error %}
+    <div class="prd-error">{{ error }}</div>
+    {% endif %}
+
+    {# ── Dependency graph ── #}
+    <div class="dep-graph">
+        <h2>Dependency Graph</h2>
+        <div class="phase-columns">
+            {% for phase_num, phase_reqs in phases.items() %}
+            <div class="phase-column">
+                <div class="phase-header">Phase {{ phase_num }}</div>
+                {% for req in phase_reqs %}
+                <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=req.subject) }}"
+                   class="req-node status-{{ req.status | lower }}"
+                   id="node-{{ req.subject | replace(':', '-') }}"
+                   title="{{ req.title }}">
+                    <span class="req-task-id">{{ req.taskId }}</span>
+                    <span class="req-title-short">{{ req.title | truncate(30) }}</span>
+                    <span class="status-badge badge-{{ req.status | lower }}">{{ req.status }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# ── Requirements table ── #}
+    <h2>All Requirements</h2>
+    <table class="req-table">
+        <thead>
+            <tr>
+                <th>Task</th>
+                <th>Title</th>
+                <th>Phase</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Action</th>
+                <th>Depends On</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in requirements %}
+            <tr class="req-row status-row-{{ req.status | lower }}">
+                <td>
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=req.subject) }}">
+                        <code>{{ req.taskId }}</code>
+                    </a>
+                </td>
+                <td>
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=req.subject) }}">
+                        {{ req.title }}
+                    </a>
+                </td>
+                <td>{{ req.phase }}</td>
+                <td><span class="priority-badge priority-{{ req.priority | lower }}">{{ req.priority }}</span></td>
+                <td><span class="status-badge badge-{{ req.status | lower }}">{{ req.status }}</span></td>
+                <td><code>{{ req.action }}</code></td>
+                <td>
+                    {% for dep in req.depends_on %}
+                    <a href="{{ dashboard_url(request, 'requirement_detail', context=context, subject=dep) }}" class="dep-link">
+                        {% set dep_req = None %}
+                        {% for r in requirements %}
+                            {% if r.subject == dep %}
+                                {{ r.taskId }}
+                            {% endif %}
+                        {% endfor %}
+                    </a>
+                    {% endfor %}
+                    {% if not req.depends_on %}<span class="text-muted">none</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ context }} — Facts Browser{% endblock %}
+
+{% block content %}
+<div class="facts-context">
+    <a href="{{ dashboard_url(request, 'facts_browser') }}" class="back-link">&larr; All Contexts</a>
+    <h1>{{ context }}</h1>
+
+    {% if selected_subject %}
+    {# ── Subject detail: show all facts ── #}
+    <a href="{{ dashboard_url(request, 'facts_context', context=context) }}" class="back-link">&larr; All subjects in {{ context }}</a>
+    <h2>{{ selected_subject }}</h2>
+    <p class="subtitle">{{ facts | length }} facts</p>
+
+    {% if facts %}
+    <table class="fact-table">
+        <thead>
+            <tr>
+                <th>Predicate</th>
+                <th>Object</th>
+                <th>Confidence</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fact in facts %}
+            <tr>
+                <td><code>{{ fact.predicate }}</code></td>
+                <td>
+                    {% if fact.object.startswith("prd:req-") or fact.object.startswith("prd:") %}
+                        {% set fact_ctx = context %}
+                        <a href="{{ dashboard_url(request, 'facts_context', context=fact_ctx) }}?subject={{ fact.object | urlencode }}">{{ fact.object }}</a>
+                    {% else %}
+                        {{ fact.object }}
+                    {% endif %}
+                </td>
+                <td>{{ fact.confidence }}</td>
+                <td class="text-muted">{{ fact.timestamp[:19] if fact.timestamp else "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No facts found for this subject.</div>
+    {% endif %}
+
+    {% else %}
+    {# ── Context overview: list subjects ── #}
+    <p class="subtitle">{{ subjects | length }} subjects</p>
+
+    {% if subjects %}
+    <table class="fact-table">
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Facts</th>
+                <th>Predicates</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for subj in subjects %}
+            <tr>
+                <td>
+                    <a href="{{ dashboard_url(request, 'facts_context', context=context) }}?subject={{ subj.subject | urlencode }}">
+                        <code>{{ subj.subject }}</code>
+                    </a>
+                </td>
+                <td>{{ subj.fact_count }}</td>
+                <td>{{ subj.predicate_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No subjects found in this context.</div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ label }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<section class="instance-detail">
+    <h1>{{ label }}</h1>
+    <p class="instance-uri"><code>{{ uri }}</code></p>
+
+    <a href="{{ dashboard_url(request, 'instance_list') }}" class="back-link">&larr; Back to instances</a>
+
+    {# ── Properties table ────────────────────────────────── #}
+    <h2>Properties</h2>
+    <table class="property-table">
+        <thead>
+            <tr>
+                <th>Predicate</th>
+                <th>Object</th>
+            </tr>
+        </thead>
+        <tbody id="instance-properties">
+            {% for prop in properties %}
+            <tr>
+                <td><code>{{ prop.predicate }}</code></td>
+                <td>
+                    {% if prop.object.startswith("http://") or prop.object.startswith("https://") %}
+                    <a href="{{ dashboard_url(request, 'instance_detail', instance_uri=prop.object) }}">{{ prop.object }}</a>
+                    {% else %}
+                    {{ prop.object }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="2" class="empty-state">No properties found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

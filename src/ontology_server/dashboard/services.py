@@ -280,114 +280,25 @@ class DashboardService:
         context: str,
         subject: str,
     ) -> dict[str, Any]:
-        """Return transformed facts for a single requirement detail view.
-
-        Transforms raw RDF predicates (``prd:title``, ``prd:status``, …)
-        into template-friendly keys (``title``, ``status``, ``found``, …)
-        and resolves dependency chains into ``deps_detail`` /
-        ``depended_by_detail`` lists with titles and statuses.
-        """
+        """Return all facts for a single requirement *subject* in *context*."""
         facts = self._agent_memory.recall(
             subject=subject,
             context=context,
             limit=1000,
         )
-
-        if not facts:
-            return {
-                "subject": subject,
-                "context": context,
-                "found": False,
-                "error": f"No facts found for {subject} in {context}",
-            }
-
-        # Strip prd: prefix from predicates and collect values
-        raw: dict[str, Any] = {}
-        deps: list[str] = []
+        props: dict[str, Any] = {"subject": subject, "context": context}
         for fact in facts:
             pred = fact.get("predicate", "")
             obj = fact.get("object", "")
-            # Normalize predicate: "prd:title" → "title", "rdf:type" → "rdf:type"
-            key = pred.split(":")[-1] if pred.startswith("prd:") else pred
-            if key == "dependsOn":
-                deps.append(obj)
-            elif key in raw:
-                existing = raw[key]
+            if pred in props:
+                existing = props[pred]
                 if isinstance(existing, list):
                     existing.append(obj)
                 else:
-                    raw[key] = [existing, obj]
+                    props[pred] = [existing, obj]
             else:
-                raw[key] = obj
-
-        # Resolve dependency details (look up title/status for each dep)
-        deps_detail = []
-        for dep_subject in deps:
-            dep_facts = self._agent_memory.recall(
-                subject=dep_subject, context=context, limit=100,
-            )
-            dep_info = {"subject": dep_subject, "taskId": dep_subject, "title": dep_subject, "status": ""}
-            for f in dep_facts:
-                p = f.get("predicate", "")
-                o = f.get("object", "")
-                if p == "prd:taskId":
-                    dep_info["taskId"] = o
-                elif p == "prd:title":
-                    dep_info["title"] = o
-                elif p == "prd:status":
-                    dep_info["status"] = o.replace("prd:", "")
-            deps_detail.append(dep_info)
-
-        # Reverse dependencies: find requirements that depend on this subject
-        all_facts = self._agent_memory.recall(context=context, limit=10000)
-        depended_by_subjects: list[str] = []
-        for f in all_facts:
-            if f.get("predicate") == "prd:dependsOn" and f.get("object") == subject:
-                depended_by_subjects.append(f["subject"])
-
-        depended_by_detail = []
-        for dep_subject in set(depended_by_subjects):
-            dep_facts = self._agent_memory.recall(
-                subject=dep_subject, context=context, limit=100,
-            )
-            dep_info = {"subject": dep_subject, "taskId": dep_subject, "title": dep_subject, "status": ""}
-            for f in dep_facts:
-                p = f.get("predicate", "")
-                o = f.get("object", "")
-                if p == "prd:taskId":
-                    dep_info["taskId"] = o
-                elif p == "prd:title":
-                    dep_info["title"] = o
-                elif p == "prd:status":
-                    dep_info["status"] = o.replace("prd:", "")
-            depended_by_detail.append(dep_info)
-
-        # Flatten list values to strings (duplicated facts become lists)
-        def _str(val: Any, sep: str = ", ") -> str:
-            if isinstance(val, list):
-                return sep.join(str(v) for v in val)
-            return str(val) if val else ""
-
-        def _strip_prd(val: Any) -> str:
-            s = _str(val)
-            return s.replace("prd:", "")
-
-        return {
-            "subject": subject,
-            "context": context,
-            "found": True,
-            "title": _str(raw.get("title", subject)),
-            "description": _str(raw.get("description", ""), sep="\n\n"),
-            "taskId": _str(raw.get("taskId", "")),
-            "phase": _str(raw.get("phase", "")),
-            "status": _strip_prd(raw.get("status", "")),
-            "priority": _strip_prd(raw.get("priority", "")),
-            "action": _str(raw.get("action", "")),
-            "files": _str(raw.get("files", "")),
-            "verification": _str(raw.get("verification", "")),
-            "deps_detail": deps_detail,
-            "depended_by_detail": depended_by_detail,
-        }
+                props[pred] = obj
+        return props
 
     # ------------------------------------------------------------------
     # Aggregated dashboard summary

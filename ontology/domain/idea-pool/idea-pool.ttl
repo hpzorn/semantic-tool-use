@@ -14,7 +14,7 @@
 <http://semantic-tool-use.org/ontology/idea-pool> a owl:Ontology ;
     rdfs:label "Idea Pool Ontology"@en ;
     rdfs:comment "Ontology for managing ideas as RDF instances with SKOS alignment"@en ;
-    owl:versionInfo "0.1.0" ;
+    owl:versionInfo "0.2.0" ;
     owl:imports <http://semantic-tool-use.org/ontology/tool-use> ;
     dcterms:creator "Semantic Tool Use Project" ;
     dcterms:created "2026-01-26"^^xsd:date .
@@ -40,7 +40,7 @@ idea:Project a owl:Class ;
     rdfs:comment "A fully developed idea with implementation potential"@en .
 
 # ============================================================================
-# LIFECYCLE STATES
+# LIFECYCLE STATES (12 states from Ralph workflow)
 # ============================================================================
 
 idea:LifecycleState a owl:Class ;
@@ -50,23 +50,55 @@ idea:LifecycleState a owl:Class ;
 
 idea:SeedState a idea:LifecycleState ;
     rdfs:label "Seed"@en ;
-    rdfs:comment "Initial capture state - needs development"@en .
+    rdfs:comment "Raw captured thought - needs development"@en .
 
-idea:ActiveState a idea:LifecycleState ;
-    rdfs:label "Active"@en ;
-    rdfs:comment "Currently being worked on"@en .
+idea:SproutState a idea:LifecycleState ;
+    rdfs:label "Sprout"@en ;
+    rdfs:comment "Seed crystallized into a basic idea"@en .
 
 idea:BacklogState a idea:LifecycleState ;
     rdfs:label "Backlog"@en ;
-    rdfs:comment "Parked for future consideration"@en .
+    rdfs:comment "Queued, ready for Ralph to pick"@en .
 
-idea:DoneState a idea:LifecycleState ;
-    rdfs:label "Done"@en ;
-    rdfs:comment "Completed or implemented"@en .
+idea:ResearchingState a idea:LifecycleState ;
+    rdfs:label "Researching"@en ;
+    rdfs:comment "Academic groundwork in progress"@en .
 
-idea:ArchivedState a idea:LifecycleState ;
-    rdfs:label "Archived"@en ;
-    rdfs:comment "No longer relevant, kept for history"@en .
+idea:ResearchedState a idea:LifecycleState ;
+    rdfs:label "Researched"@en ;
+    rdfs:comment "Research complete, ready for breakdown"@en .
+
+idea:DecomposingState a idea:LifecycleState ;
+    rdfs:label "Decomposing"@en ;
+    rdfs:comment "Breaking into sub-ideas"@en .
+
+idea:ScopedState a idea:LifecycleState ;
+    rdfs:label "Scoped"@en ;
+    rdfs:comment "PRD created, ready for implementation"@en .
+
+idea:ImplementingState a idea:LifecycleState ;
+    rdfs:label "Implementing"@en ;
+    rdfs:comment "Ralph loop active"@en .
+
+idea:CompletedState a idea:LifecycleState ;
+    rdfs:label "Completed"@en ;
+    rdfs:comment "Successfully implemented"@en .
+
+idea:BlockedState a idea:LifecycleState ;
+    rdfs:label "Blocked"@en ;
+    rdfs:comment "Implementation stuck, needs resolution"@en .
+
+idea:FailedState a idea:LifecycleState ;
+    rdfs:label "Failed"@en ;
+    rdfs:comment "Implementation failed after retries"@en .
+
+idea:InvalidatedState a idea:LifecycleState ;
+    rdfs:label "Invalidated"@en ;
+    rdfs:comment "Dead end - prior art or flawed premise"@en .
+
+idea:ParkedState a idea:LifecycleState ;
+    rdfs:label "Parked"@en ;
+    rdfs:comment "Paused, needs human input"@en .
 
 # ============================================================================
 # OBJECT PROPERTIES
@@ -92,6 +124,13 @@ idea:blockedBy a owl:ObjectProperty ;
     rdfs:range idea:Idea ;
     rdfs:label "blocked by"@en ;
     rdfs:comment "This idea cannot proceed until another idea is resolved"@en .
+
+idea:blocks a owl:ObjectProperty ;
+    owl:inverseOf idea:blockedBy ;
+    rdfs:domain idea:Idea ;
+    rdfs:range idea:Idea ;
+    rdfs:label "blocks"@en ;
+    rdfs:comment "This idea blocks another idea from proceeding"@en .
 
 idea:parentIdea a owl:ObjectProperty ;
     rdfs:domain idea:Idea ;
@@ -127,7 +166,13 @@ idea:lifecycle a owl:DatatypeProperty ;
     rdfs:domain idea:Idea ;
     rdfs:range xsd:string ;
     rdfs:label "lifecycle"@en ;
-    rdfs:comment "Lifecycle state as string: seed, active, backlog, done, archived"@en .
+    rdfs:comment "Lifecycle state as string: seed, sprout, backlog, researching, researched, decomposing, scoped, implementing, completed, blocked, failed, invalidated, parked"@en .
+
+idea:content a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "content"@en ;
+    rdfs:comment "Full markdown content of the idea"@en .
 
 idea:priority a owl:DatatypeProperty ;
     rdfs:domain idea:Idea ;
@@ -158,6 +203,30 @@ idea:confidence a owl:DatatypeProperty ;
     rdfs:range xsd:decimal ;
     rdfs:label "confidence"@en ;
     rdfs:comment "Confidence score (0.0-1.0) in the idea's viability"@en .
+
+idea:lifecycleUpdated a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "lifecycle updated"@en ;
+    rdfs:comment "Timestamp of last lifecycle state change"@en .
+
+idea:lifecycleReason a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle reason"@en ;
+    rdfs:comment "Reason for the last lifecycle state change"@en .
+
+idea:capturedAt a owl:DatatypeProperty ;
+    rdfs:domain idea:Seed ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "captured at"@en ;
+    rdfs:comment "Timestamp when the seed was captured"@en .
+
+idea:embeddingJson a owl:DatatypeProperty ;
+    rdfs:domain idea:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "embedding JSON"@en ;
+    rdfs:comment "JSON-serialized embedding vector for semantic search"@en .
 
 # ============================================================================
 # ALIGNMENT TO SKOS/DUBLIN CORE

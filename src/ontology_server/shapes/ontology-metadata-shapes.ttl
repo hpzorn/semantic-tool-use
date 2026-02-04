@@ -1,0 +1,305 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix dcelem: <http://purl.org/dc/elements/1.1/> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix osh: <http://semantic-tool-use.org/shapes/ontology#> .
+
+# =============================================================================
+# Upper Ontology SHACL Shapes: Ontology Metadata Quality
+# =============================================================================
+# Validates ontology-level metadata following Dublin Core and common practices.
+
+# -----------------------------------------------------------------------------
+# Ontology Declaration Shape
+# -----------------------------------------------------------------------------
+osh:OntologyShape a sh:NodeShape ;
+    sh:targetClass owl:Ontology ;
+    rdfs:label "Ontology Metadata Shape" ;
+    rdfs:comment "Validates ontology declaration has proper metadata" ;
+
+    # Ontology should have a label/title
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "Ontology should have an rdfs:label" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Alternative: Dublin Core title
+    sh:or (
+        [ sh:property [ sh:path rdfs:label ; sh:minCount 1 ] ]
+        [ sh:property [ sh:path dc:title ; sh:minCount 1 ] ]
+        [ sh:property [ sh:path dcelem:title ; sh:minCount 1 ] ]
+    ) ;
+
+    # Ontology should have a description/comment
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:minCount 1 ;
+        sh:message "Ontology should have an rdfs:comment describing its purpose" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Ontology should have version info
+    sh:property [
+        sh:path owl:versionInfo ;
+        sh:minCount 1 ;
+        sh:message "Ontology should have owl:versionInfo" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Version should be a string
+    sh:property [
+        sh:path owl:versionInfo ;
+        sh:datatype xsd:string ;
+        sh:message "owl:versionInfo should be a string" ;
+        sh:severity sh:Info
+    ] ;
+
+    # Ontology should have creator/contributor info
+    sh:or (
+        [ sh:property [ sh:path dc:creator ; sh:minCount 1 ] ]
+        [ sh:property [ sh:path dcelem:creator ; sh:minCount 1 ] ]
+        [ sh:property [ sh:path dc:contributor ; sh:minCount 1 ] ]
+    ) ;
+
+    # Namespace prefix recommendation
+    sh:property [
+        sh:path vann:preferredNamespacePrefix ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Consider adding vann:preferredNamespacePrefix" ;
+        sh:severity sh:Info
+    ] ;
+
+    # Namespace URI recommendation
+    sh:property [
+        sh:path vann:preferredNamespaceUri ;
+        sh:maxCount 1 ;
+        sh:message "Consider adding vann:preferredNamespaceUri" ;
+        sh:severity sh:Info
+    ] .
+
+# -----------------------------------------------------------------------------
+# Ontology Import Shape
+# -----------------------------------------------------------------------------
+osh:OntologyImportShape a sh:NodeShape ;
+    sh:targetClass owl:Ontology ;
+    rdfs:label "Ontology Import Shape" ;
+    rdfs:comment "Validates ontology imports are well-formed" ;
+
+    # Imports should be IRIs
+    sh:property [
+        sh:path owl:imports ;
+        sh:nodeKind sh:IRI ;
+        sh:message "owl:imports must reference an IRI" ;
+        sh:severity sh:Violation
+    ] .
+
+# -----------------------------------------------------------------------------
+# Deprecated Element Shape
+# -----------------------------------------------------------------------------
+osh:DeprecatedElementShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this owl:deprecated true .
+            }
+        """
+    ] ;
+    rdfs:label "Deprecated Element Shape" ;
+    rdfs:comment "Validates deprecated elements have proper documentation" ;
+
+    # Deprecated elements should have a comment explaining why
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:minCount 1 ;
+        sh:message "Deprecated element should have rdfs:comment explaining deprecation" ;
+        sh:severity sh:Warning
+    ] ;
+
+    # Should indicate replacement if applicable
+    sh:property [
+        sh:path rdfs:seeAlso ;
+        sh:minCount 1 ;
+        sh:message "Deprecated element should have rdfs:seeAlso pointing to replacement" ;
+        sh:severity sh:Info
+    ] .
+
+# -----------------------------------------------------------------------------
+# Disjoint Classes Shape
+# -----------------------------------------------------------------------------
+osh:DisjointClassesShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this owl:disjointWith ?other .
+                FILTER(isIRI(?this))
+            }
+        """
+    ] ;
+    rdfs:label "Disjoint Classes Shape" ;
+    rdfs:comment "Validates disjoint class declarations" ;
+
+    # Disjoint target should be a class
+    sh:sparql [
+        sh:message "owl:disjointWith target should be a defined owl:Class" ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this ?other WHERE {
+                $this owl:disjointWith ?other .
+                FILTER(isIRI(?other))
+                FILTER NOT EXISTS { ?other a owl:Class }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Equivalent Class Shape
+# -----------------------------------------------------------------------------
+osh:EquivalentClassShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this owl:equivalentClass ?other .
+                FILTER(isIRI(?this))
+            }
+        """
+    ] ;
+    rdfs:label "Equivalent Class Shape" ;
+    rdfs:comment "Validates equivalent class declarations" ;
+
+    # Equivalent target should be a class
+    sh:sparql [
+        sh:message "owl:equivalentClass target should be a defined owl:Class or restriction" ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this ?other WHERE {
+                $this owl:equivalentClass ?other .
+                FILTER(isIRI(?other))
+                FILTER NOT EXISTS { ?other a owl:Class }
+                FILTER NOT EXISTS { ?other a owl:Restriction }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Inverse Property Shape
+# -----------------------------------------------------------------------------
+osh:InversePropertyShape a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this owl:inverseOf ?other .
+            }
+        """
+    ] ;
+    rdfs:label "Inverse Property Shape" ;
+    rdfs:comment "Validates inverse property declarations" ;
+
+    # Both properties should be ObjectProperties
+    sh:sparql [
+        sh:message "owl:inverseOf should only be used between ObjectProperties" ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this owl:inverseOf ?other .
+                FILTER NOT EXISTS { $this a owl:ObjectProperty }
+            }
+        """
+    ] ;
+
+    sh:sparql [
+        sh:message "owl:inverseOf target should be an ObjectProperty" ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this ?other WHERE {
+                $this owl:inverseOf ?other .
+                FILTER(isIRI(?other))
+                FILTER NOT EXISTS { ?other a owl:ObjectProperty }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Functional Property Shape
+# -----------------------------------------------------------------------------
+osh:FunctionalPropertyShape a sh:NodeShape ;
+    sh:targetClass owl:FunctionalProperty ;
+    rdfs:label "Functional Property Shape" ;
+    rdfs:comment "Validates functional properties are properly defined" ;
+
+    # Functional properties should also be typed as ObjectProperty or DatatypeProperty
+    sh:sparql [
+        sh:message "FunctionalProperty should also be typed as ObjectProperty or DatatypeProperty" ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this WHERE {
+                $this a owl:FunctionalProperty .
+                FILTER NOT EXISTS { $this a owl:ObjectProperty }
+                FILTER NOT EXISTS { $this a owl:DatatypeProperty }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Transitive Property Shape
+# -----------------------------------------------------------------------------
+osh:TransitivePropertyShape a sh:NodeShape ;
+    sh:targetClass owl:TransitiveProperty ;
+    rdfs:label "Transitive Property Shape" ;
+    rdfs:comment "Validates transitive properties" ;
+
+    # Transitive properties must be ObjectProperties
+    sh:sparql [
+        sh:message "TransitiveProperty must also be an ObjectProperty" ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this a owl:TransitiveProperty .
+                FILTER NOT EXISTS { $this a owl:ObjectProperty }
+            }
+        """
+    ] .
+
+# -----------------------------------------------------------------------------
+# Symmetric Property Shape
+# -----------------------------------------------------------------------------
+osh:SymmetricPropertyShape a sh:NodeShape ;
+    sh:targetClass owl:SymmetricProperty ;
+    rdfs:label "Symmetric Property Shape" ;
+    rdfs:comment "Validates symmetric properties" ;
+
+    # Symmetric properties must be ObjectProperties
+    sh:sparql [
+        sh:message "SymmetricProperty must also be an ObjectProperty" ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this a owl:SymmetricProperty .
+                FILTER NOT EXISTS { $this a owl:ObjectProperty }
+            }
+        """
+    ] ;
+
+    # Symmetric property domain and range should be the same or compatible
+    sh:sparql [
+        sh:message "SymmetricProperty should have matching domain and range" ;
+        sh:severity sh:Info ;
+        sh:select """
+            SELECT $this ?domain ?range WHERE {
+                $this a owl:SymmetricProperty ;
+                    rdfs:domain ?domain ;
+                    rdfs:range ?range .
+                FILTER(?domain != ?range)
+            }
+        """
+    ] .

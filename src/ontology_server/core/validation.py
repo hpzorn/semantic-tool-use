@@ -271,3 +271,179 @@ class SHACLValidator:
         """Clear cached shapes."""
         self._shapes_cache.clear()
         self._default_shapes = None
+
+    # =========================================================================
+    # Bundled Upper Ontology Shapes
+    # =========================================================================
+
+    @staticmethod
+    def get_bundled_shapes_path() -> Path:
+        """Get path to bundled SHACL shapes directory."""
+        return Path(__file__).parent.parent / "shapes"
+
+    @classmethod
+    def list_bundled_shapes(cls) -> list[dict[str, Any]]:
+        """List available bundled shape sets.
+
+        Returns:
+            List of shape set info with name, description, and shape count
+        """
+        shapes_dir = cls.get_bundled_shapes_path()
+        if not shapes_dir.exists():
+            return []
+
+        shape_sets = []
+        for ttl_file in sorted(shapes_dir.glob("*.ttl")):
+            try:
+                g = Graph()
+                g.parse(ttl_file, format="turtle")
+
+                # Count NodeShapes
+                shape_count = len(list(g.subjects(RDF.type, SH.NodeShape)))
+
+                # Get description from first shape's comment or file name
+                description = None
+                for shape in g.subjects(RDF.type, SH.NodeShape):
+                    comment = g.value(shape, RDFS.comment)
+                    if comment:
+                        description = str(comment)
+                        break
+
+                shape_sets.append({
+                    "name": ttl_file.stem,
+                    "path": str(ttl_file),
+                    "shape_count": shape_count,
+                    "triple_count": len(g),
+                    "description": description or f"SHACL shapes from {ttl_file.name}",
+                })
+            except Exception as e:
+                logger.error(f"Failed to parse shapes file {ttl_file}: {e}")
+
+        return shape_sets
+
+    @classmethod
+    def load_bundled_shapes(cls, name: str) -> Graph | None:
+        """Load a specific bundled shape set by name.
+
+        Args:
+            name: Shape set name (e.g., "owl-shapes", "ontology-metadata-shapes")
+
+        Returns:
+            Graph containing shapes, or None if not found
+        """
+        shapes_dir = cls.get_bundled_shapes_path()
+        shape_file = shapes_dir / f"{name}.ttl"
+
+        if not shape_file.exists():
+            # Try partial match
+            for ttl_file in shapes_dir.glob("*.ttl"):
+                if name.lower() in ttl_file.stem.lower():
+                    shape_file = ttl_file
+                    break
+            else:
+                return None
+
+        try:
+            g = Graph()
+            g.parse(shape_file, format="turtle")
+            return g
+        except Exception as e:
+            logger.error(f"Failed to load shapes from {shape_file}: {e}")
+            return None
+
+    @classmethod
+    def load_all_bundled_shapes(cls) -> Graph:
+        """Load all bundled upper ontology shapes.
+
+        Returns:
+            Graph containing all bundled shapes
+        """
+        shapes_dir = cls.get_bundled_shapes_path()
+        combined = Graph()
+
+        if shapes_dir.exists():
+            for ttl_file in shapes_dir.glob("*.ttl"):
+                try:
+                    combined.parse(ttl_file, format="turtle")
+                    logger.debug(f"Loaded bundled shapes from {ttl_file.name}")
+                except Exception as e:
+                    logger.error(f"Failed to load {ttl_file}: {e}")
+
+        return combined
+
+    def validate_ontology_quality(
+        self,
+        ontology_ttl: str,
+        shape_sets: list[str] | None = None,
+        inference: str = "rdfs"
+    ) -> ValidationResult:
+        """Validate an ontology against upper ontology quality shapes.
+
+        Args:
+            ontology_ttl: Turtle string of the ontology to validate
+            shape_sets: Optional list of shape set names to use.
+                       If None, uses all bundled shapes.
+                       Options: "owl-shapes", "ontology-metadata-shapes"
+            inference: Inference type ('none', 'rdfs', 'owlrl')
+
+        Returns:
+            ValidationResult with quality issues found
+        """
+        # Load specified shape sets or all
+        if shape_sets:
+            shapes = Graph()
+            for name in shape_sets:
+                loaded = self.load_bundled_shapes(name)
+                if loaded:
+                    shapes += loaded
+                else:
+                    logger.warning(f"Shape set not found: {name}")
+        else:
+            shapes = self.load_all_bundled_shapes()
+
+        if len(shapes) == 0:
+            return ValidationResult(
+                conforms=True,
+                violations=[],
+                report_text="No bundled shapes available"
+            )
+
+        # Parse ontology
+        try:
+            ontology = Graph()
+            ontology.parse(data=ontology_ttl, format="turtle")
+        except Exception as e:
+            return ValidationResult(
+                conforms=False,
+                violations=[Violation(message=f"Failed to parse ontology: {e}")],
+                report_text=f"Parse error: {e}"
+            )
+
+        # Validate
+        try:
+            conforms, results_graph, results_text = validate(
+                data_graph=ontology,
+                shacl_graph=shapes,
+                inference=inference,
+                abort_on_first=False,
+                meta_shacl=False,
+                advanced=True,
+            )
+        except Exception as e:
+            return ValidationResult(
+                conforms=False,
+                violations=[Violation(message=f"Validation error: {e}")],
+                report_text=f"Validation error: {e}"
+            )
+
+        violations = self._extract_violations(results_graph)
+
+        return ValidationResult(
+            conforms=conforms,
+            violations=violations,
+            report_text=results_text
+        )
+
+
+# Import RDFS for shape details
+from rdflib import RDFS

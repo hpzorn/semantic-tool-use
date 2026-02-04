@@ -34,12 +34,12 @@ idea:IdeaShape a sh:NodeShape ;
         sh:message "Idea should have a description (dcterms:description)"
     ] ;
 
-    # Lifecycle must be valid value
+    # Lifecycle must be valid value (12 Ralph states + sprout)
     sh:property [
         sh:path idea:lifecycle ;
         sh:maxCount 1 ;
-        sh:in ("seed" "active" "backlog" "done" "archived") ;
-        sh:message "Lifecycle must be one of: seed, active, backlog, done, archived"
+        sh:in ("seed" "sprout" "backlog" "researching" "researched" "decomposing" "scoped" "implementing" "completed" "blocked" "failed" "invalidated" "parked") ;
+        sh:message "Lifecycle must be one of: seed, sprout, backlog, researching, researched, decomposing, scoped, implementing, completed, blocked, failed, invalidated, parked"
     ] ;
 
     # Priority must be positive integer if present
@@ -77,6 +77,15 @@ idea:IdeaShape a sh:NodeShape ;
         sh:message "Wikidata reference must be a valid Wikidata entity URI (e.g., http://www.wikidata.org/entity/Q12345)"
     ] ;
 
+    # Content is a long string
+    sh:property [
+        sh:path idea:content ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:severity sh:Info ;
+        sh:message "Idea may have full markdown content (idea:content)"
+    ] ;
+
     # Tags should exist (warning only)
     sh:property [
         sh:path dcterms:subject ;
@@ -109,6 +118,15 @@ idea:SeedShape a sh:NodeShape ;
         sh:hasValue "seed" ;
         sh:severity sh:Warning ;
         sh:message "Seed should have lifecycle='seed'"
+    ] ;
+
+    # Seeds should have capturedAt
+    sh:property [
+        sh:path idea:capturedAt ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:severity sh:Warning ;
+        sh:message "Seed should have a captured timestamp (idea:capturedAt)"
     ] .
 
 # ============================================================================
@@ -157,7 +175,7 @@ idea:DependencyShape a sh:NodeShape ;
     ] .
 
 # ============================================================================
-# ACTIVE IDEA CONSTRAINTS
+# ACTIVE IDEA CONSTRAINTS (Researching/Implementing)
 # ============================================================================
 
 idea:ActiveIdeaShape a sh:NodeShape ;
@@ -167,7 +185,8 @@ idea:ActiveIdeaShape a sh:NodeShape ;
             PREFIX idea: <http://semantic-tool-use.org/ontology/idea-pool#>
             SELECT ?this
             WHERE {
-                ?this idea:lifecycle "active" .
+                ?this idea:lifecycle ?lc .
+                FILTER(?lc IN ("researching", "implementing"))
             }
         """
     ] ;

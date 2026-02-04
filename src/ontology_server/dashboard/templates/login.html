@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login — Ontology Dashboard</title>
+    <link rel="stylesheet" href="/dashboard/static/style.css">
+    <style>
+        .login-container {
+            max-width: 360px;
+            margin: 120px auto;
+            padding: 2rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .login-container h1 { margin-top: 0; font-size: 1.4rem; }
+        .login-container input[type="password"] {
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.5rem 0 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+        .login-container button {
+            width: 100%;
+            padding: 0.5rem;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .login-container button:hover { background: #1d4ed8; }
+        .login-error {
+            color: #dc2626;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Ontology Dashboard</h1>
+        {% if error %}
+        <p class="login-error">{{ error }}</p>
+        {% endif %}
+        <form method="post" action="/dashboard/login">
+            <label for="api_key">API Key</label>
+            <input type="password" id="api_key" name="api_key" placeholder="Paste your API key" required autofocus>
+            <button type="submit">Sign in</button>
+        </form>
+    </div>
+</body>
+</html>

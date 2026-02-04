@@ -1,0 +1,1282 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
+@prefix viz: <http://semantic-tool-use.org/ontology/visual-artifacts/visualization#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://semantic-tool-use.org/ontology/visual-artifacts/visualization> a owl:Ontology ;
+    rdfs:label "Visual Artifacts - Visualization Theory" ;
+    rdfs:comment """Theory-first ontology for data visualization grounded in:
+    - Bertin's Semiology of Graphics (1967) - Visual Variables
+    - Wilkinson's Grammar of Graphics (1999) - Compositional Structure
+    - Tufte's Principles (1983-2006) - Data-Ink, Small Multiples, Sparklines
+
+    Organized by analytical task rather than chart taxonomy.""" ;
+    owl:imports <http://semantic-tool-use.org/ontology/visual-artifacts> ;
+    owl:versionInfo "0.1.0" .
+
+viz:AnalogClockViz a owl:Class ;
+    rdfs:label "Analog Clock" ;
+    viz:effectivenessRating "5" ;
+    viz:primaryEncoding viz:Position ;
+    viz:toolSupport "FULL (analog-clock-mcp server)" ;
+    rdfs:comment "Mathematically accurate analog clock visualization. Renders precise hand angles for hour, minute, and second. Supports multiple styles (classic, roman, modern, station, deco, skeleton, midnight) and shapes (round, square, cushion, tonneau, octagon). LLMs struggle with clock hand positioning - this type ensures correctness." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:AreaChartViz a owl:Class ;
+    rdfs:label "Area Chart" ;
+    viz:primaryEncoding viz:Position,
+        viz:Size ;
+    viz:servesTask viz:ChangingComposition,
+        viz:CompareOverTime ;
+    viz:usesMark viz:AreaMark ;
+    rdfs:comment "Filled line chart emphasizing magnitude." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:BeeswarmGap a viz:ToolGap ;
+    rdfs:label "Beeswarm Gap" ;
+    viz:implementationComplexity "medium" ;
+    viz:missingFor viz:BeeswarmViz ;
+    viz:priority "medium" ;
+    rdfs:comment "Requires force-directed layout to avoid overlap." .
+
+viz:BulletChartGap a viz:ToolGap ;
+    rdfs:label "Bullet Chart Gap" ;
+    viz:implementationComplexity "medium" ;
+    viz:missingFor viz:BulletChartViz ;
+    viz:priority "high" ;
+    rdfs:comment "Horizontal bar with reference markers and qualitative ranges." .
+
+viz:CalendarViewViz a owl:Class ;
+    rdfs:label "Calendar View" ;
+    viz:effectivenessRating "5" ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Position ;
+    viz:toolSupport "FULL (calendar-view-mcp server)" ;
+    viz:usesMark viz:RectMark ;
+    rdfs:comment "Mathematically accurate calendar visualization. Supports month, week, and year views with correct day-of-week alignment, proper days per month (28/29/30/31), leap year handling, and ISO 8601 week numbers. Features include post-it notes pinned to days, weekend highlighting, holiday marking, and multiple styles (classic, modern, planner, corporate, dark, vintage). LLMs struggle with calendar layouts - this type ensures correctness." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:Cartesian a viz:CoordinateSystem ;
+    rdfs:label "Cartesian" ;
+    rdfs:comment "Standard X-Y rectangular coordinates." .
+
+viz:ChartjunkInk a viz:InkType ;
+    rdfs:label "Chartjunk" ;
+    rdfs:comment """Decorative elements that add no information.
+    Tufte: 'Forgo chartjunk.'""" .
+
+viz:DataInk a viz:InkType ;
+    rdfs:label "Data Ink" ;
+    rdfs:comment """Ink that represents data. Removing it erases information.
+    Tufte: 'Maximize the data-ink ratio.'""" .
+
+viz:Geographic a viz:CoordinateSystem ;
+    rdfs:label "Geographic" ;
+    rdfs:comment "Map projections (Mercator, etc.)." .
+
+viz:HeatmapViz a owl:Class ;
+    rdfs:label "Heatmap" ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Position,
+        viz:Value ;
+    viz:servesTask viz:TwoVariableRelationship ;
+    viz:usesMark viz:RectMark ;
+    rdfs:comment "Matrix with color encoding values." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:LayeredDisplay a owl:Class ;
+    rdfs:label "Layered Display" ;
+    rdfs:comment """Multiple visualization layers sharing coordinates.
+    Tufte's 'Layering and Separation'.""" ;
+    rdfs:subClassOf viz:CompositionPattern .
+
+viz:MarimekkoGap a viz:ToolGap ;
+    rdfs:label "Marimekko Gap" ;
+    viz:implementationComplexity "high" ;
+    viz:missingFor viz:MarimekkoViz ;
+    viz:priority "low" ;
+    rdfs:comment "Complex two-dimensional composition." .
+
+viz:NetworkRelationship a owl:Class ;
+    rdfs:label "Network Relationship" ;
+    viz:recommendedViz viz:ArcDiagramViz,
+        viz:ChordDiagramViz,
+        viz:ForceGraphViz ;
+    rdfs:comment "Connections between entities." ;
+    rdfs:subClassOf viz:RelationshipTask .
+
+viz:RedundantInk a viz:InkType ;
+    rdfs:label "Redundant Ink" ;
+    rdfs:comment """Ink that duplicates information already shown.
+    Tufte: 'Erase redundant data-ink.'""" .
+
+viz:RidgelineGap a viz:ToolGap ;
+    rdfs:label "Ridgeline Gap" ;
+    viz:implementationComplexity "medium" ;
+    viz:missingFor viz:RidgelineViz ;
+    viz:priority "medium" ;
+    rdfs:comment "Stacked density plots with overlap." .
+
+viz:SlopeGraphGap a viz:ToolGap ;
+    rdfs:label "Slope Graph Gap" ;
+    viz:implementationComplexity "low" ;
+    viz:missingFor viz:SlopeGraphViz ;
+    viz:priority "high" ;
+    rdfs:comment "Simple two-column connected plot. Easy to implement." .
+
+viz:SparklineGap a viz:ToolGap ;
+    rdfs:label "Sparkline Gap" ;
+    viz:implementationComplexity "low" ;
+    viz:missingFor viz:SparklineViz ;
+    viz:priority "highest" ;
+    rdfs:comment "Tufte's signature. Word-sized inline SVG." .
+
+viz:SpatialData a viz:DataType ;
+    rdfs:label "Spatial" ;
+    rdfs:comment "Geographic or coordinate-based data." .
+
+viz:SpatialDistribution a owl:Class ;
+    rdfs:label "Spatial Distribution" ;
+    viz:recommendedViz viz:ChoroplethViz,
+        viz:ProportionalSymbolViz ;
+    rdfs:comment "How values are distributed geographically." ;
+    rdfs:subClassOf viz:SpatialTask .
+
+viz:SpatialFlow a owl:Class ;
+    rdfs:label "Spatial Flow" ;
+    viz:recommendedViz viz:ConnectionMapViz,
+        viz:FlowMapViz ;
+    rdfs:comment "Movement or connection between locations." ;
+    rdfs:subClassOf viz:SpatialTask .
+
+viz:StructuralInk a viz:InkType ;
+    rdfs:label "Structural Ink" ;
+    rdfs:comment """Ink for axes, gridlines, frames. Necessary but minimize.
+    Tufte: 'Erase non-data-ink within reason.'""" .
+
+viz:TemporalData a viz:DataType ;
+    rdfs:label "Temporal" ;
+    rdfs:comment "Time-based data (dates, timestamps, durations)." .
+
+viz:Texture a owl:Class ;
+    rdfs:label "Texture" ;
+    viz:perceptualAccuracy "categorical-only" ;
+    viz:suitableFor viz:NominalData ;
+    rdfs:comment """Pattern or grain (hatching, dots, etc.).
+    Categorical. Useful for print/accessibility.""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:TickMark a viz:Mark ;
+    rdfs:label "Tick" ;
+    viz:encodesVia viz:Position ;
+    rdfs:comment "Short line mark. For rug plots, strip plots." .
+
+viz:Trellis a owl:Class ;
+    rdfs:label "Trellis Display" ;
+    rdfs:comment "Formal small multiples with conditioning variables (Cleveland)." ;
+    rdfs:subClassOf viz:SmallMultiples .
+
+viz:WaffleChartGap a viz:ToolGap ;
+    rdfs:label "Waffle Chart Gap" ;
+    viz:implementationComplexity "low" ;
+    viz:missingFor viz:WaffleChartViz ;
+    viz:priority "high" ;
+    rdfs:comment "Can extend existing isotype tool." .
+
+viz:accessibilityConcern a owl:DatatypeProperty ;
+    rdfs:label "accessibility concern" ;
+    rdfs:domain viz:VisualVariable ;
+    rdfs:range xsd:string .
+
+viz:caveat a owl:DatatypeProperty ;
+    rdfs:label "caveat" ;
+    rdfs:comment "Warnings or limitations to consider." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range xsd:string .
+
+viz:channel a owl:ObjectProperty ;
+    rdfs:label "channel" ;
+    rdfs:comment "The visual variable used for encoding." ;
+    rdfs:domain viz:Encoding ;
+    rdfs:range viz:VisualVariable .
+
+viz:coordinateSystem a owl:ObjectProperty ;
+    rdfs:label "coordinate system" ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:CoordinateSystem .
+
+viz:dataType a owl:ObjectProperty ;
+    rdfs:label "data type" ;
+    rdfs:comment "The type of data in this field." ;
+    rdfs:domain viz:Encoding ;
+    rdfs:range viz:DataType .
+
+viz:displayContext a owl:DatatypeProperty ;
+    rdfs:label "display context" ;
+    rdfs:comment "Where this visualization is typically used: standalone, inline, dashboard" ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range xsd:string .
+
+viz:effectivenessRating a owl:DatatypeProperty ;
+    rdfs:label "effectiveness rating" ;
+    rdfs:comment "1-5 rating of perceptual effectiveness for its task." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range xsd:integer .
+
+viz:encodesVia a owl:ObjectProperty ;
+    rdfs:label "encodes via" ;
+    rdfs:comment "Visual variables this mark type can utilize." ;
+    rdfs:domain viz:Mark ;
+    rdfs:range viz:VisualVariable .
+
+viz:facetColumns a owl:DatatypeProperty ;
+    rdfs:label "facet columns" ;
+    rdfs:domain viz:SmallMultiples ;
+    rdfs:range xsd:integer .
+
+viz:facetField a owl:DatatypeProperty ;
+    rdfs:label "facet field" ;
+    rdfs:comment "The variable used to split into multiples." ;
+    rdfs:domain viz:SmallMultiples ;
+    rdfs:range xsd:string .
+
+viz:facetRows a owl:DatatypeProperty ;
+    rdfs:label "facet rows" ;
+    rdfs:domain viz:SmallMultiples ;
+    rdfs:range xsd:integer .
+
+viz:field a owl:DatatypeProperty ;
+    rdfs:label "field" ;
+    rdfs:comment "The data field name being encoded." ;
+    rdfs:domain viz:Encoding ;
+    rdfs:range xsd:string .
+
+viz:highlightMax a owl:DatatypeProperty ;
+    rdfs:label "highlight maximum" ;
+    rdfs:domain viz:Sparkline ;
+    rdfs:range xsd:boolean .
+
+viz:highlightMin a owl:DatatypeProperty ;
+    rdfs:label "highlight minimum" ;
+    rdfs:domain viz:Sparkline ;
+    rdfs:range xsd:boolean .
+
+viz:implementationComplexity a owl:DatatypeProperty ;
+    rdfs:label "implementation complexity" ;
+    rdfs:comment "low, medium, high" ;
+    rdfs:domain viz:ToolGap ;
+    rdfs:range xsd:string .
+
+viz:inkType a owl:ObjectProperty ;
+    rdfs:label "ink type" ;
+    rdfs:comment "Classifies a component's contribution to information display." ;
+    rdfs:domain vao:VisualComponent ;
+    rdfs:range viz:InkType .
+
+viz:missingFor a owl:ObjectProperty ;
+    rdfs:label "missing for" ;
+    rdfs:domain viz:ToolGap ;
+    rdfs:range viz:VisualizationType .
+
+viz:normalBand a owl:DatatypeProperty ;
+    rdfs:label "normal band" ;
+    rdfs:comment "Show a band indicating normal/expected range." ;
+    rdfs:domain viz:Sparkline ;
+    rdfs:range xsd:boolean .
+
+viz:notRecommended a owl:ObjectProperty ;
+    rdfs:label "not recommended" ;
+    rdfs:comment "Visualization types that poorly serve this task." ;
+    rdfs:domain viz:AnalyticalTask ;
+    rdfs:range viz:VisualizationType .
+
+viz:perceptualAccuracy a owl:DatatypeProperty ;
+    rdfs:label "perceptual accuracy" ;
+    rdfs:comment "How accurately humans perceive differences: highest, high, medium, low, categorical-only" ;
+    rdfs:domain viz:VisualVariable ;
+    rdfs:range xsd:string .
+
+viz:preferredOver a owl:ObjectProperty ;
+    rdfs:label "preferred over" ;
+    rdfs:comment "This visualization is generally more effective than the target." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:VisualizationType .
+
+viz:preferredWhen a owl:DatatypeProperty ;
+    rdfs:label "preferred when" ;
+    rdfs:comment "Conditions under which this visualization excels." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range xsd:string .
+
+viz:primaryEncoding a owl:ObjectProperty ;
+    rdfs:label "primary encoding" ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:VisualVariable .
+
+viz:priority a owl:DatatypeProperty ;
+    rdfs:label "priority" ;
+    rdfs:comment "highest, high, medium, low" ;
+    rdfs:domain viz:ToolGap ;
+    rdfs:range xsd:string .
+
+viz:recommendedViz a owl:ObjectProperty ;
+    rdfs:label "recommended visualization" ;
+    rdfs:domain viz:AnalyticalTask ;
+    rdfs:range viz:VisualizationType .
+
+viz:scale a owl:DatatypeProperty ;
+    rdfs:label "scale" ;
+    rdfs:comment "Scale type: linear, log, sqrt, time, ordinal, band" ;
+    rdfs:domain viz:Encoding ;
+    rdfs:range xsd:string .
+
+viz:servesTask a owl:ObjectProperty ;
+    rdfs:label "serves task" ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:AnalyticalTask .
+
+viz:sharedXScale a owl:DatatypeProperty ;
+    rdfs:label "shared X scale" ;
+    rdfs:comment "All panels share the same X axis scale (required for comparison)." ;
+    rdfs:domain viz:SmallMultiples ;
+    rdfs:range xsd:boolean .
+
+viz:sharedYScale a owl:DatatypeProperty ;
+    rdfs:label "shared Y scale" ;
+    rdfs:comment "All panels share the same Y axis scale (required for comparison)." ;
+    rdfs:domain viz:SmallMultiples ;
+    rdfs:range xsd:boolean .
+
+viz:showEndValue a owl:DatatypeProperty ;
+    rdfs:label "show end value" ;
+    rdfs:comment "Display the final value as text." ;
+    rdfs:domain viz:Sparkline ;
+    rdfs:range xsd:boolean .
+
+viz:suitableFor a owl:ObjectProperty ;
+    rdfs:label "suitable for" ;
+    rdfs:comment "Data types this variable can effectively encode." ;
+    rdfs:domain viz:VisualVariable ;
+    rdfs:range viz:DataType .
+
+viz:toolSupport a owl:DatatypeProperty ;
+    rdfs:label "tool support" ;
+    rdfs:comment "Tools that can generate this visualization. MISSING = gap to fill." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range xsd:string .
+
+viz:usesMark a owl:ObjectProperty ;
+    rdfs:label "uses mark" ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:Mark .
+
+viz:BubbleChartViz a owl:Class ;
+    rdfs:label "Bubble Chart" ;
+    viz:caveat "Area perception is poor. Size exaggerates differences." ;
+    viz:primaryEncoding viz:Position,
+        viz:Size ;
+    viz:servesTask viz:TwoVariableRelationship ;
+    viz:usesMark viz:PointMark ;
+    rdfs:comment "Scatter plot with size encoding third variable." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:CompareTwoPoints a owl:Class ;
+    rdfs:label "Compare Two Points" ;
+    viz:recommendedViz viz:SlopeGraphViz ;
+    rdfs:comment "Before/after, start/end comparison." ;
+    rdfs:subClassOf viz:ComparisonTask ;
+    skos:example "Test scores before and after intervention" .
+
+viz:ConnectedScatterViz a owl:Class ;
+    rdfs:label "Connected Scatter Plot" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:TimeAsPath ;
+    viz:toolSupport "vega-lite (manual)" ;
+    viz:usesMark viz:LineMark,
+        viz:PointMark ;
+    rdfs:comment "Scatter plot with points connected in time order. Time encoded as path, not axis." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:DensityViz a owl:Class ;
+    rdfs:label "Density Plot" ;
+    viz:preferredOver viz:HistogramViz ;
+    viz:preferredWhen "Continuous data, comparing distributions" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:SingleDistribution ;
+    viz:usesMark viz:AreaMark ;
+    rdfs:comment "Smoothed distribution estimate (KDE)." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:DeviationBarViz a owl:Class ;
+    rdfs:label "Deviation Bar Chart" ;
+    viz:primaryEncoding viz:Position,
+        viz:Size ;
+    viz:servesTask viz:CompareToReference ;
+    viz:usesMark viz:BarMark ;
+    rdfs:comment "Bars extending from zero/baseline showing positive/negative deviation." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:DotPlotViz a owl:Class ;
+    rdfs:label "Dot Plot" ;
+    viz:preferredOver viz:BarChartViz ;
+    viz:preferredWhen "Many categories (>10), precise comparison needed" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareAmongItems ;
+    viz:usesMark viz:PointMark ;
+    rdfs:comment "Points on a common scale. Cleaner than bars for many items." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:GaugeViz a owl:Class ;
+    rdfs:label "Gauge" ;
+    viz:caveat "Poor information density. Bullet chart preferred." ;
+    viz:coordinateSystem viz:Polar ;
+    viz:effectivenessRating 2 ;
+    viz:primaryEncoding viz:Orientation ;
+    viz:usesMark viz:ArcMark ;
+    rdfs:comment """Circular dial showing single value.
+    WARNING: Inefficient use of space. Use bullet chart instead.""" ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:LineChartViz a owl:Class ;
+    rdfs:label "Line Chart" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareOverTime ;
+    viz:toolSupport "d3",
+        "matplotlib",
+        "vega-lite" ;
+    viz:usesMark viz:LineMark,
+        viz:PointMark ;
+    rdfs:comment "Connected points showing trend over time." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:LollipopViz a owl:Class ;
+    rdfs:label "Lollipop Chart" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareAmongItems ;
+    viz:usesMark viz:LineMark,
+        viz:PointMark ;
+    rdfs:comment "Dot plot with lines extending to baseline. Balances clarity and visual weight." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:MultivariateDistribution a owl:Class ;
+    rdfs:label "Multivariate Distribution" ;
+    viz:recommendedViz viz:ParallelCoordinatesViz,
+        viz:ScatterMatrixViz ;
+    rdfs:comment "Distribution across many dimensions." ;
+    rdfs:subClassOf viz:DistributionTask .
+
+viz:Parallel a viz:CoordinateSystem ;
+    rdfs:label "Parallel" ;
+    rdfs:comment "Parallel axes. For parallel coordinates plot." .
+
+viz:ParallelCoordinatesViz a owl:Class ;
+    rdfs:label "Parallel Coordinates" ;
+    viz:coordinateSystem viz:Parallel ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:MultivariateDistribution ;
+    viz:toolSupport "d3",
+        "vega-lite (complex)" ;
+    viz:usesMark viz:LineMark ;
+    rdfs:comment "Each variable on parallel axis, lines connecting values." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:ScatterPlotViz a owl:Class ;
+    rdfs:label "Scatter Plot" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:TwoVariableRelationship ;
+    viz:usesMark viz:PointMark ;
+    rdfs:comment "Points positioned by two quantitative variables." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:Shape a owl:Class ;
+    rdfs:label "Shape" ;
+    viz:perceptualAccuracy "categorical-only" ;
+    viz:suitableFor viz:NominalData ;
+    rdfs:comment """Geometric form (circle, square, triangle, etc.).
+    Categorical only. Cannot represent ordered or quantitative data.""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:StackedAreaViz a owl:Class ;
+    rdfs:label "Stacked Area Chart" ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Position ;
+    viz:servesTask viz:ChangingComposition ;
+    viz:usesMark viz:AreaMark ;
+    rdfs:comment "Areas stacked showing composition over time." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:StreamGraphViz a owl:Class ;
+    rdfs:label "Stream Graph" ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Position ;
+    viz:servesTask viz:ChangingComposition ;
+    viz:usesMark viz:AreaMark ;
+    rdfs:comment "Centered stacked area. Emphasizes overall shape and flow." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:SunburstViz a owl:Class ;
+    rdfs:label "Sunburst" ;
+    viz:coordinateSystem viz:Polar ;
+    viz:primaryEncoding viz:Orientation,
+        viz:Size ;
+    viz:servesTask viz:HierarchicalComposition ;
+    viz:usesMark viz:ArcMark ;
+    rdfs:comment "Radial treemap. Hierarchical composition in polar coordinates." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:TextMark a viz:Mark ;
+    rdfs:label "Text" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Position,
+        viz:Size ;
+    rdfs:comment "Text as mark. For labels, annotations, word clouds." .
+
+viz:TimeAsPath a owl:Class ;
+    rdfs:label "Time as Path" ;
+    viz:recommendedViz viz:ConnectedScatterViz ;
+    rdfs:comment "Show trajectory through two variables over time." ;
+    rdfs:subClassOf viz:RelationshipTask ;
+    skos:example "Gapminder: income vs life expectancy, animated by year" .
+
+viz:ViolinViz a owl:Class ;
+    rdfs:label "Violin Plot" ;
+    viz:preferredOver viz:BoxPlotViz ;
+    viz:preferredWhen "Distribution shape matters, bimodality possible" ;
+    viz:primaryEncoding viz:Position,
+        viz:Size ;
+    viz:servesTask viz:CompareDistributions,
+        viz:SingleDistribution ;
+    viz:usesMark viz:AreaMark ;
+    rdfs:comment "Mirrored density plot. Shows full distribution shape." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:BarChartViz a owl:Class ;
+    rdfs:label "Bar Chart" ;
+    viz:primaryEncoding viz:Size ;
+    viz:servesTask viz:CompareAmongItems ;
+    viz:toolSupport "d3",
+        "matplotlib",
+        "vega-lite" ;
+    viz:usesMark viz:BarMark ;
+    rdfs:comment "Rectangular bars with length encoding quantity." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:BeeswarmViz a owl:Class ;
+    rdfs:label "Beeswarm Plot" ;
+    viz:preferredOver viz:StripPlotViz ;
+    viz:preferredWhen "Small to medium n, want to see individual points" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:SingleDistribution ;
+    viz:toolSupport "MISSING" ;
+    viz:usesMark viz:PointMark ;
+    rdfs:comment "Jittered points avoiding overlap. Shows all data points + distribution." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:BoxPlotViz a owl:Class ;
+    rdfs:label "Box Plot" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareDistributions,
+        viz:SingleDistribution ;
+    viz:usesMark viz:PointMark,
+        viz:RectMark,
+        viz:RuleMark ;
+    rdfs:comment "Five-number summary (min, Q1, median, Q3, max) plus outliers." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:BulletChartViz a owl:Class ;
+    rdfs:label "Bullet Chart" ;
+    viz:preferredOver viz:GaugeViz ;
+    viz:primaryEncoding viz:Position,
+        viz:Size ;
+    viz:servesTask viz:CompareToReference ;
+    viz:toolSupport "MISSING" ;
+    viz:usesMark viz:BarMark,
+        viz:RectMark,
+        viz:RuleMark ;
+    rdfs:comment """Stephen Few's replacement for gauges. Shows actual, target, and qualitative ranges.
+    More information-dense than gauge.""" ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:CompareToReference a owl:Class ;
+    rdfs:label "Compare to Reference" ;
+    viz:recommendedViz viz:BulletChartViz,
+        viz:DeviationBarViz ;
+    rdfs:comment "Compare actual to target/budget/benchmark." ;
+    rdfs:subClassOf viz:ComparisonTask ;
+    skos:example "Actual vs budget by department" .
+
+viz:HierarchicalComposition a owl:Class ;
+    rdfs:label "Hierarchical Composition" ;
+    viz:recommendedViz viz:IcicleViz,
+        viz:SunburstViz,
+        viz:TreemapViz ;
+    rdfs:comment "Nested part-to-whole relationships." ;
+    rdfs:subClassOf viz:CompositionTask .
+
+viz:HistogramViz a owl:Class ;
+    rdfs:label "Histogram" ;
+    viz:primaryEncoding viz:Position,
+        viz:Size ;
+    viz:servesTask viz:SingleDistribution ;
+    viz:usesMark viz:RectMark ;
+    rdfs:comment "Binned frequency distribution." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:MarimekkoViz a owl:Class ;
+    rdfs:label "Marimekko Chart" ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Position,
+        viz:Size ;
+    viz:servesTask viz:ChangingComposition,
+        viz:StaticComposition ;
+    viz:toolSupport "MISSING" ;
+    viz:usesMark viz:RectMark ;
+    rdfs:comment "Variable-width stacked bars. Two-dimensional composition." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:RidgelineViz a owl:Class ;
+    rdfs:label "Ridgeline Plot" ;
+    viz:preferredWhen "Many groups (>5), want to see full distribution shape" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareDistributions ;
+    viz:toolSupport "MISSING" ;
+    viz:usesMark viz:AreaMark ;
+    rdfs:comment "Stacked density plots for comparing many distributions. Joy Division aesthetic." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:RuleMark a viz:Mark ;
+    rdfs:label "Rule" ;
+    viz:encodesVia viz:Position ;
+    rdfs:comment "Reference line (horizontal or vertical). For thresholds, means." .
+
+viz:SparklineViz a owl:Class ;
+    rdfs:label "Sparkline" ;
+    viz:displayContext "inline" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareOverTime ;
+    viz:toolSupport "MISSING" ;
+    viz:usesMark viz:LineMark ;
+    rdfs:comment "Word-sized line chart for inline display. Tufte's invention." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:SpatialTask a owl:Class ;
+    rdfs:label "Spatial" ;
+    rdfs:comment "Geographic or location-based analysis." ;
+    rdfs:subClassOf viz:AnalyticalTask .
+
+viz:StripPlotViz a owl:Class ;
+    rdfs:label "Strip Plot" ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:SingleDistribution ;
+    viz:usesMark viz:PointMark ;
+    rdfs:comment "Randomly jittered points. Simpler but more overplotting than beeswarm." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:TreemapViz a owl:Class ;
+    rdfs:label "Treemap" ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Size ;
+    viz:servesTask viz:HierarchicalComposition,
+        viz:StaticComposition ;
+    viz:usesMark viz:RectMark ;
+    rdfs:comment "Nested rectangles showing hierarchical composition." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:WaffleChartViz a owl:Class ;
+    rdfs:label "Waffle Chart" ;
+    viz:effectivenessRating 4 ;
+    viz:preferredOver viz:PieChartViz ;
+    viz:primaryEncoding viz:ColorHue,
+        viz:Position ;
+    viz:servesTask viz:StaticComposition ;
+    viz:toolSupport "PARTIAL (extend isotype)" ;
+    viz:usesMark viz:RectMark ;
+    rdfs:comment "Grid of squares showing proportion. More accurate than pie." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:ArcMark a viz:Mark ;
+    rdfs:label "Arc" ;
+    viz:caveat "Angle perception is poor; avoid for precise comparison" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Orientation,
+        viz:Size ;
+    rdfs:comment "Circular segment. For pie charts, radial displays." .
+
+viz:BarMark a viz:Mark ;
+    rdfs:label "Bar" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Position,
+        viz:Size ;
+    rdfs:comment "Rectangular mark anchored to baseline. For comparisons." .
+
+viz:CompareAmongItems a owl:Class ;
+    rdfs:label "Compare Among Items" ;
+    viz:recommendedViz viz:BarChartViz,
+        viz:DotPlotViz,
+        viz:LollipopViz ;
+    rdfs:comment "Compare values across categories." ;
+    rdfs:subClassOf viz:ComparisonTask ;
+    skos:example "Sales by product category" .
+
+viz:CompareDistributions a owl:Class ;
+    rdfs:label "Compare Distributions" ;
+    viz:recommendedViz viz:MultiBoxViz,
+        viz:MultiViolinViz,
+        viz:RidgelineViz ;
+    rdfs:comment "Compare distributions across groups." ;
+    rdfs:subClassOf viz:DistributionTask .
+
+viz:CompositionPattern a owl:Class ;
+    rdfs:label "Composition Pattern" ;
+    rdfs:comment "High-level patterns for combining visualizations." .
+
+viz:CompositionTask a owl:Class ;
+    rdfs:label "Composition" ;
+    rdfs:comment "Part-to-whole relationships." ;
+    rdfs:subClassOf viz:AnalyticalTask .
+
+viz:DistributionTask a owl:Class ;
+    rdfs:label "Distribution" ;
+    rdfs:comment "Understanding how values are spread." ;
+    rdfs:subClassOf viz:AnalyticalTask .
+
+viz:OrdinalData a viz:DataType ;
+    rdfs:label "Ordinal" ;
+    rdfs:comment "Ordered categories (low/medium/high, rankings)." .
+
+viz:PieChartViz a owl:Class ;
+    rdfs:label "Pie Chart",
+        "PieChartViz" ;
+    viz:caveat "Human angle perception is poor. Consider waffle chart instead." ;
+    viz:coordinateSystem viz:Polar ;
+    viz:effectivenessRating 2 ;
+    viz:primaryEncoding viz:Orientation ;
+    viz:servesTask viz:StaticComposition ;
+    viz:toolSupport "growth-chart-mcp" ;
+    viz:usesMark viz:ArcMark ;
+    rdfs:comment """Circular chart with arc angle encoding proportion.
+    WARNING: Angle perception is poor. Use waffle/bar instead.""",
+        "Pie chart showing part-to-whole relationships using circular segments. Supports donut variant. Best for proportions summing to 100% with 2-6 categories." ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:Polar a viz:CoordinateSystem ;
+    rdfs:label "Polar" ;
+    rdfs:comment "Angle and radius. For pie charts, radar charts." .
+
+viz:QuantitativeData a viz:DataType ;
+    rdfs:label "Quantitative" ;
+    rdfs:comment "Continuous or discrete numeric values with meaningful magnitudes." .
+
+viz:RelationshipTask a owl:Class ;
+    rdfs:label "Relationship" ;
+    rdfs:comment "Correlations and connections between variables." ;
+    rdfs:subClassOf viz:AnalyticalTask .
+
+viz:SlopeGraphViz a owl:Class ;
+    rdfs:label "Slope Graph" ;
+    viz:preferredOver viz:GroupedBarViz ;
+    viz:primaryEncoding viz:Position ;
+    viz:servesTask viz:CompareOverTime,
+        viz:CompareTwoPoints ;
+    viz:toolSupport "MISSING" ;
+    viz:usesMark viz:LineMark,
+        viz:PointMark,
+        viz:TextMark ;
+    rdfs:comment """Two-point comparison showing change direction and magnitude.
+    Tufte: Superior to grouped bars for before/after.""" ;
+    rdfs:subClassOf viz:VisualizationType .
+
+viz:TwoVariableRelationship a owl:Class ;
+    rdfs:label "Two Variable Relationship" ;
+    viz:recommendedViz viz:BubbleChartViz,
+        viz:ScatterPlotViz ;
+    rdfs:comment "Correlation between two quantitative variables." ;
+    rdfs:subClassOf viz:RelationshipTask .
+
+viz:Value a owl:Class ;
+    rdfs:label "Value" ;
+    viz:distinguishableSteps 7 ;
+    viz:perceptualAccuracy "medium" ;
+    viz:suitableFor viz:OrdinalData,
+        viz:QuantitativeData ;
+    rdfs:comment """Lightness/darkness (grayscale).
+    Ordered perception. Limited distinguishable steps (~7).""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:ChangingComposition a owl:Class ;
+    rdfs:label "Changing Composition" ;
+    viz:recommendedViz viz:MarimekkoViz,
+        viz:StackedAreaViz,
+        viz:StreamGraphViz ;
+    rdfs:comment "How composition changes over time." ;
+    rdfs:subClassOf viz:CompositionTask .
+
+viz:CompareOverTime a owl:Class ;
+    rdfs:label "Compare Over Time" ;
+    viz:recommendedViz viz:LineChartViz,
+        viz:SlopeGraphViz,
+        viz:SparklineViz ;
+    rdfs:comment "Show trends, patterns, changes over time." ;
+    rdfs:subClassOf viz:ComparisonTask ;
+    skos:example "Monthly revenue for the past 2 years" .
+
+viz:ComparisonTask a owl:Class ;
+    rdfs:label "Comparison" ;
+    rdfs:comment "Comparing values across categories or time." ;
+    rdfs:subClassOf viz:AnalyticalTask .
+
+viz:Encoding a owl:Class ;
+    rdfs:label "Encoding" ;
+    rdfs:comment "A mapping from a data field to a visual variable." .
+
+viz:NominalData a viz:DataType ;
+    rdfs:label "Nominal" ;
+    rdfs:comment "Unordered categories (countries, product types)." .
+
+viz:Orientation a owl:Class ;
+    rdfs:label "Orientation" ;
+    viz:perceptualAccuracy "low" ;
+    viz:suitableFor viz:OrdinalData ;
+    rdfs:comment """Angle or direction.
+    Limited use. Good for wind direction, slopes.""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:Sparkline a owl:Class ;
+    rdfs:label "Sparkline" ;
+    rdfs:comment """Word-sized, high-resolution graphic embedded in text.
+    Tufte: 'Sparklines are datawords: data-intense, design-simple,
+    word-sized graphics.'""" ;
+    rdfs:subClassOf vao:VisualComponent,
+        viz:CompositionPattern ;
+    skos:example "Revenue trend: [sparkline] up 12% this quarter" .
+
+viz:StaticComposition a owl:Class ;
+    rdfs:label "Static Composition" ;
+    viz:notRecommended viz:PieChartViz ;
+    viz:recommendedViz viz:PieChartViz,
+        viz:TreemapViz,
+        viz:WaffleChartViz ;
+    rdfs:comment "Parts of a whole at one point in time.",
+        "Waffle/Treemap preferred over Pie for accuracy." ;
+    rdfs:subClassOf viz:CompositionTask .
+
+viz:CoordinateSystem a owl:Class ;
+    rdfs:label "Coordinate System" ;
+    rdfs:comment "The spatial framework for positioning marks." .
+
+viz:InkType a owl:Class ;
+    rdfs:label "Ink Type" ;
+    rdfs:comment "Classification of visual elements by information content (Tufte)." .
+
+viz:AreaMark a viz:Mark ;
+    rdfs:label "Area" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Position,
+        viz:Value ;
+    rdfs:comment "Filled region. For cumulative values, compositions." .
+
+viz:LineMark a viz:Mark ;
+    rdfs:label "Line" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Position,
+        viz:Size ;
+    rdfs:comment "One-dimensional mark connecting points. For trends, paths." .
+
+viz:SingleDistribution a owl:Class ;
+    rdfs:label "Single Distribution" ;
+    viz:recommendedViz viz:BeeswarmViz,
+        viz:BoxPlotViz,
+        viz:DensityViz,
+        viz:HistogramViz,
+        viz:StripPlotViz,
+        viz:ViolinViz ;
+    rdfs:comment "Distribution of one variable." ;
+    rdfs:subClassOf viz:DistributionTask .
+
+viz:SmallMultiples a owl:Class ;
+    rdfs:label "Small Multiples" ;
+    rdfs:comment """Grid of small charts showing change across one variable.
+    Tufte: 'At the heart of quantitative reasoning is a single question:
+    Compared to what?'""" ;
+    rdfs:subClassOf vao:Container,
+        viz:CompositionPattern ;
+    skos:example "Sales by region (12 small line charts, one per month)" .
+
+viz:DataType a owl:Class ;
+    rdfs:label "Data Type" ;
+    rdfs:comment "Classification of data for encoding decisions." .
+
+viz:AnalyticalTask a owl:Class ;
+    rdfs:label "Analytical Task" ;
+    rdfs:comment "The analytical purpose driving visualization choice." .
+
+viz:RectMark a viz:Mark ;
+    rdfs:label "Rect" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Position,
+        viz:Value ;
+    rdfs:comment "Rectangle defined by two positions. For heatmaps, histograms." .
+
+viz:PointMark a viz:Mark ;
+    rdfs:label "Point" ;
+    viz:encodesVia viz:ColorHue,
+        viz:Position,
+        viz:Shape,
+        viz:Size ;
+    rdfs:comment "Zero-dimensional mark. For scatter plots, dot plots." .
+
+viz:ToolGap a owl:Class ;
+    rdfs:label "Tool Gap" ;
+    rdfs:comment "A visualization type that lacks adequate tool support." .
+
+viz:Mark a owl:Class ;
+    rdfs:label "Mark" ;
+    rdfs:comment """The geometric primitive used to represent data.
+    Wilkinson's 'geometry' layer.""" .
+
+viz:VisualVariable a owl:Class ;
+    rdfs:label "Visual Variable" ;
+    rdfs:comment """A perceptual channel for encoding data (Bertin 1967).
+    Each variable has different properties for representing data types.""" .
+
+viz:ColorHue a owl:Class ;
+    rdfs:label "Color Hue" ;
+    viz:accessibilityConcern "8% of males have color vision deficiency" ;
+    viz:perceptualAccuracy "categorical-only" ;
+    viz:suitableFor viz:NominalData ;
+    rdfs:comment """Chromatic color (red, blue, green, etc.).
+    Categorical. NOT ordered. Accessibility concerns (colorblindness).""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:Size a owl:Class ;
+    rdfs:label "Size" ;
+    viz:caveat "Area perception follows power law ~0.7; prefer length" ;
+    viz:perceptualAccuracy "high" ;
+    viz:suitableFor viz:QuantitativeData ;
+    rdfs:comment """Length, area, or volume.
+    Good for quantitative data. Area perception is inaccurate (use length).""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:Position a owl:Class ;
+    rdfs:label "Position" ;
+    viz:perceptualAccuracy "highest" ;
+    viz:suitableFor viz:NominalData,
+        viz:OrdinalData,
+        viz:QuantitativeData ;
+    rdfs:comment """Location in 2D space (X, Y coordinates).
+    Most accurate for quantitative data. Highest perceptual precision.""" ;
+    rdfs:subClassOf viz:VisualVariable .
+
+viz:VisualizationType a owl:Class ;
+    rdfs:label "Visualization Type" ;
+    rdfs:comment "A specific type of data visualization." ;
+    rdfs:subClassOf vao:VisualArtifact .
+
+# =============================================================================
+# Data Transforms (Vega-Lite Compatible)
+# =============================================================================
+# These transforms allow statistical computation within the visualization spec
+# rather than requiring pre-processing. Essential for static PDF/presentation
+# output where interactive features are not available.
+
+viz:DataTransform a owl:Class ;
+    rdfs:label "Data Transform" ;
+    rdfs:comment """A transformation applied to data before visualization.
+    Implements Wilkinson's Grammar of Graphics transformation layer.
+    Enables statistical computation within the visualization specification.""" .
+
+viz:AggregateTransform a owl:Class ;
+    rdfs:label "Aggregate Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "aggregate" ;
+    viz:toolSupport "vega-lite" ;
+    rdfs:comment """Computes summary statistics (sum, mean, median, min, max, count, distinct, variance, stdev).
+    Eliminates need for pre-computing aggregations in Python.
+    Use for bar charts showing totals, averages, or counts.""" ;
+    skos:example "Aggregate sales by region: {op: 'sum', field: 'sales', groupBy: ['region']}" .
+
+viz:BinTransform a owl:Class ;
+    rdfs:label "Bin Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "bin" ;
+    viz:toolSupport "vega-lite" ;
+    rdfs:comment """Discretizes continuous data into bins for histograms.
+    Automatically computes optimal bin boundaries based on maxbins or step.
+    Essential for distribution visualization without pre-binning.""" ;
+    skos:example "Bin response times: {field: 'latency_ms', maxbins: 20}" .
+
+viz:RegressionTransform a owl:Class ;
+    rdfs:label "Regression Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "regression" ;
+    viz:toolSupport "vega-lite" ;
+    viz:servesTask viz:TrendAnalysis ;
+    rdfs:comment """Computes regression line (linear, log, exp, pow, quad, poly).
+    Automatically fits trend line to scatter plot or time series.
+    Methods: linear (y=ax+b), log, exp, pow, quad (polynomial 2), poly (custom order).""" ;
+    skos:example "Linear trend: {method: 'linear', x: 'year', y: 'revenue'}" .
+
+viz:LoessTransform a owl:Class ;
+    rdfs:label "LOESS Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "loess" ;
+    viz:toolSupport "vega-lite" ;
+    viz:servesTask viz:TrendAnalysis ;
+    rdfs:comment """Locally Estimated Scatterplot Smoothing (LOESS/LOWESS).
+    Creates smooth curve through noisy data using local weighted regression.
+    Bandwidth (0-1) controls smoothness: lower = more detail, higher = smoother.""" ;
+    skos:example "Smooth noisy data: {x: 'date', y: 'value', bandwidth: 0.3}" .
+
+viz:WindowTransform a owl:Class ;
+    rdfs:label "Window Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "window" ;
+    viz:toolSupport "vega-lite" ;
+    rdfs:comment """Computes values over a sliding window of rows.
+    Operations: row_number, rank, dense_rank, sum, mean, lead, lag, first_value, last_value.
+    Frame defines window: [null, 0] = cumulative, [-2, 2] = 5-point moving average.""" ;
+    skos:example "Cumulative sum: {op: 'sum', field: 'sales', as: 'cumulative', frame: [null, 0]}" .
+
+viz:TimeUnitTransform a owl:Class ;
+    rdfs:label "Time Unit Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "timeUnit" ;
+    viz:toolSupport "vega-lite" ;
+    rdfs:comment """Groups temporal data by time unit (year, quarter, month, week, day, etc.).
+    Essential for time series aggregation and seasonal analysis.
+    Units: year, quarter, month, week, day, dayofweek, hours, minutes, seconds.""" ;
+    skos:example "Monthly aggregation: {field: 'date', unit: 'month'}" .
+
+viz:DensityTransform a owl:Class ;
+    rdfs:label "Density Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "density" ;
+    viz:toolSupport "vega-lite" ;
+    viz:servesTask viz:SingleDistribution,
+        viz:CompareDistributions ;
+    rdfs:comment """Computes Kernel Density Estimation (KDE) from data points.
+    Produces smooth probability density function for distribution visualization.
+    Used for ridgeline plots, violin plots, density overlays.
+    Bandwidth controls smoothness of the density estimate.""" ;
+    skos:example "Density plot: {field: 'value', bandwidth: 0.5, groupBy: ['category']}" .
+
+viz:QuantileTransform a owl:Class ;
+    rdfs:label "Quantile Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "quantile" ;
+    viz:toolSupport "vega-lite" ;
+    viz:servesTask viz:SingleDistribution ;
+    rdfs:comment """Computes quantile values (percentiles) from data.
+    Default computes quartiles [0.25, 0.5, 0.75] for box plots.
+    Useful for distribution summaries, percentile bands, confidence intervals.""" ;
+    skos:example "Quartiles: {field: 'salary', probs: [0.25, 0.5, 0.75]}" .
+
+viz:FoldTransform a owl:Class ;
+    rdfs:label "Fold Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "fold" ;
+    viz:toolSupport "vega-lite" ;
+    rdfs:comment """Unpivots wide-format data to long format.
+    Converts multiple columns into key-value pairs for multi-series charts.
+    Essential when data arrives in spreadsheet format with metrics as columns.""" ;
+    skos:example "Fold metrics: {fields: ['sales', 'costs', 'profit'], as: ['metric', 'value']}" .
+
+viz:ImputeTransform a owl:Class ;
+    rdfs:label "Impute Transform" ;
+    rdfs:subClassOf viz:DataTransform ;
+    viz:vegaLiteEquivalent "impute" ;
+    viz:toolSupport "vega-lite" ;
+    rdfs:comment """Fills missing data points with specified or computed values.
+    Methods: value (constant), mean, median, min, max.
+    Essential for continuous time series and complete data grids.""" ;
+    skos:example "Fill gaps with zero: {field: 'sales', key: 'date', method: 'value', value: 0}" .
+
+# Transform Properties
+
+viz:vegaLiteEquivalent a owl:DatatypeProperty ;
+    rdfs:label "Vega-Lite equivalent" ;
+    rdfs:comment "The corresponding Vega-Lite transform name." ;
+    rdfs:domain viz:DataTransform ;
+    rdfs:range xsd:string .
+
+viz:supportsTransform a owl:ObjectProperty ;
+    rdfs:label "supports transform" ;
+    rdfs:comment "Data transforms that can be applied to this visualization type." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:DataTransform .
+
+viz:requiresTransform a owl:ObjectProperty ;
+    rdfs:label "requires transform" ;
+    rdfs:comment "Data transforms that are essential for this visualization type." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:DataTransform .
+
+viz:defaultBandwidth a owl:DatatypeProperty ;
+    rdfs:label "default bandwidth" ;
+    rdfs:comment "Default smoothing bandwidth for density/loess transforms." ;
+    rdfs:domain viz:DataTransform ;
+    rdfs:range xsd:decimal .
+
+viz:frameSpec a owl:DatatypeProperty ;
+    rdfs:label "frame specification" ;
+    rdfs:comment "Window frame bounds as [start, end] relative to current row. null = unbounded." ;
+    rdfs:domain viz:WindowTransform ;
+    rdfs:range xsd:string .
+
+# =============================================================================
+# Color Schemes
+# =============================================================================
+
+viz:ColorScheme a owl:Class ;
+    rdfs:label "Color Scheme" ;
+    rdfs:comment """A named color palette for consistent, perceptually uniform encoding.
+    Based on ColorBrewer and D3 color schemes.
+    Categories: categorical, sequential, diverging.""" .
+
+viz:CategoricalScheme a owl:Class ;
+    rdfs:label "Categorical Scheme" ;
+    rdfs:subClassOf viz:ColorScheme ;
+    rdfs:comment "Distinct colors for nominal categories. No implied order." ;
+    skos:example "category10, tableau10, set1, set2, set3, paired, dark2, accent" .
+
+viz:SequentialScheme a owl:Class ;
+    rdfs:label "Sequential Scheme" ;
+    rdfs:subClassOf viz:ColorScheme ;
+    rdfs:comment "Light-to-dark progression for ordered/quantitative data." ;
+    skos:example "viridis, plasma, inferno, magma, blues, greens, oranges, reds, purples, greys" .
+
+viz:DivergingScheme a owl:Class ;
+    rdfs:label "Diverging Scheme" ;
+    rdfs:subClassOf viz:ColorScheme ;
+    rdfs:comment "Two-hue progression meeting at neutral midpoint. For data with meaningful center." ;
+    skos:example "redblue, blueorange, redgrey, spectral, rdylgn, rdylbu" .
+
+viz:scheme a owl:ObjectProperty ;
+    rdfs:label "scheme" ;
+    rdfs:comment "The color scheme used for this visualization." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:ColorScheme .
+
+# =============================================================================
+# Transform-Visualization Relationships
+# =============================================================================
+
+viz:HistogramViz viz:requiresTransform viz:BinTransform ;
+    viz:supportsTransform viz:AggregateTransform .
+
+viz:RidgelineViz viz:requiresTransform viz:DensityTransform .
+
+viz:ViolinViz viz:requiresTransform viz:DensityTransform .
+
+viz:BoxPlotViz viz:supportsTransform viz:QuantileTransform .
+
+viz:LineChartViz viz:supportsTransform viz:LoessTransform,
+        viz:RegressionTransform,
+        viz:WindowTransform,
+        viz:ImputeTransform,
+        viz:TimeUnitTransform .
+
+viz:ScatterPlotViz viz:supportsTransform viz:RegressionTransform,
+        viz:LoessTransform,
+        viz:DensityTransform .
+
+viz:BarChartViz viz:supportsTransform viz:AggregateTransform,
+        viz:TimeUnitTransform,
+        viz:FoldTransform .
+
+viz:AreaChartViz viz:supportsTransform viz:WindowTransform,
+        viz:ImputeTransform,
+        viz:TimeUnitTransform .
+
+viz:HeatmapViz viz:supportsTransform viz:AggregateTransform,
+        viz:BinTransform .
+
+# =============================================================================
+# Analytical Tasks for Transforms
+# =============================================================================
+
+viz:TrendAnalysis a owl:Class ;
+    rdfs:label "Trend Analysis" ;
+    rdfs:comment "Identifying patterns and direction of change over time or continuous variable." ;
+    rdfs:subClassOf viz:AnalyticalTask ;
+    viz:recommendedViz viz:LineChartViz,
+        viz:ScatterPlotViz ;
+    skos:example "Is revenue growing? What is the trajectory?" .
+
+# =============================================================================
+# Rendering Backends
+# =============================================================================
+
+viz:RenderingBackend a owl:Class ;
+    rdfs:label "Rendering Backend" ;
+    rdfs:comment "An external tool or library that renders visualizations from VAO specifications." .
+
+viz:DiagramsBackend a viz:RenderingBackend ;
+    rdfs:label "mingrammer/diagrams Backend" ;
+    viz:backendName "diagrams" ;
+    viz:requiresInstall "pip install diagrams && brew install graphviz" ;
+    viz:iconCount "2000+" ;
+    rdfs:comment """Python library for cloud architecture diagrams (github.com/mingrammer/diagrams).
+    Provides 2000+ icons from AWS, GCP, Azure, Kubernetes, on-prem, SaaS.
+    Uses Graphviz for layout. Native Python API with >> operator for edges.
+    Supports nested Clusters for VPCs, subnets, etc.""" ;
+    viz:supportsProvider "aws", "gcp", "azure", "k8s", "onprem", "saas", "generic" .
+
+viz:VegaLiteBackend a viz:RenderingBackend ;
+    rdfs:label "Vega-Lite Backend" ;
+    viz:backendName "vega" ;
+    viz:requiresInstall "npm install -g vega-lite vega-cli" ;
+    rdfs:comment "Statistical visualization grammar. Best for charts with data transforms." .
+
+viz:MermaidBackend a viz:RenderingBackend ;
+    rdfs:label "Mermaid Backend" ;
+    viz:backendName "mermaid" ;
+    viz:requiresInstall "npm install -g @mermaid-js/mermaid-cli" ;
+    rdfs:comment "Diagramming DSL. Best for flowcharts, sequence, state, Gantt, ER, mindmap." .
+
+viz:D2Backend a viz:RenderingBackend ;
+    rdfs:label "D2 Backend" ;
+    viz:backendName "d2" ;
+    viz:requiresInstall "brew install d2" ;
+    rdfs:comment "Modern diagram language. Best for architecture diagrams with custom icons." .
+
+viz:backendName a owl:DatatypeProperty ;
+    rdfs:label "backend name" ;
+    rdfs:comment "The identifier used in _renderingHints.backend" ;
+    rdfs:domain viz:RenderingBackend ;
+    rdfs:range xsd:string .
+
+viz:requiresInstall a owl:DatatypeProperty ;
+    rdfs:label "requires install" ;
+    rdfs:comment "Installation command for this backend." ;
+    rdfs:domain viz:RenderingBackend ;
+    rdfs:range xsd:string .
+
+viz:iconCount a owl:DatatypeProperty ;
+    rdfs:label "icon count" ;
+    rdfs:comment "Number of built-in icons available." ;
+    rdfs:domain viz:RenderingBackend ;
+    rdfs:range xsd:string .
+
+viz:supportsProvider a owl:DatatypeProperty ;
+    rdfs:label "supports provider" ;
+    rdfs:comment "Cloud/infrastructure providers this backend has icons for." ;
+    rdfs:domain viz:RenderingBackend ;
+    rdfs:range xsd:string .
+
+# Backend-Type Relationships
+
+viz:renderedBy a owl:ObjectProperty ;
+    rdfs:label "rendered by" ;
+    rdfs:comment "Backends that can render this visualization type." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:RenderingBackend .
+
+viz:preferredBackend a owl:ObjectProperty ;
+    rdfs:label "preferred backend" ;
+    rdfs:comment "The recommended backend for this visualization type." ;
+    rdfs:domain viz:VisualizationType ;
+    rdfs:range viz:RenderingBackend .
+

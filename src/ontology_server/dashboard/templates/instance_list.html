@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Instances — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<section class="instance-list">
+    <h1>Instances</h1>
+
+    {# ── Class filter ─────────────────────────────────────── #}
+    <form class="filter-bar" method="get" action="{{ dashboard_url(request, 'instance_list') }}">
+        {% if selected_ontology %}
+        <input type="hidden" name="ontology_uri" value="{{ selected_ontology }}">
+        {% endif %}
+
+        <label for="class-filter">Filter by class:</label>
+        <select
+            id="class-filter"
+            name="class_uri"
+            hx-get="{{ dashboard_url(request, 'partial_instance_rows') }}"
+            hx-target="#instance-tbody"
+            hx-swap="innerHTML"
+            hx-include="[name='ontology_uri']"
+        >
+            <option value="">All classes</option>
+            {% for cls in classes %}
+            <option
+                value="{{ cls.uri }}"
+                {% if selected_class == cls.uri %}selected{% endif %}
+            >
+                {{ cls.label | default(cls.uri, true) }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <noscript><button type="submit">Filter</button></noscript>
+    </form>
+
+    {# ── Instance table ───────────────────────────────────── #}
+    <table class="instance-table">
+        <thead>
+            <tr>
+                <th>Instance</th>
+                <th>Class</th>
+            </tr>
+        </thead>
+        <tbody id="instance-tbody">
+            {% for inst in instances %}
+            <tr>
+                <td>
+                    <a href="{{ dashboard_url(request, 'instance_detail', instance_uri=inst.uri) }}{% if selected_ontology %}?ontology_uri={{ selected_ontology | urlencode }}{% endif %}">
+                        {{ inst.label | default(inst.uri, true) }}
+                    </a>
+                </td>
+                <td>{{ inst.class_uri | default("—", true) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="2" class="empty-state">No instances found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}
