@@ -38,7 +38,7 @@
         {% if contexts.arch %}
         <a href="{{ dashboard_url(request, 'facts_context', context=contexts.arch) }}" class="context-badge context-available">Arch ✓</a>
         {% else %}
-        <span class="context-badge context-missing">Arch —</span>
+        <span class="context-badge context-missing" title="Architecture context not yet available">Arch —</span>
         {% endif %}
         {% if contexts.lesson %}
         <a href="{{ dashboard_url(request, 'facts_context', context=contexts.lesson) }}" class="context-badge context-available">Lesson ✓</a>
