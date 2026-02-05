@@ -113,7 +113,7 @@
     <h2>Wikidata References</h2>
     <div class="related-links">
         {% for qid in wikidata_refs %}
-        <a href="https://www.wikidata.org/wiki/{{ qid }}" target="_blank" class="dep-link">{{ qid }}</a>
+        <a href="https://www.wikidata.org/wiki/{{ qid }}" target="_blank" hx-boost="false" class="dep-link">{{ qid }}</a>
         {% endfor %}
     </div>
     {% endif %}
