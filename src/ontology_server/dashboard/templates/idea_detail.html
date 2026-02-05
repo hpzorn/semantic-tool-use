@@ -20,6 +20,28 @@
         {% if author %}<span class="text-muted">by {{ author }}</span>{% endif %}
     </div>
 
+    {# ── Context Navigation ── #}
+    {% if contexts %}
+    <div class="context-navigation">
+        <span class="context-nav-label">Contexts:</span>
+        {% if contexts.prd %}
+        <a href="{{ dashboard_url(request, 'prd_detail', context=contexts.prd) }}" class="context-badge context-available">PRD ✓</a>
+        {% else %}
+        <span class="context-badge context-missing">PRD —</span>
+        {% endif %}
+        {% if contexts.arch %}
+        <a href="{{ dashboard_url(request, 'facts_context', context=contexts.arch) }}" class="context-badge context-available">Arch ✓</a>
+        {% else %}
+        <span class="context-badge context-missing">Arch —</span>
+        {% endif %}
+        {% if contexts.lesson %}
+        <a href="{{ dashboard_url(request, 'facts_context', context=contexts.lesson) }}" class="context-badge context-available">Lesson ✓</a>
+        {% else %}
+        <span class="context-badge context-missing">Lesson —</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {# ── Properties ── #}
     <table class="property-table">
         <thead>

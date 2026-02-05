@@ -181,9 +181,25 @@ async def idea_detail(request: Request, idea_id: str) -> HTMLResponse:
             "percent": percent,
         }
 
+    # Build context navigation: check for prd-idea-{id}, arch-idea-{id}, lesson-idea-{id}
+    # Per ADR-74-3: try {type}-idea-{id} first, fall back to {type}-{id}
+    all_contexts = set(service.list_fact_contexts())
+    context_types = ["prd", "arch", "lesson"]
+    contexts: dict[str, str | None] = {}
+    for ctx_type in context_types:
+        # Try standard pattern first: {type}-idea-{id}
+        standard_name = f"{ctx_type}-idea-{idea_id}"
+        fallback_name = f"{ctx_type}-{idea_id}"
+        if standard_name in all_contexts:
+            contexts[ctx_type] = standard_name
+        elif fallback_name in all_contexts:
+            contexts[ctx_type] = fallback_name
+        else:
+            contexts[ctx_type] = None
+
     return templates.TemplateResponse(
         "idea_detail.html",
-        {"request": request, "prd_progress": prd_progress, **detail},
+        {"request": request, "prd_progress": prd_progress, "contexts": contexts, **detail},
     )
 
 
