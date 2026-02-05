@@ -4,6 +4,12 @@
 
 {% block content %}
 <div class="prd-detail">
+    {% set parents = [
+        {'title': 'Dashboard', 'url': dashboard_url(request, 'dashboard')},
+        {'title': 'PRDs', 'url': dashboard_url(request, 'prd_list')}
+    ] %}
+    {% set current_title = context | upper %}
+    {% include "partials/_breadcrumbs.html" %}
     <a href="{{ dashboard_url(request, 'prd_list') }}" class="back-link">&larr; All PRDs</a>
     <h1>{{ context | upper }}</h1>
     <p class="subtitle">{{ requirements | length }} requirements across {{ phases | length }} phases</p>

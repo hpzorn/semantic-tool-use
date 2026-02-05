@@ -4,6 +4,13 @@
 
 {% block content %}
 <div class="phase-detail">
+    {% set parents = [
+        {'title': 'Dashboard', 'url': dashboard_url(request, 'dashboard')},
+        {'title': 'Phases', 'url': dashboard_url(request, 'dashboard')},
+        {'title': idea_id, 'url': dashboard_url(request, 'idea_detail', idea_id=idea_id)}
+    ] %}
+    {% set current_title = phase_id %}
+    {% include "partials/_breadcrumbs.html" %}
     <a href="{{ dashboard_url(request, 'idea_detail', idea_id=idea_id) }}" class="back-link">&larr; Back to {{ idea_id }}</a>
 
     <h1>{{ intent_fields.phaseName if intent_fields and intent_fields.phaseName else phase_id }}</h1>

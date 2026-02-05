@@ -4,6 +4,13 @@
 
 {% block content %}
 <div class="requirement-detail">
+    {% set parents = [
+        {'title': 'Dashboard', 'url': dashboard_url(request, 'dashboard')},
+        {'title': 'PRDs', 'url': dashboard_url(request, 'prd_list')},
+        {'title': context | upper, 'url': dashboard_url(request, 'prd_detail', context=context)}
+    ] %}
+    {% set current_title = taskId %}
+    {% include "partials/_breadcrumbs.html" %}
     <a href="{{ dashboard_url(request, 'prd_detail', context=context) }}" class="back-link">&larr; {{ context | upper }}</a>
 
     {% if not found %}

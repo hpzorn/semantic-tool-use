@@ -4,6 +4,12 @@
 
 {% block content %}
 <div class="idea-detail">
+    {% set parents = [
+        {'title': 'Dashboard', 'url': dashboard_url(request, 'dashboard')},
+        {'title': 'Ideas', 'url': dashboard_url(request, 'idea_list')}
+    ] %}
+    {% set current_title = id %}
+    {% include "partials/_breadcrumbs.html" %}
     <a href="{{ dashboard_url(request, 'idea_list') }}" class="back-link">&larr; All Ideas</a>
 
     {% if error %}
