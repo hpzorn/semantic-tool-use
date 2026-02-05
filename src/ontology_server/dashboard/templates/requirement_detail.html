@@ -33,6 +33,31 @@
         </tbody>
     </table>
 
+    {# ── Quality Focus Chain ── #}
+    {% if quality_focus_chain %}
+    <h2>Quality Focus</h2>
+    <div class="quality-focus-chain">
+        <a href="{{ dashboard_url(request, 'resolve', uri=quality_focus_chain.focus_uri) }}" class="quality-chain-item quality-focus">
+            <span class="quality-chain-type">Focus</span>
+            <span class="quality-chain-label">{{ quality_focus_chain.focus_label }}</span>
+        </a>
+        {% if quality_focus_chain.pattern_uri %}
+        <span class="quality-chain-arrow">&rarr;</span>
+        <a href="{{ dashboard_url(request, 'resolve', uri=quality_focus_chain.pattern_uri) }}" class="quality-chain-item quality-pattern">
+            <span class="quality-chain-type">Pattern</span>
+            <span class="quality-chain-label">{{ quality_focus_chain.pattern_label }}</span>
+        </a>
+        {% endif %}
+        {% if quality_focus_chain.principle_uri %}
+        <span class="quality-chain-arrow">&rarr;</span>
+        <a href="{{ dashboard_url(request, 'resolve', uri=quality_focus_chain.principle_uri) }}" class="quality-chain-item quality-principle">
+            <span class="quality-chain-type">Principle</span>
+            <span class="quality-chain-label">{{ quality_focus_chain.principle_label }}</span>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {# ── Description ── #}
     {% if description %}
     <h2>Description</h2>
@@ -233,6 +258,60 @@
 .phase-history-footer {
     text-align: right;
     margin-top: 0.5rem;
+}
+
+/* ── Quality Focus Chain ────────────────────────────── */
+.quality-focus-chain {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.quality-chain-item {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+}
+
+.quality-chain-item:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    text-decoration: none;
+}
+
+.quality-chain-type {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.15rem;
+}
+
+.quality-chain-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.quality-focus .quality-chain-label { color: #0d6efd; }
+.quality-pattern .quality-chain-label { color: #198754; }
+.quality-principle .quality-chain-label { color: #6f42c1; }
+
+.quality-chain-arrow {
+    color: var(--color-text-muted);
+    font-size: 1.2rem;
+    font-weight: 300;
 }
 </style>
 {% endblock %}

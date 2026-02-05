@@ -29,7 +29,98 @@ PHASE_NS = "http://impl-ralph.io/phase#"
 TRACE_NS = "http://impl-ralph.io/trace#"
 PRD_NS = "http://impl-ralph.io/prd#"
 SKOS_NS = "http://www.w3.org/2004/02/skos/core#"
+ISAQB_NS = "http://impl-ralph.io/isaqb#"
 KNOWN_PHASES = ["d0", "d1", "d2", "d3", "d4", "d5"]
+
+# Quality Focus Chain mappings: quality focus → pattern → principle
+# Based on iSAQB quality model and common design patterns
+_QUALITY_FOCUS_CHAIN: dict[str, dict[str, str]] = {
+    f"{ISAQB_NS}Usability": {
+        "focus_label": "Usability",
+        "pattern_uri": f"{ISAQB_NS}ProgressiveDisclosure",
+        "pattern_label": "Progressive Disclosure",
+        "principle_uri": f"{ISAQB_NS}SchemaFirstRendering",
+        "principle_label": "Schema-First Rendering",
+    },
+    f"{ISAQB_NS}Maintainability": {
+        "focus_label": "Maintainability",
+        "pattern_uri": f"{ISAQB_NS}ServiceLayerAbstraction",
+        "pattern_label": "Service Layer Abstraction",
+        "principle_uri": f"{ISAQB_NS}ExtensionOverCreation",
+        "principle_label": "Extension Over Creation",
+    },
+    f"{ISAQB_NS}Extensibility": {
+        "focus_label": "Extensibility",
+        "pattern_uri": f"{ISAQB_NS}RegistryPattern",
+        "pattern_label": "Registry Pattern",
+        "principle_uri": f"{ISAQB_NS}GracefulDegradation",
+        "principle_label": "Graceful Degradation",
+    },
+    f"{ISAQB_NS}Performance": {
+        "focus_label": "Performance",
+        "pattern_uri": f"{ISAQB_NS}ProgressiveEnhancement",
+        "pattern_label": "Progressive Enhancement",
+        "principle_uri": f"{ISAQB_NS}MaximizeReuse",
+        "principle_label": "Maximize Reuse",
+    },
+    f"{ISAQB_NS}FunctionalCorrectness": {
+        "focus_label": "Functional Correctness",
+        "pattern_uri": f"{ISAQB_NS}ServiceLayerOnly",
+        "pattern_label": "Service Layer Only",
+        "principle_uri": f"{ISAQB_NS}ReuseOverInvention",
+        "principle_label": "Reuse Over Invention",
+    },
+    f"{ISAQB_NS}Operability": {
+        "focus_label": "Operability",
+        "pattern_uri": f"{ISAQB_NS}ProgressiveEnhancement",
+        "pattern_label": "Progressive Enhancement",
+        "principle_uri": f"{ISAQB_NS}MinimizeNewCode",
+        "principle_label": "Minimize New Code",
+    },
+    # Support compact prefix forms
+    "isaqb:Usability": {
+        "focus_label": "Usability",
+        "pattern_uri": "isaqb:ProgressiveDisclosure",
+        "pattern_label": "Progressive Disclosure",
+        "principle_uri": "isaqb:SchemaFirstRendering",
+        "principle_label": "Schema-First Rendering",
+    },
+    "isaqb:Maintainability": {
+        "focus_label": "Maintainability",
+        "pattern_uri": "isaqb:ServiceLayerAbstraction",
+        "pattern_label": "Service Layer Abstraction",
+        "principle_uri": "isaqb:ExtensionOverCreation",
+        "principle_label": "Extension Over Creation",
+    },
+    "isaqb:Extensibility": {
+        "focus_label": "Extensibility",
+        "pattern_uri": "isaqb:RegistryPattern",
+        "pattern_label": "Registry Pattern",
+        "principle_uri": "isaqb:GracefulDegradation",
+        "principle_label": "Graceful Degradation",
+    },
+    "isaqb:Performance": {
+        "focus_label": "Performance",
+        "pattern_uri": "isaqb:ProgressiveEnhancement",
+        "pattern_label": "Progressive Enhancement",
+        "principle_uri": "isaqb:MaximizeReuse",
+        "principle_label": "Maximize Reuse",
+    },
+    "isaqb:FunctionalCorrectness": {
+        "focus_label": "Functional Correctness",
+        "pattern_uri": "isaqb:ServiceLayerOnly",
+        "pattern_label": "Service Layer Only",
+        "principle_uri": "isaqb:ReuseOverInvention",
+        "principle_label": "Reuse Over Invention",
+    },
+    "isaqb:Operability": {
+        "focus_label": "Operability",
+        "pattern_uri": "isaqb:ProgressiveEnhancement",
+        "pattern_label": "Progressive Enhancement",
+        "principle_uri": "isaqb:MinimizeNewCode",
+        "principle_label": "Minimize New Code",
+    },
+}
 
 # Type dispatch registry: maps RDF type URIs to route names
 # Supports both full URIs and compact prefix forms
@@ -336,6 +427,46 @@ class DashboardService:
             else:
                 props[pred] = obj
         return props
+
+    def get_quality_focus_chain(
+        self, quality_focus_uri: str,
+    ) -> dict[str, Any] | None:
+        """Resolve a quality focus URI to its pattern and principle chain.
+
+        Returns a dict with focus/pattern/principle labels and URIs, or None
+        if the quality focus is not found in the mapping.
+        """
+        if not quality_focus_uri:
+            return None
+
+        chain = _QUALITY_FOCUS_CHAIN.get(quality_focus_uri)
+        if chain:
+            return {
+                "focus_uri": quality_focus_uri,
+                "focus_label": chain["focus_label"],
+                "pattern_uri": chain["pattern_uri"],
+                "pattern_label": chain["pattern_label"],
+                "principle_uri": chain["principle_uri"],
+                "principle_label": chain["principle_label"],
+            }
+
+        # Try to extract label from URI if not in mapping
+        if "#" in quality_focus_uri:
+            label = quality_focus_uri.split("#")[-1]
+        elif ":" in quality_focus_uri:
+            label = quality_focus_uri.split(":")[-1]
+        else:
+            label = quality_focus_uri
+
+        # Return minimal chain with just the focus
+        return {
+            "focus_uri": quality_focus_uri,
+            "focus_label": label,
+            "pattern_uri": None,
+            "pattern_label": None,
+            "principle_uri": None,
+            "principle_label": None,
+        }
 
     # ------------------------------------------------------------------
     # Aggregated dashboard summary
