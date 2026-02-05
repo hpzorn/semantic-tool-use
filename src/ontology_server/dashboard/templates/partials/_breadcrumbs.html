@@ -1,0 +1,31 @@
+{# Breadcrumb navigation partial
+
+   Parameters:
+     - current_title: The title of the current page (string, required)
+     - parents: List of parent pages in order from root to immediate parent
+                Each item should be a dict with 'title' and 'url' keys
+                Example: [{'title': 'Dashboard', 'url': '/dashboard'}, {'title': 'Ideas', 'url': '/ideas'}]
+
+   Usage:
+     {% include "partials/_breadcrumbs.html" %}
+     (Set variables before include or use with statement)
+
+     {% with current_title="Requirement Detail", parents=[{'title': 'Dashboard', 'url': url_for('dashboard')}, {'title': 'PRD-74', 'url': url_for('prd_detail', context='prd-74')}] %}
+         {% include "partials/_breadcrumbs.html" %}
+     {% endwith %}
+#}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumb-list">
+        {% if parents %}
+            {% for parent in parents %}
+            <li class="breadcrumb-item">
+                <a href="{{ parent.url }}" class="breadcrumb-link">{{ parent.title }}</a>
+                <span class="breadcrumb-separator" aria-hidden="true">&gt;</span>
+            </li>
+            {% endfor %}
+        {% endif %}
+        <li class="breadcrumb-item breadcrumb-current" aria-current="page">
+            <span class="breadcrumb-text">{{ current_title }}</span>
+        </li>
+    </ol>
+</nav>
