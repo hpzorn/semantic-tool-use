@@ -12,6 +12,14 @@
     <div class="prd-error">{{ error }}</div>
     {% endif %}
 
+    {# ── Progress bar ── #}
+    <div class="prd-progress-section">
+        <div class="progress-container">
+            <div class="progress-bar" style="width: {{ progress.percent }}%;"></div>
+        </div>
+        <div class="progress-label">{{ progress.completed }}/{{ progress.total }} requirements complete ({{ progress.percent }}%)</div>
+    </div>
+
     {# ── Dependency graph ── #}
     <div class="dep-graph">
         <h2>Dependency Graph</h2>

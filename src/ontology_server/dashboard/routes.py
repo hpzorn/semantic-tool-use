@@ -350,6 +350,19 @@ async def prd_detail(request: Request, context: str) -> HTMLResponse:
         phase = req["phase"]
         phases.setdefault(phase, []).append(req)
 
+    # Calculate progress stats
+    total = len(requirements)
+    completed = sum(
+        1 for req in requirements
+        if req["status"].lower() in ("completed", "done")
+    )
+    percent = int(100 * completed / total) if total else 0
+    progress = {
+        "total": total,
+        "completed": completed,
+        "percent": percent,
+    }
+
     templates = request.app.state.templates
     return templates.TemplateResponse(
         "prd_detail.html",
@@ -358,6 +371,7 @@ async def prd_detail(request: Request, context: str) -> HTMLResponse:
             "context": context,
             "requirements": requirements,
             "phases": phases,
+            "progress": progress,
         },
     )
 
