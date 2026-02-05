@@ -90,6 +90,7 @@ def create_dashboard_app(
         return str(url)
 
     templates.env.globals["dashboard_url"] = dashboard_url
+    templates.env.filters["short_uri"] = short_uri
 
     app.state.templates = templates
 
