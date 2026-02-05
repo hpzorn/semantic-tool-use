@@ -541,7 +541,18 @@ class DashboardService:
     ) -> dict[str, Any]:
         """Extract route parameters based on route name and URI."""
         if route_name == "phase_detail":
-            return {"uri": uri}
+            # URI format: http://impl-ralph.io/phase#<idea_id>-<phase_id>
+            # e.g., http://impl-ralph.io/phase#idea-50-d0
+            after_hash = uri.split("#", 1)[-1] if "#" in uri else uri.rsplit("/", 1)[-1]
+            # Find the last dash to split idea_id and phase_id
+            last_dash = after_hash.rfind("-")
+            if last_dash != -1:
+                idea_id = after_hash[:last_dash]
+                phase_id = after_hash[last_dash + 1:]
+            else:
+                idea_id = after_hash
+                phase_id = ""
+            return {"idea_id": idea_id, "phase_id": phase_id}
 
         if route_name == "idea_detail":
             idea_id = uri.rsplit("/", 1)[-1]
