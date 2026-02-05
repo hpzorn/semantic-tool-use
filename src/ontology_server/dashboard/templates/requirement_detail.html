@@ -97,6 +97,142 @@
     <p class="text-muted">No downstream dependents (leaf requirement).</p>
     {% endif %}
 
+    {# ── Phase History ── #}
+    <h2>Phase History</h2>
+    {% if phase_history %}
+    <div class="phase-history-timeline">
+        {% for phase in phase_history %}
+        <div class="phase-history-item">
+            <div class="phase-history-marker"></div>
+            <a href="{{ dashboard_url(request, 'phase_detail', idea_id=context.replace('prd-', ''), phase_id=phase.phase_id) }}" class="phase-history-card">
+                <div class="phase-history-header">
+                    <span class="phase-history-name">{{ phase.phase_id }}</span>
+                    {% if phase.timestamp %}
+                    <span class="phase-history-timestamp">{{ phase.timestamp[:19] }}</span>
+                    {% endif %}
+                </div>
+                {% if phase.intent_fields %}
+                <div class="phase-history-body">
+                    <ul class="phase-history-fields">
+                        {% for field_name, field_value in phase.intent_fields.items() %}
+                        <li><code>{{ field_name }}</code>: {{ field_value[:50] }}{% if field_value|length > 50 %}...{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <div class="phase-history-footer">
+                    <span class="dep-link">View phase details &rarr;</span>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No phases have modified this requirement yet.</p>
+    {% endif %}
+
     {% endif %}
 </div>
+
+<style>
+/* ── Phase History Timeline ────────────────────────────── */
+.phase-history-timeline {
+    position: relative;
+    padding-left: 2rem;
+    margin-top: 1rem;
+}
+
+.phase-history-timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-border);
+}
+
+.phase-history-item {
+    position: relative;
+    margin-bottom: 0.75rem;
+}
+
+.phase-history-marker {
+    position: absolute;
+    left: -1.75rem;
+    top: 0.75rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    border: 2px solid var(--color-surface);
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.phase-history-card {
+    display: block;
+    padding: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.phase-history-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    text-decoration: none;
+}
+
+.phase-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.phase-history-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-primary);
+}
+
+.phase-history-timestamp {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    font-family: monospace;
+}
+
+.phase-history-body {
+    margin-top: 0.5rem;
+}
+
+.phase-history-fields {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8rem;
+}
+
+.phase-history-fields li {
+    margin-bottom: 0.25rem;
+    color: var(--color-text-muted);
+}
+
+.phase-history-fields code {
+    font-size: 0.75rem;
+    background: var(--color-bg);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+}
+
+.phase-history-footer {
+    text-align: right;
+    margin-top: 0.5rem;
+}
+</style>
 {% endblock %}

@@ -427,6 +427,9 @@ async def requirement_detail(
                 "status": _first(req.get("prd:status"), "Pending").removeprefix("prd:"),
             })
 
+    # Fetch phase history for this requirement
+    phase_history = service.get_requirement_phase_history(context, subject)
+
     detail = {
         "subject": raw.get("subject", subject),
         "context": context,
@@ -443,6 +446,7 @@ async def requirement_detail(
         "verification": _first(raw.get("prd:verification")),
         "deps_detail": deps_detail,
         "depended_by_detail": depended_by_detail,
+        "phase_history": phase_history,
     }
 
     return templates.TemplateResponse(
