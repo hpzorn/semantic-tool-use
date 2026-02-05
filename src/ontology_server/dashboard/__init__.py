@@ -22,6 +22,33 @@ logger = logging.getLogger(__name__)
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 
+# Namespace prefix table used by the short_uri Jinja2 filter.
+_SHORT_URI_PREFIXES = [
+    ("http://impl-ralph.io/phase#", "phase:"),
+    ("http://impl-ralph.io/prd#", "prd:"),
+    ("http://impl-ralph.io/trace#", "trace:"),
+    ("http://www.w3.org/2004/02/skos/core#", "skos:"),
+    # Semantic tool-use ontologies
+    ("http://semantic-tool-use.org/ontology/tool-use#", "stu:"),
+    ("http://semantic-tool-use.org/ontology/visual-artifacts#", "vao:"),
+    ("http://semantic-tool-use.org/ontology/idea-pool#", "idea:"),
+    ("http://semantic-tool-use.org/ontology/visual-artifacts/presentation#", "pres:"),
+    ("http://semantic-tool-use.org/ontology/visual-artifacts/social#", "social:"),
+    # Standard W3C and Dublin Core namespaces
+    ("http://www.w3.org/2000/01/rdf-schema#", "rdfs:"),
+    ("http://www.w3.org/2002/07/owl#", "owl:"),
+    ("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf:"),
+    ("http://purl.org/dc/terms/", "dcterms:"),
+]
+
+
+def short_uri(uri: str) -> str:
+    """Shorten a full URI to ``prefix:local`` form if a known prefix matches."""
+    for namespace, prefix in _SHORT_URI_PREFIXES:
+        if uri.startswith(namespace):
+            return prefix + uri[len(namespace):]
+    return uri
+
 
 def create_dashboard_app(
     ontology_store: "OntologyStore",
