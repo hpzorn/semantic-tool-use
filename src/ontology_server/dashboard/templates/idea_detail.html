@@ -43,7 +43,7 @@
         {% if contexts.lesson %}
         <a href="{{ dashboard_url(request, 'facts_context', context=contexts.lesson) }}" class="context-badge context-available">Lesson ✓</a>
         {% else %}
-        <span class="context-badge context-missing">Lesson —</span>
+        <span class="context-badge context-missing" title="Lessons context not yet available">Lessons —</span>
         {% endif %}
     </div>
     {% endif %}
