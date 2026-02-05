@@ -32,10 +32,16 @@ SKOS_NS = "http://www.w3.org/2004/02/skos/core#"
 KNOWN_PHASES = ["d0", "d1", "d2", "d3", "d4", "d5"]
 
 # Type dispatch registry: maps RDF type URIs to route names
+# Supports both full URIs and compact prefix forms
 _TYPE_DISPATCH: dict[str, str] = {
+    # Full URIs
     f"{PHASE_NS}PhaseOutput": "phase_detail",
     f"{SKOS_NS}Concept": "idea_detail",
     f"{PRD_NS}Requirement": "requirement_detail",
+    # Compact prefix forms (for KG results using compact prefixes)
+    "phase:PhaseOutput": "phase_detail",
+    "skos:Concept": "idea_detail",
+    "prd:Requirement": "requirement_detail",
 }
 
 _PRESERVES_PREFIX = f"{PHASE_NS}preserves-"
