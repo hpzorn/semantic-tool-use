@@ -12,6 +12,8 @@ Routes
 - ``GET /instances/{uri:path}``          — instance detail
 - ``GET /ideas``                         — ideas list (A-Box)
 - ``GET /ideas/{idea_id}``               — idea detail
+- ``GET /phases/{idea_id}``              — phase trail for an idea
+- ``GET /phases/{idea_id}/{phase_id}``   — single phase detail
 - ``GET /facts``                         — facts browser landing
 - ``GET /facts/{context}``               — facts for a context
 - ``GET /prds``                          — PRD context list
@@ -149,6 +151,47 @@ async def idea_list(
             "selected_lifecycle": lifecycle,
             "search_query": search or "",
         },
+    )
+
+
+@router.get("/phases/{idea_id}", response_class=HTMLResponse)
+async def phase_trail(
+    request: Request,
+    idea_id: str,
+) -> HTMLResponse:
+    """Render the phase trail for an idea showing all phase outputs."""
+    service = _get_service(request)
+    phase_facts = service.get_phase_facts(idea_id)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "phase_trail.html",
+        {"request": request, "idea_id": idea_id, "phase_facts": phase_facts},
+    )
+
+
+@router.get("/phases/{idea_id}/{phase_id}", response_class=HTMLResponse)
+async def phase_detail(
+    request: Request,
+    idea_id: str,
+    phase_id: str,
+) -> HTMLResponse:
+    """Render the detail view for a single phase output."""
+    service = _get_service(request)
+    detail = service.get_phase_detail(idea_id, phase_id)
+    templates = request.app.state.templates
+
+    if detail is None:
+        # Fall back to generic detail with raw triples
+        uri = f"http://impl-ralph.io/phase#{idea_id}-{phase_id}"
+        triples = service.get_triples_for_uri(uri)
+        return templates.TemplateResponse(
+            "generic_detail.html",
+            {"request": request, "uri": uri, "triples": triples},
+        )
+
+    return templates.TemplateResponse(
+        "phase_detail.html",
+        {"request": request, **detail},
     )
 
 
@@ -456,6 +499,7 @@ async def resolve(request: Request, uri: str) -> HTMLResponse:
 
     # Redirect for routes that have a dedicated page
     _redirect_map = {
+        "phase_detail": lambda p: f"/phases/{p['idea_id']}/{p['phase_id']}",
         "idea_detail": lambda p: f"/ideas/{p['idea_id']}",
         "requirement_detail": lambda p: f"/prds/{p['context']}/{p['subject']}",
     }
