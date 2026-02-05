@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{{ uri|short_uri }} - Ontology Dashboard{% endblock %}
+
+{% block content %}
+<section class="generic-detail">
+    <a href="javascript:history.back()" class="back-link">&larr; Back</a>
+
+    <h1>{{ uri|short_uri }}</h1>
+    <p class="instance-uri"><code>{{ uri }}</code></p>
+
+    {% if triples %}
+    <h2>Properties</h2>
+    <table class="property-table">
+        <thead>
+            <tr>
+                <th>Predicate</th>
+                <th>Object</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in triples %}
+            <tr>
+                <td><code>{{ t.predicate|short_uri }}</code></td>
+                <td>
+                    {% if t.object.startswith("http://") or t.object.startswith("https://") %}
+                    <a href="/dashboard/resolve/{{ t.object|urlencode }}">{{ t.object|short_uri }}</a>
+                    {% else %}
+                    {{ t.object }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No triples found for this URI.</p>
+    {% endif %}
+</section>
+{% endblock %}
