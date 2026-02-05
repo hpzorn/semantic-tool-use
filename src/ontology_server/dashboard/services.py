@@ -25,6 +25,37 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+PHASE_NS = "http://impl-ralph.io/phase#"
+TRACE_NS = "http://impl-ralph.io/trace#"
+PRD_NS = "http://impl-ralph.io/prd#"
+SKOS_NS = "http://www.w3.org/2004/02/skos/core#"
+KNOWN_PHASES = ["d0", "d1", "d2", "d3", "d4", "d5"]
+
+# Type dispatch registry: maps RDF type URIs to route names
+_TYPE_DISPATCH: dict[str, str] = {
+    f"{PHASE_NS}PhaseOutput": "phase_detail",
+    f"{SKOS_NS}Concept": "idea_detail",
+    f"{PRD_NS}Requirement": "requirement_detail",
+}
+
+_PRESERVES_PREFIX = f"{PHASE_NS}preserves-"
+_ITERATION_INTENT_FIELDS = {
+    "requirement_id", "quality_focus", "passed", "feedback", "commit_hash",
+}
+
+
+def _try_coerce(value: str) -> int | float | str:
+    """Attempt to coerce a string value to int or float."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        pass
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        pass
+    return value
+
 
 class DashboardService:
     """Facade that wraps the four backing stores for the dashboard UI.
@@ -341,3 +372,346 @@ class DashboardService:
             "fact_context_count": len(contexts),
             "kg_stats": kg_stats,
         }
+
+    # ------------------------------------------------------------------
+    # Phase progress & facts (A-Box KG SPARQL)
+    # ------------------------------------------------------------------
+
+    def get_idea_progress(self, idea_id: str) -> dict[str, Any]:
+        """Return phase-completion progress for *idea_id*.
+
+        Queries the KG for ``phase:producedBy`` values linked to *idea_id*
+        and computes completion percentage against :data:`KNOWN_PHASES`.
+        """
+        try:
+            sparql = (
+                f"PREFIX phase: <{PHASE_NS}>\n"
+                f"SELECT DISTINCT ?phase WHERE {{\n"
+                f'  ?s phase:forRequirement "{idea_id}" .\n'
+                f"  ?s phase:producedBy ?phase .\n"
+                f"}}"
+            )
+            result = self._kg_store.query(sparql)
+            raw_phases = [b.get("phase", "") for b in result.bindings]
+        except Exception:
+            logger.exception("get_idea_progress failed for %s", idea_id)
+            return {
+                "completed": [],
+                "total": len(KNOWN_PHASES),
+                "percent": 0,
+                "current": None,
+            }
+
+        completed = sorted(p for p in raw_phases if p in KNOWN_PHASES)
+        total = len(KNOWN_PHASES)
+        percent = int(100 * len(completed) / total) if total else 0
+
+        completed_set = set(completed)
+        current: str | None = None
+        for p in KNOWN_PHASES:
+            if p not in completed_set:
+                current = p
+                break
+
+        return {
+            "completed": completed,
+            "total": total,
+            "percent": percent,
+            "current": current,
+        }
+
+    def get_phase_facts(self, idea_id: str) -> dict[str, dict[str, Any]]:
+        """Return grouped phase facts for *idea_id*.
+
+        Groups ``phase:preserves-*`` triples into
+        ``{phase_id: {field: coerced_value}}``.
+        """
+        try:
+            sparql = (
+                f"PREFIX phase: <{PHASE_NS}>\n"
+                f"SELECT ?s ?p ?o WHERE {{\n"
+                f'  ?s phase:forRequirement "{idea_id}" .\n'
+                f"  ?s ?p ?o .\n"
+                f"}}"
+            )
+            result = self._kg_store.query(sparql)
+        except Exception:
+            logger.exception("get_phase_facts failed for %s", idea_id)
+            return {}
+
+        grouped: dict[str, dict[str, Any]] = {}
+        for binding in result.bindings:
+            pred = binding.get("p", "")
+            if not pred.startswith(_PRESERVES_PREFIX):
+                continue
+
+            field_name = pred[len(_PRESERVES_PREFIX):]
+            subj = binding.get("s", "")
+
+            after_ns = subj[len(PHASE_NS):] if subj.startswith(PHASE_NS) else ""
+            dash_idx = after_ns.find("-")
+            if dash_idx == -1:
+                continue
+            phase_id = after_ns[dash_idx + 1:]
+
+            value = _try_coerce(binding.get("o", ""))
+
+            if phase_id not in grouped:
+                grouped[phase_id] = {}
+            grouped[phase_id][field_name] = value
+
+        return grouped
+
+    def get_phase_detail(
+        self, idea_id: str, phase_id: str,
+    ) -> dict[str, Any] | None:
+        """Return intent fields, metadata, and trace ancestors for one phase."""
+        subject = f"{PHASE_NS}{idea_id}-{phase_id}"
+
+        try:
+            sparql = f"SELECT ?p ?o WHERE {{ <{subject}> ?p ?o . }}"
+            result = self._kg_store.query(sparql)
+        except Exception:
+            logger.exception("get_phase_detail query failed for %s", subject)
+            return None
+
+        if not result.bindings:
+            return None
+
+        intent_fields: dict[str, str] = {}
+        metadata: dict[str, str] = {}
+
+        for binding in result.bindings:
+            pred = binding.get("p", "")
+            obj = binding.get("o", "")
+
+            if pred.startswith(_PRESERVES_PREFIX):
+                field_name = pred[len(_PRESERVES_PREFIX):]
+                intent_fields[field_name] = obj
+            else:
+                metadata[pred] = obj
+
+        # Traverse trace:tracesTo chain
+        trace_ancestors: list[str] = []
+        try:
+            ancestor_sparql = (
+                f"PREFIX trace: <{TRACE_NS}>\n"
+                f"SELECT ?ancestor WHERE {{\n"
+                f"  <{subject}> trace:tracesTo+ ?ancestor .\n"
+                f"}}"
+            )
+            ancestor_result = self._kg_store.query(ancestor_sparql)
+            trace_ancestors = [
+                b.get("ancestor", "")
+                for b in ancestor_result.bindings
+                if b.get("ancestor")
+            ]
+
+            # Fetch facts for starting subject and ancestors
+            for uri in [subject] + trace_ancestors:
+                self._kg_store.query(f"SELECT ?p ?o WHERE {{ <{uri}> ?p ?o . }}")
+        except Exception:
+            logger.warning("traverse_chain failed for %s", subject)
+
+        return {
+            "phase_id": phase_id,
+            "idea_id": idea_id,
+            "intent_fields": intent_fields,
+            "metadata": metadata,
+            "trace_ancestors": trace_ancestors,
+        }
+
+    def _get_types(self, uri: str) -> list[str]:
+        """Return rdf:type values for *uri* from the KG."""
+        try:
+            sparql = f"SELECT ?type WHERE {{ <{uri}> a ?type . }}"
+            result = self._kg_store.query(sparql)
+            return [b.get("type", "") for b in result.bindings if b.get("type")]
+        except Exception:
+            return []
+
+    def _extract_route_params(
+        self, route_name: str, uri: str,
+    ) -> dict[str, Any]:
+        """Extract route parameters based on route name and URI."""
+        if route_name == "phase_detail":
+            return {"uri": uri}
+
+        if route_name == "idea_detail":
+            idea_id = uri.rsplit("/", 1)[-1]
+            return {"idea_id": idea_id}
+
+        if route_name == "requirement_detail":
+            parts = uri.rsplit("/", 2)
+            if len(parts) >= 3:
+                context = parts[-2]
+                subject = parts[-1]
+            else:
+                context = ""
+                subject = parts[-1] if parts else ""
+            return {"context": context, "subject": subject}
+
+        return {"uri": uri}
+
+    def resolve_uri(self, uri: str) -> tuple[str, dict[str, Any]]:
+        """Determine the dashboard route for an arbitrary URI.
+
+        Queries the KG for ``rdf:type`` and dispatches to the appropriate
+        detail view using the _TYPE_DISPATCH registry. Falls back to
+        ``generic_detail``.
+        """
+        # Self-referential guard
+        if uri.startswith("/resolve/"):
+            return "generic_detail", {"uri": uri}
+
+        types = self._get_types(uri)
+        if not types:
+            return "generic_detail", {"uri": uri}
+
+        # Look up each type in the dispatch registry
+        for rdf_type in types:
+            if rdf_type in _TYPE_DISPATCH:
+                route_name = _TYPE_DISPATCH[rdf_type]
+                params = self._extract_route_params(route_name, uri)
+                return route_name, params
+
+        return "generic_detail", {"uri": uri}
+
+    def get_iteration_facts(self, idea_id: str) -> list[dict[str, Any]]:
+        """Return implementation iteration facts for *idea_id*.
+
+        Queries for ``impl-*`` phase outputs and extracts the five known
+        iteration intent fields.
+        """
+        try:
+            sparql = (
+                f"PREFIX phase: <{PHASE_NS}>\n"
+                f"SELECT ?s ?p ?o WHERE {{\n"
+                f'  ?s phase:forRequirement "{idea_id}" .\n'
+                f"  ?s phase:producedBy ?produced .\n"
+                f'  FILTER(STRSTARTS(?produced, "impl-"))\n'
+                f"  ?s ?p ?o .\n"
+                f"}}"
+            )
+            result = self._kg_store.query(sparql)
+        except Exception:
+            logger.exception("get_iteration_facts failed for %s", idea_id)
+            return []
+
+        by_subject: dict[str, dict[str, str]] = {}
+        for binding in result.bindings:
+            subj = binding.get("s", "")
+            pred = binding.get("p", "")
+            obj = binding.get("o", "")
+
+            if not pred.startswith(_PRESERVES_PREFIX):
+                continue
+            field_name = pred[len(_PRESERVES_PREFIX):]
+            if field_name not in _ITERATION_INTENT_FIELDS:
+                continue
+
+            if subj not in by_subject:
+                by_subject[subj] = {}
+            by_subject[subj][field_name] = obj
+
+        return [by_subject[s] for s in sorted(by_subject)]
+
+    def get_requirement_phase_history(
+        self, context: str, subject: str,
+    ) -> list[dict[str, Any]]:
+        """Return ordered phase outputs linked to a requirement *subject*.
+
+        Follows ``trace:tracesTo`` links to include ancestor phases.
+        """
+        try:
+            sparql = (
+                f"PREFIX phase: <{PHASE_NS}>\n"
+                f"SELECT ?s ?p ?o WHERE {{\n"
+                f'  ?s phase:forRequirement "{subject}" .\n'
+                f"  ?s ?p ?o .\n"
+                f"}}"
+            )
+            result = self._kg_store.query(sparql)
+        except Exception:
+            logger.exception(
+                "get_requirement_phase_history failed for %s/%s", context, subject,
+            )
+            return []
+
+        if not result.bindings:
+            return []
+
+        by_subject: dict[str, list[tuple[str, str]]] = {}
+        traced_ancestors: list[str] = []
+
+        for binding in result.bindings:
+            subj = binding.get("s", "")
+            pred = binding.get("p", "")
+            obj = binding.get("o", "")
+
+            if subj not in by_subject:
+                by_subject[subj] = []
+            by_subject[subj].append((pred, obj))
+
+            if pred == f"{TRACE_NS}tracesTo" and obj not in by_subject:
+                traced_ancestors.append(obj)
+
+        # Fetch traced ancestor triples
+        for ancestor_uri in traced_ancestors:
+            try:
+                anc_sparql = f"SELECT ?p ?o WHERE {{ <{ancestor_uri}> ?p ?o . }}"
+                anc_result = self._kg_store.query(anc_sparql)
+                if anc_result.bindings:
+                    by_subject[ancestor_uri] = [
+                        (b.get("p", ""), b.get("o", ""))
+                        for b in anc_result.bindings
+                    ]
+            except Exception:
+                logger.warning("Failed to fetch ancestor %s", ancestor_uri)
+
+        output: list[dict[str, Any]] = []
+        for subj_uri in sorted(by_subject):
+            po_pairs = by_subject[subj_uri]
+
+            produced_by: str | None = None
+            intent_fields: dict[str, str] = {}
+            timestamp: str | None = None
+
+            for pred, obj in po_pairs:
+                if pred == f"{PHASE_NS}producedBy":
+                    produced_by = obj
+                elif pred.startswith(_PRESERVES_PREFIX):
+                    field_name = pred[len(_PRESERVES_PREFIX):]
+                    if field_name == "timestamp":
+                        timestamp = obj
+                    else:
+                        intent_fields[field_name] = obj
+
+            phase_id = produced_by
+            if phase_id is None:
+                after_ns = subj_uri[len(PHASE_NS):] if subj_uri.startswith(PHASE_NS) else ""
+                dash_idx = after_ns.find("-")
+                if dash_idx != -1:
+                    phase_id = after_ns[dash_idx + 1:]
+
+            output.append({
+                "phase_id": phase_id,
+                "produced_by": produced_by,
+                "intent_fields": intent_fields,
+                "timestamp": timestamp,
+            })
+
+        return output
+
+    def get_triples_for_uri(self, uri: str) -> list[dict[str, str]]:
+        """Return all predicate-object pairs for *uri* from the KG."""
+        try:
+            sparql = f"SELECT ?p ?o WHERE {{ <{uri}> ?p ?o . }}"
+            result = self._kg_store.query(sparql)
+            return [
+                {"predicate": b.get("p", ""), "object": b.get("o", "")}
+                for b in result.bindings
+            ]
+        except Exception:
+            logger.warning("get_triples_for_uri failed for %s", uri)
+            return []
