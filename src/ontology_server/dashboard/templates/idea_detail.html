@@ -104,14 +104,18 @@
     </div>
     {% endif %}
 
-    {# ── Children ── #}
+    {# ── Sub-ideas Tree ── #}
+    <h2>Sub-ideas</h2>
     {% if children %}
-    <h2>Children</h2>
-    <div class="related-links">
+    <ul class="sub-idea-tree">
         {% for child_id in children %}
-        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=child_id) }}" class="dep-link">{{ child_id }}</a>
+        <li class="sub-idea-item">
+            <a href="{{ dashboard_url(request, 'idea_detail', idea_id=child_id) }}" class="sub-idea-link">{{ child_id }}</a>
+        </li>
         {% endfor %}
-    </div>
+    </ul>
+    {% else %}
+    <p class="empty-placeholder">No sub-ideas</p>
     {% endif %}
 
     {# ── Dependencies ── #}
