@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Phase Trail — {{ idea_id }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="phase-trail">
+    <a href="{{ dashboard_url(request, 'idea_detail', idea_id=idea_id) }}" class="back-link">&larr; {{ idea_id }}</a>
+
+    <h1>Phase Trail</h1>
+    <div class="phase-meta">
+        <code>{{ idea_id }}</code>
+        <span class="text-muted">{{ phase_facts | length }} phase output{% if phase_facts | length != 1 %}s{% endif %}</span>
+    </div>
+
+    {% if phase_facts %}
+    <div class="timeline">
+        {% for phase_id, fields in phase_facts.items() | sort(attribute='0') %}
+        <div class="timeline-item">
+            <div class="timeline-marker"></div>
+            <a href="{{ dashboard_url(request, 'phase_detail', idea_id=idea_id, phase_id=phase_id) }}" class="timeline-card">
+                <div class="timeline-header">
+                    <span class="timeline-phase-name">{{ fields.phaseName if fields.phaseName else phase_id }}</span>
+                    {% if fields.timestamp %}
+                    <span class="timeline-timestamp">{{ fields.timestamp[:19] }}</span>
+                    {% endif %}
+                </div>
+                <div class="timeline-body">
+                    <span class="timeline-fact-count">{{ fields | length }} fact{% if fields | length != 1 %}s{% endif %} recorded</span>
+                    <ul class="timeline-facts">
+                        {% for field_name in (fields.keys() | list)[:5] %}
+                        {% if field_name not in ['timestamp', 'phaseName'] %}
+                        <li><code>{{ field_name }}</code></li>
+                        {% endif %}
+                        {% endfor %}
+                        {% if (fields.keys() | list) | length > 5 %}
+                        <li class="text-muted">+ {{ (fields.keys() | list) | length - 5 }} more...</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="timeline-footer">
+                    <span class="dep-link">View details &rarr;</span>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No phase outputs recorded.</p>
+    {% endif %}
+</div>
+
+<style>
+/* ── Timeline Layout ────────────────────────────────── */
+.timeline {
+    position: relative;
+    padding-left: 2rem;
+    margin-top: 1.5rem;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-border);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -1.75rem;
+    top: 1rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    border: 2px solid var(--color-surface);
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.timeline-card {
+    display: block;
+    padding: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.timeline-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    text-decoration: none;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.timeline-phase-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-primary);
+}
+
+.timeline-timestamp {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-family: monospace;
+}
+
+.timeline-body {
+    margin-bottom: 0.5rem;
+}
+
+.timeline-fact-count {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.timeline-facts {
+    list-style: none;
+    margin: 0.5rem 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.timeline-facts li {
+    display: inline-block;
+}
+
+.timeline-facts code {
+    font-size: 0.75rem;
+    background: var(--color-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+}
+
+.timeline-footer {
+    text-align: right;
+}
+</style>
+{% endblock %}
