@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Phase {{ phase_id }} — {{ idea_id }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="phase-detail">
+    <a href="{{ dashboard_url(request, 'idea_detail', idea_id=idea_id) }}" class="back-link">&larr; Back to {{ idea_id }}</a>
+
+    <h1>{{ intent_fields.phaseName if intent_fields and intent_fields.phaseName else phase_id }}</h1>
+
+    {# ── Phase Metadata Summary ── #}
+    <div class="phase-meta">
+        <code>{{ idea_id }}-{{ phase_id }}</code>
+        {% if intent_fields and intent_fields.timestamp %}
+        <span class="phase-timestamp">{{ intent_fields.timestamp[:19] }}</span>
+        {% endif %}
+    </div>
+
+    {# ── Parent Idea Link ── #}
+    <div class="parent-idea-section">
+        <span class="label">Parent Idea:</span>
+        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=idea_id) }}" class="parent-link">
+            <code>{{ idea_id }}</code>
+        </a>
+    </div>
+
+    {# ── Intent Fields (Facts Written) ── #}
+    {% if intent_fields %}
+    <h2>Facts Written During This Phase</h2>
+    <table class="property-table">
+        <thead>
+            <tr><th>Field</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+            {% for field, value in intent_fields.items() %}
+            <tr>
+                <td><code>{{ field }}</code></td>
+                <td>
+                    {% if value is string and (value.startswith("http://") or value.startswith("https://")) %}
+                    <a href="/dashboard/resolve/{{ value|urlencode }}">{{ value|short_uri }}</a>
+                    {% elif value is string and ":" in value and not value.startswith("http") %}
+                    {# Handle compact URIs like prd:Requirement #}
+                    <code>{{ value }}</code>
+                    {% else %}
+                    <code>{{ value }}</code>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No facts recorded for this phase.</p>
+    {% endif %}
+
+    {# ── Metadata (RDF Properties) ── #}
+    {% if metadata %}
+    <h2>RDF Metadata</h2>
+    <table class="property-table">
+        <thead>
+            <tr><th>Predicate</th><th>Object</th></tr>
+        </thead>
+        <tbody>
+            {% for pred, obj in metadata.items() %}
+            <tr>
+                <td><code>{{ pred|short_uri }}</code></td>
+                <td>
+                    {% if obj is string and (obj.startswith("http://") or obj.startswith("https://")) %}
+                    <a href="/dashboard/resolve/{{ obj|urlencode }}">{{ obj|short_uri }}</a>
+                    {% else %}
+                    {{ obj|short_uri }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {# ── Trace Chain (Ancestry) ── #}
+    <h2>Trace Chain</h2>
+    {% if trace_ancestors %}
+    <p class="trace-description">This phase traces back to {{ trace_ancestors | length }} ancestor phase{% if trace_ancestors | length != 1 %}s{% endif %}:</p>
+    <ol class="trace-list">
+        {% for ancestor in trace_ancestors %}
+        <li>
+            <a href="/dashboard/resolve/{{ ancestor|urlencode }}">{{ ancestor|short_uri }}</a>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-muted">No trace ancestors — this is a root phase output.</p>
+    {% endif %}
+</div>
+
+<style>
+/* ── Phase Detail Styles ────────────────────────────────── */
+.phase-detail {
+    max-width: 900px;
+}
+
+.phase-detail h1 {
+    margin-bottom: 0.5rem;
+}
+
+.phase-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.phase-meta code {
+    background: var(--color-bg);
+    padding: 0.25em 0.5em;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.phase-timestamp {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    font-family: monospace;
+    background: var(--color-surface);
+    padding: 0.25em 0.5em;
+    border-radius: 4px;
+    border: 1px solid var(--color-border);
+}
+
+.parent-idea-section {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.parent-idea-section .label {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+}
+
+.parent-link {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.parent-link:hover {
+    text-decoration: underline;
+}
+
+.parent-link code {
+    font-size: 0.875rem;
+}
+
+.trace-description {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.trace-list {
+    list-style: decimal;
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.trace-list li {
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0;
+}
+
+.trace-list a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.trace-list a:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}
