@@ -118,22 +118,41 @@
     <p class="empty-placeholder">No sub-ideas</p>
     {% endif %}
 
-    {# ── Dependencies ── #}
-    {% if blocks %}
-    <h2>Blocks</h2>
-    <div class="related-links">
-        {% for b_id in blocks %}
-        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=b_id) }}" class="dep-link">{{ b_id }}</a>
-        {% endfor %}
-    </div>
-    {% endif %}
+    {# ── Dependencies Card ── #}
+    {% if blocks or blocked_by %}
+    <h2>Dependencies</h2>
+    <div class="dependency-card">
+        {% if blocks %}
+        <details class="dep-section dep-blocks">
+            <summary class="dep-summary">
+                <span class="dep-indicator dep-indicator-blocks">→</span>
+                <span class="dep-label">Blocks: {{ blocks|length }} idea{{ 's' if blocks|length != 1 else '' }}</span>
+            </summary>
+            <div class="dep-list">
+                {% for b_id in blocks %}
+                <a href="{{ dashboard_url(request, 'idea_detail', idea_id=b_id) }}" class="dep-link">
+                    <span class="dep-arrow">→</span> {{ b_id }}
+                </a>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
 
-    {% if blocked_by %}
-    <h2>Blocked By</h2>
-    <div class="related-links">
-        {% for b_id in blocked_by %}
-        <a href="{{ dashboard_url(request, 'idea_detail', idea_id=b_id) }}" class="dep-link">{{ b_id }}</a>
-        {% endfor %}
+        {% if blocked_by %}
+        <details class="dep-section dep-blocked-by">
+            <summary class="dep-summary">
+                <span class="dep-indicator dep-indicator-blocked">←</span>
+                <span class="dep-label">Blocked by: {{ blocked_by|length }} idea{{ 's' if blocked_by|length != 1 else '' }}</span>
+            </summary>
+            <div class="dep-list">
+                {% for b_id in blocked_by %}
+                <a href="{{ dashboard_url(request, 'idea_detail', idea_id=b_id) }}" class="dep-link">
+                    <span class="dep-arrow">←</span> {{ b_id }}
+                </a>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
     </div>
     {% endif %}
 
