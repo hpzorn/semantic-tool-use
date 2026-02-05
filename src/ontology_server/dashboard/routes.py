@@ -163,10 +163,35 @@ async def idea_detail(request: Request, idea_id: str) -> HTMLResponse:
             "idea_detail.html",
             {"request": request, "error": f"Idea not found: {idea_id}"},
         )
+
+    # Check for PRD context and compute progress
+    prd_context = f"prd-{idea_id}"
+    prd_requirements = service.get_prd_requirements(prd_context)
+    prd_progress = None
+    if prd_requirements:
+        total = len(prd_requirements)
+        completed = sum(
+            1 for req in prd_requirements
+            if _first_value(req.get("prd:status")) == "Completed"
+        )
+        percent = int(100 * completed / total) if total else 0
+        prd_progress = {
+            "total": total,
+            "completed": completed,
+            "percent": percent,
+        }
+
     return templates.TemplateResponse(
         "idea_detail.html",
-        {"request": request, **detail},
+        {"request": request, "prd_progress": prd_progress, **detail},
     )
+
+
+def _first_value(val: str | list | None, default: str = "") -> str:
+    """Extract the first value from a potentially multi-valued field."""
+    if isinstance(val, list):
+        return val[0] if val else default
+    return val if val is not None else default
 
 
 # ---------------------------------------------------------------------------
@@ -286,8 +311,67 @@ async def requirement_detail(
 ) -> HTMLResponse:
     """Render the detail view for a single requirement."""
     service = _get_service(request)
-    detail = service.get_requirement_detail(context, subject)
+    raw = service.get_requirement_detail(context, subject)
     templates = request.app.state.templates
+
+    # Transform raw fact-property dict into template-friendly format
+    def _first(val: str | list | None, default: str = "") -> str:
+        if isinstance(val, list):
+            return val[0] if val else default
+        return val if val is not None else default
+
+    # Check if requirement was found (has rdf:type)
+    found = raw.get("rdf:type") == "prd:Requirement"
+
+    # Extract dependencies
+    deps = raw.get("prd:dependsOn", [])
+    if isinstance(deps, str):
+        deps = [deps] if deps else []
+
+    # Fetch dependency details for the deps table
+    deps_detail = []
+    for dep_subj in deps:
+        dep_raw = service.get_requirement_detail(context, dep_subj)
+        deps_detail.append({
+            "subject": dep_subj,
+            "taskId": _first(dep_raw.get("prd:taskId")),
+            "title": _first(dep_raw.get("prd:title")),
+            "status": _first(dep_raw.get("prd:status"), "Pending").removeprefix("prd:"),
+        })
+
+    # Find requirements that depend on this one (reverse dependencies)
+    all_reqs = service.get_prd_requirements(context)
+    depended_by_detail = []
+    for req in all_reqs:
+        req_deps = req.get("prd:dependsOn", [])
+        if isinstance(req_deps, str):
+            req_deps = [req_deps] if req_deps else []
+        if subject in req_deps:
+            depended_by_detail.append({
+                "subject": req.get("subject", ""),
+                "taskId": _first(req.get("prd:taskId")),
+                "title": _first(req.get("prd:title")),
+                "status": _first(req.get("prd:status"), "Pending").removeprefix("prd:"),
+            })
+
+    detail = {
+        "subject": raw.get("subject", subject),
+        "context": context,
+        "found": found,
+        "error": f"Requirement not found: {subject}" if not found else None,
+        "title": _first(raw.get("prd:title")),
+        "taskId": _first(raw.get("prd:taskId")),
+        "phase": _first(raw.get("prd:phase"), "1"),
+        "priority": _first(raw.get("prd:priority")).removeprefix("prd:"),
+        "status": _first(raw.get("prd:status"), "Pending").removeprefix("prd:"),
+        "action": _first(raw.get("prd:action")),
+        "files": _first(raw.get("prd:files")),
+        "description": _first(raw.get("prd:description")),
+        "verification": _first(raw.get("prd:verification")),
+        "deps_detail": deps_detail,
+        "depended_by_detail": depended_by_detail,
+    }
+
     return templates.TemplateResponse(
         "requirement_detail.html",
         {"request": request, **detail},
@@ -335,6 +419,40 @@ async def partial_instance_properties(
     return templates.TemplateResponse(
         "partials/instance_properties.html",
         {"request": request, **detail},
+    )
+
+
+# ---------------------------------------------------------------------------
+# URI resolver (dispatches to the appropriate detail view)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/resolve/{uri:path}", response_class=HTMLResponse)
+async def resolve(request: Request, uri: str) -> HTMLResponse:
+    """Resolve a URI to the appropriate detail view.
+
+    Uses :meth:`DashboardService.resolve_uri` to determine the route,
+    then either redirects (for known routes) or renders a generic
+    detail page.
+    """
+    service = _get_service(request)
+    route_name, params = service.resolve_uri(uri)
+
+    # Redirect for routes that have a dedicated page
+    _redirect_map = {
+        "idea_detail": lambda p: f"/ideas/{p['idea_id']}",
+        "requirement_detail": lambda p: f"/prds/{p['context']}/{p['subject']}",
+    }
+    if route_name in _redirect_map:
+        target = _redirect_map[route_name](params)
+        return RedirectResponse(url=target, status_code=302)
+
+    # Fallback: render generic detail with all triples
+    triples = service.get_triples_for_uri(uri)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "generic_detail.html",
+        {"request": request, "uri": uri, "triples": triples},
     )
 
 

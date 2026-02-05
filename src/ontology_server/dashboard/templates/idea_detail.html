@@ -51,6 +51,19 @@
         </tbody>
     </table>
 
+    {# ── PRD Progress ── #}
+    {% if prd_progress %}
+    <div class="prd-progress-section">
+        <h2>PRD Progress</h2>
+        <div class="progress-container">
+            <div class="progress-bar" style="width: {{ prd_progress.percent }}%;"></div>
+        </div>
+        <div class="progress-label">
+            {{ prd_progress.percent }}% ({{ prd_progress.completed }}/{{ prd_progress.total }} requirements)
+        </div>
+    </div>
+    {% endif %}
+
     {# ── Content ── #}
     {% if content %}
     <h2>Content</h2>
