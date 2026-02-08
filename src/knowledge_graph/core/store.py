@@ -41,11 +41,19 @@ NAMESPACES = {
     # BFO/CCO for alignment
     "bfo": "http://purl.obolibrary.org/obo/BFO_",
     "cco": "http://www.ontologyrepository.com/CommonCoreOntologies/",
+    # Phase pipeline ontology
+    "phase": "http://impl-ralph.io/phase#",
+    "trace": "http://impl-ralph.io/trace#",
+    # Project governance (idea 69)
+    "prd": "http://impl-ralph.io/prd#",
+    "isaqb": "http://impl-ralph.io/isaqb#",
+    "arch": "http://impl-ralph.io/architecture#",
 }
 
 # Named graph URIs (aligned with semantic-tool-use namespace)
 GRAPH_MEMORY = "http://semantic-tool-use.org/graphs/memory"
 GRAPH_WIKIDATA = "http://semantic-tool-use.org/graphs/wikidata"
+GRAPH_PHASES = "http://semantic-tool-use.org/graphs/phases"
 
 
 @dataclass
@@ -401,11 +409,13 @@ class KnowledgeGraphStore:
         default_count = self.count_triples()
         memory_count = self.count_triples(GRAPH_MEMORY)
         wikidata_count = self.count_triples(GRAPH_WIKIDATA)
+        phases_count = self.count_triples(GRAPH_PHASES)
 
         return {
-            "total_triples": default_count + memory_count + wikidata_count,
+            "total_triples": default_count + memory_count + wikidata_count + phases_count,
             "default_graph_triples": default_count,
             "memory_graph_triples": memory_count,
             "wikidata_graph_triples": wikidata_count,
+            "phases_graph_triples": phases_count,
             "persist_path": str(self._persist_path) if self._persist_path else None,
         }
