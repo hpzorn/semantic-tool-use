@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from ontology_server.dashboard import create_dashboard_app
 
 PHASE_NS = "http://impl-ralph.io/phase#"
+PRD_NS = "http://impl-ralph.io/prd#"
 
 
 def _kg_store_factory(query_side_effects: list) -> MagicMock:
@@ -70,24 +71,34 @@ class TestResolveRouteRedirect:
         location = response.headers["location"]
         assert "idea-42" in location
 
-    def test_unregistered_route_falls_back_to_generic(self) -> None:
-        """When resolve_uri returns a route that doesn't exist yet, fall back to 200."""
+    def test_phase_output_uri_returns_302(self) -> None:
+        """A phase:PhaseOutput URI triggers a 302 redirect to phase_detail."""
         # Use a slash-based URI (not hash URI) to avoid fragment stripping
         uri = "http://impl-ralph.io/phase/idea50-d1"
         client = _make_client([
-            # resolve_uri: returns phase_detail which is not yet registered
+            # resolve_uri: returns phase_detail
             _type_result([f"{PHASE_NS}PhaseOutput"]),
-            # get_triples_for_uri: called as fallback
-            _po_result([
-                (f"{PHASE_NS}producedBy", "d1"),
-            ]),
         ])
 
         response = client.get(f"/resolve/{uri}")
 
-        assert response.status_code == 200
-        body = response.text
-        assert "idea50-d1" in body
+        assert response.status_code == 302
+        location = response.headers["location"]
+        assert "/phases/idea50/d1" in location
+
+    def test_prd_project_uri_returns_302(self) -> None:
+        """A prd:Project URI triggers a 302 redirect to project_detail."""
+        # URL-encode the '#' to prevent fragment stripping by the HTTP client
+        uri = "http://impl-ralph.io/prd%23project-ralph"
+        client = _make_client([
+            _type_result([f"{PRD_NS}Project"]),
+        ])
+
+        response = client.get(f"/resolve/{uri}")
+
+        assert response.status_code == 302
+        location = response.headers["location"]
+        assert "/projects/project-ralph" in location
 
 
 class TestResolveRouteGenericDetail:
@@ -129,3 +140,49 @@ class TestResolveRouteGenericDetail:
         body = response.text
         assert "http://example.org/orphan" in body
         assert "No triples found" in body
+
+    def test_generic_detail_uri_objects_are_clickable(self) -> None:
+        """URI objects should render as clickable links to resolve endpoint."""
+        uri = "http://example.org/resource"
+        object_uri = "http://example.org/related-resource"
+        client = _make_client([
+            # resolve_uri: unknown type
+            _type_result(["http://example.org/SomeClass"]),
+            # get_triples_for_uri: returns triples with URI object
+            _po_result([
+                ("http://www.w3.org/2000/01/rdf-schema#seeAlso", object_uri),
+                ("http://www.w3.org/2000/01/rdf-schema#label", "Resource Label"),
+            ]),
+        ])
+
+        response = client.get(f"/resolve/{uri}")
+
+        assert response.status_code == 200
+        body = response.text
+        # Verify predicate uses short_uri filter
+        assert "rdfs:seeAlso" in body
+        assert "rdfs:label" in body
+        # Verify URI object is a clickable link to resolve endpoint (urlencode encodes : but not /)
+        assert '/dashboard/resolve/http%3A//example.org/related-resource' in body
+        # Verify literal object is NOT wrapped in a link (appears outside anchor tags)
+        assert "Resource Label" in body
+        assert '<a href="/dashboard/resolve/' not in body.split("Resource Label")[0].split("rdfs:label")[-1]
+
+    def test_generic_detail_displays_full_uri_and_prefixed_title(self) -> None:
+        """Page should show full URI in title and code block (hash URIs have fragment stripped by browser)."""
+        # Use a slash-based URI (not hash) to avoid fragment stripping
+        uri = "http://semantic-tool-use.org/ontology/tool-use/MyClass"
+        client = _make_client([
+            # resolve_uri: unknown type
+            _type_result([]),
+            # get_triples_for_uri: no triples
+            _po_result([]),
+        ])
+
+        response = client.get(f"/resolve/{uri}")
+
+        assert response.status_code == 200
+        body = response.text
+        # Verify URI is shown in both h1 and code block
+        assert "<h1>" in body
+        assert f"<code>{uri}</code>" in body
