@@ -167,8 +167,11 @@ def create_app(
             instance_uri: URI of the instance to validate
             shape_uri: URI of the SHACL shape to validate against
             ontology: Optional ontology URI to scope the lookup
+
+        Looks for the instance in KG phases graph first (A-Box),
+        then falls back to OntologyStore (T-Box/legacy).
         """
-        from rdflib import URIRef as _URIRef
+        from rdflib import URIRef as _URIRef, Graph as _Graph
 
         try:
             body = await request.json()
@@ -179,18 +182,34 @@ def create_app(
             if not instance_uri or not shape_uri:
                 return {"error": "instance_uri and shape_uri are required"}
 
-            # Find the ontology graph containing the instance
-            instance_ref = _URIRef(instance_uri)
-            source_graph = None
-            if ontology_uri:
-                source_graph = store._graphs.get(ontology_uri)
-            else:
-                for uri, graph in store._graphs.items():
-                    if (instance_ref, None, None) in graph:
-                        source_graph = graph
-                        break
+            instance_ttl = None
 
-            if source_graph is None or (instance_ref, None, None) not in source_graph:
+            # Step 1: Try KG phases graph first (A-Box)
+            if kg_store is not None:
+                from knowledge_graph.core.store import GRAPH_PHASES
+                # Semantic existence check via SPARQL ASK (not substring match)
+                exists = kg_store.ask(
+                    f"ASK {{ GRAPH <{GRAPH_PHASES}> {{ <{instance_uri}> ?p ?o }} }}"
+                )
+                if exists:
+                    instance_ttl = kg_store.export_turtle(GRAPH_PHASES)
+
+            # Step 2: Fall back to OntologyStore (legacy)
+            if instance_ttl is None:
+                instance_ref = _URIRef(instance_uri)
+                source_graph = None
+                if ontology_uri:
+                    source_graph = store._graphs.get(ontology_uri)
+                else:
+                    for uri, graph in store._graphs.items():
+                        if (instance_ref, None, None) in graph:
+                            source_graph = graph
+                            break
+
+                if source_graph is not None and (instance_ref, None, None) in source_graph:
+                    instance_ttl = source_graph.serialize(format="turtle")
+
+            if instance_ttl is None:
                 return {
                     "conforms": False,
                     "violation_count": 1,
@@ -198,10 +217,7 @@ def create_app(
                     "report": f"Instance {instance_uri} not found in store",
                 }
 
-            # Serialize the full ontology as instance data (includes namespaces)
-            instance_ttl = source_graph.serialize(format="turtle")
-
-            # Find shapes graph (may be same or different ontology)
+            # Step 3: Find shapes graph (always from OntologyStore T-Box)
             shape_ref = _URIRef(shape_uri)
             shapes_ttl = None
             for uri, graph in store._graphs.items():
@@ -209,6 +225,7 @@ def create_app(
                     shapes_ttl = graph.serialize(format="turtle")
                     break
 
+            # Step 4: Validate
             if shapes_ttl:
                 result = validator.validate(instance_ttl, shapes_ttl=shapes_ttl)
             else:
@@ -316,6 +333,60 @@ def create_app(
             except Exception as e:
                 return {"error": str(e)}
 
+        # -- A-Box triple endpoints (phase output triples in KG) -----------
+
+        from knowledge_graph.core.store import GRAPH_PHASES
+
+        @app.post("/abox/triples")
+        async def abox_add_triple(request: Request) -> dict[str, Any]:
+            """Add a triple to the A-Box (KnowledgeGraphStore).
+
+            Accepts JSON body with:
+                subject: Subject URI
+                predicate: Predicate URI
+                object: Object value (URI or literal)
+                is_literal: Whether the object is a literal (default False)
+                graph: Named graph URI (default: phases graph)
+            """
+            try:
+                body = await request.json()
+                graph = body.get("graph", GRAPH_PHASES)
+                kg_store.add_triple(
+                    body["subject"],
+                    body["predicate"],
+                    body["object"],
+                    is_literal=body.get("is_literal", False),
+                    graph=graph,
+                )
+                kg_store.flush()
+                return {"status": "added"}
+            except Exception as e:
+                return {"error": str(e)}
+
+        @app.post("/abox/triples/remove")
+        async def abox_remove_triples(request: Request) -> dict[str, Any]:
+            """Remove triples matching the pattern from the A-Box.
+
+            Accepts JSON body with:
+                subject: Optional subject URI pattern
+                predicate: Optional predicate URI pattern
+                object: Optional object pattern
+                graph: Named graph URI (default: phases graph)
+            """
+            try:
+                body = await request.json()
+                graph = body.get("graph", GRAPH_PHASES)
+                count = kg_store.remove_triple(
+                    subject=body.get("subject"),
+                    predicate=body.get("predicate"),
+                    obj=body.get("object"),
+                    graph=graph,
+                )
+                kg_store.flush()
+                return {"removed": count}
+            except Exception as e:
+                return {"error": str(e)}
+
         # -- Ideas endpoints (SKOS+DC in default graph) --------------------
 
         from knowledge_graph.core.ideas import IdeasStore
@@ -391,8 +462,20 @@ def create_app(
                 return {
                     "variables": results.variables,
                     "bindings": results.bindings,
+                    "results": results.bindings,  # compat alias for tulla phase_facts
                     "count": len(results.bindings),
                 }
+            except Exception as e:
+                return {"error": str(e)}
+
+        @app.post("/kg/update")
+        async def kg_sparql_update(request: Request) -> dict[str, Any]:
+            """Execute SPARQL UPDATE against the knowledge graph."""
+            try:
+                body = await request.json()
+                query = body.get("query", "")
+                kg_store.update(query)
+                return {"success": True, "query": query}
             except Exception as e:
                 return {"error": str(e)}
 
