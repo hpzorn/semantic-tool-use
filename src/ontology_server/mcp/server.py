@@ -1414,7 +1414,8 @@ def _validate_sparql_query(query: str) -> dict[str, Any]:
     graph_refs = re.findall(r'GRAPH\s+<([^>]+)>', query, re.IGNORECASE)
     valid_graphs = {
         'http://semantic-tool-use.org/graphs/memory',
-        'http://semantic-tool-use.org/graphs/wikidata'
+        'http://semantic-tool-use.org/graphs/wikidata',
+        'http://semantic-tool-use.org/graphs/phases',  # knowledge_graph.core.store.GRAPH_PHASES
     }
     for graph in graph_refs:
         if graph not in valid_graphs:
