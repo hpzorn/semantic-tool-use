@@ -870,6 +870,39 @@ class DashboardService:
 
         return output
 
+    def get_project_detail(self, project_id: str) -> dict[str, Any]:
+        """Return all properties for a project entity from the phases graph.
+
+        Constructs the project URI as ``PRD_NS + project_id``, queries the
+        phases graph for all predicate-object pairs, and returns a dict with
+        ``found``, ``project_id``, ``uri``, and ``properties``.
+        """
+        uri = f"{PRD_NS}{project_id}"
+        properties: dict[str, list[Any]] = {}
+
+        try:
+            sparql = (
+                f"SELECT ?p ?o WHERE {{\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f"    <{uri}> ?p ?o .\n"
+                f"  }}\n"
+                f"}}"
+            )
+            result = self._kg_store.query(sparql)
+            for binding in result.bindings:
+                pred = binding.get("p", "")
+                obj = binding.get("o", "")
+                properties.setdefault(pred, []).append(obj)
+        except Exception:
+            logger.exception("get_project_detail failed for %s", project_id)
+
+        return {
+            "found": bool(properties),
+            "project_id": project_id,
+            "uri": uri,
+            "properties": properties,
+        }
+
     def get_triples_for_uri(self, uri: str) -> list[dict[str, str]]:
         """Return all predicate-object pairs for *uri* from the KG.
 
