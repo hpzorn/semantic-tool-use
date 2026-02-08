@@ -1132,6 +1132,48 @@ def _register_knowledge_graph_tools(
             return {"error": str(e), "query": query}
 
     @mcp.tool()
+    def sparql_update(query: str, validate: bool = True) -> dict[str, Any]:
+        """Execute a SPARQL UPDATE against the knowledge graph.
+
+        Supported operations:
+        - INSERT DATA { ... } — add triples to the default or a named graph
+        - DELETE DATA { ... } — remove specific triples
+        - DELETE WHERE { ... } — remove triples matching a pattern
+        - INSERT { ... } WHERE { ... } — insert triples derived from a query
+
+        Destructive graph-level operations (DROP, CLEAR, CREATE, LOAD) are
+        rejected to prevent accidental data loss.
+
+        Args:
+            query: SPARQL UPDATE query
+            validate: If True, validates query for common LLM hallucination patterns
+        """
+        # Fail-closed: reject destructive graph-level operations
+        query_upper = query.upper()
+        destructive_ops = {"DROP", "CLEAR", "CREATE", "LOAD"}
+        for op in destructive_ops:
+            if op in query_upper:
+                return {
+                    "error": f"Destructive operation '{op}' is not allowed. Use INSERT DATA, DELETE DATA, DELETE WHERE, or INSERT...WHERE.",
+                    "query": query,
+                }
+
+        if validate:
+            validation_result = _validate_sparql_query(query)
+            if not validation_result["valid"]:
+                return {
+                    "error": "Query validation failed",
+                    "issues": validation_result["issues"],
+                    "query": query,
+                }
+
+        try:
+            kg_store.update(query)
+            return {"success": True, "query": query}
+        except Exception as e:
+            return {"error": str(e), "query": query}
+
+    @mcp.tool()
     def get_graph_stats() -> dict[str, Any]:
         """Get comprehensive knowledge graph statistics.
 
