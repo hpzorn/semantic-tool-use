@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Project {{ project_id }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="project-detail">
+    {% set parents = [
+        {'title': 'Dashboard', 'url': dashboard_url(request, 'dashboard')},
+        {'title': 'Projects', 'url': dashboard_url(request, 'dashboard')}
+    ] %}
+    {% set current_title = project_id %}
+    {% include "partials/_breadcrumbs.html" %}
+    <a href="{{ dashboard_url(request, 'dashboard') }}" class="back-link">&larr; Back to Dashboard</a>
+
+    {% if not found %}
+    <h1>Project: {{ project_id }}</h1>
+    <p class="empty-state">Project not found: <code>{{ uri }}</code></p>
+    {% else %}
+    <h1>Project: {{ project_id }}</h1>
+    <p class="instance-uri"><code>{{ uri }}</code></p>
+
+    {% if properties %}
+    <h2>Properties</h2>
+    <table class="property-table">
+        <thead>
+            <tr>
+                <th>Predicate</th>
+                <th>Object</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pred, objects in properties.items() %}
+            {% for obj in objects %}
+            <tr>
+                <td><code>{{ pred|short_uri }}</code></td>
+                <td>
+                    {% if obj is string and (obj.startswith("http://") or obj.startswith("https://")) %}
+                    <a href="/dashboard/resolve/{{ obj|urlencode }}">{{ obj|short_uri }}</a>
+                    {% else %}
+                    {{ obj|short_uri }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No properties found for this project.</p>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
