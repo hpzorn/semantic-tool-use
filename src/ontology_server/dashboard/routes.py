@@ -19,6 +19,7 @@ Routes
 - ``GET /prds``                          — PRD context list
 - ``GET /prds/{context}``                — PRD requirement graph
 - ``GET /prds/{context}/{subject:path}`` — single requirement detail
+- ``GET /projects/{project_id}``         — project detail
 - ``GET /partials/instance-rows``        — HTMX partial: instance rows
 - ``GET /partials/instance-properties``  — HTMX partial: instance props
 """
@@ -373,6 +374,21 @@ async def prd_detail(request: Request, context: str) -> HTMLResponse:
             "phases": phases,
             "progress": progress,
         },
+    )
+
+
+@router.get("/projects/{project_id}", response_class=HTMLResponse)
+async def project_detail(
+    request: Request,
+    project_id: str,
+) -> HTMLResponse:
+    """Render the detail view for a single project."""
+    service = _get_service(request)
+    detail = service.get_project_detail(project_id)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "project_detail.html",
+        {"request": request, **detail},
     )
 
 
