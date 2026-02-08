@@ -430,6 +430,10 @@ async def requirement_detail(
     # Fetch phase history for this requirement
     phase_history = service.get_requirement_phase_history(context, subject)
 
+    # Resolve quality focus chain
+    quality_focus_raw = _first(raw.get("prd:qualityFocus"))
+    quality_focus_chain = service.get_quality_focus_chain(quality_focus_raw)
+
     detail = {
         "subject": raw.get("subject", subject),
         "context": context,
@@ -447,6 +451,7 @@ async def requirement_detail(
         "deps_detail": deps_detail,
         "depended_by_detail": depended_by_detail,
         "phase_history": phase_history,
+        "quality_focus_chain": quality_focus_chain,
     }
 
     return templates.TemplateResponse(
@@ -520,6 +525,7 @@ async def resolve(request: Request, uri: str) -> HTMLResponse:
         "phase_detail": lambda p: f"/phases/{p['idea_id']}/{p['phase_id']}",
         "idea_detail": lambda p: f"/ideas/{p['idea_id']}",
         "requirement_detail": lambda p: f"/prds/{p['context']}/{p['subject']}",
+        "project_detail": lambda p: f"/projects/{p['project_id']}",
     }
     if route_name in _redirect_map:
         target = _redirect_map[route_name](params)
