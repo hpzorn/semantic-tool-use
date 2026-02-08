@@ -709,6 +709,11 @@ class DashboardService:
                 subject = parts[-1] if parts else ""
             return {"context": context, "subject": subject}
 
+        if route_name == "project_detail":
+            # URI format: http://impl-ralph.io/prd#project-<name>
+            after_hash = uri.split("#", 1)[-1]
+            return {"project_id": after_hash}
+
         return {"uri": uri}
 
     def resolve_uri(self, uri: str) -> tuple[str, dict[str, Any]]:
