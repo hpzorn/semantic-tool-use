@@ -30,6 +30,8 @@ TRACE_NS = "http://impl-ralph.io/trace#"
 PRD_NS = "http://impl-ralph.io/prd#"
 SKOS_NS = "http://www.w3.org/2004/02/skos/core#"
 ISAQB_NS = "http://impl-ralph.io/isaqb#"
+ARCH_NS = "http://impl-ralph.io/architecture#"
+PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
 KNOWN_PHASES = ["d0", "d1", "d2", "d3", "d4", "d5"]
 
 # Quality Focus Chain mappings: quality focus → pattern → principle
@@ -524,8 +526,10 @@ class DashboardService:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT DISTINCT ?phase WHERE {{\n"
-                f'  ?s phase:forRequirement "{idea_id}" .\n'
-                f"  ?s phase:producedBy ?phase .\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f'    ?s phase:forRequirement "{idea_id}" .\n'
+                f"    ?s phase:producedBy ?phase .\n"
+                f"  }}\n"
                 f"}}"
             )
             result = self._kg_store.query(sparql)
@@ -567,8 +571,10 @@ class DashboardService:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT ?s ?p ?o WHERE {{\n"
-                f'  ?s phase:forRequirement "{idea_id}" .\n'
-                f"  ?s ?p ?o .\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f'    ?s phase:forRequirement "{idea_id}" .\n'
+                f"    ?s ?p ?o .\n"
+                f"  }}\n"
                 f"}}"
             )
             result = self._kg_store.query(sparql)
@@ -606,7 +612,7 @@ class DashboardService:
         subject = f"{PHASE_NS}{idea_id}-{phase_id}"
 
         try:
-            sparql = f"SELECT ?p ?o WHERE {{ <{subject}> ?p ?o . }}"
+            sparql = f"SELECT ?p ?o WHERE {{ GRAPH <{PHASES_GRAPH}> {{ <{subject}> ?p ?o . }} }}"
             result = self._kg_store.query(sparql)
         except Exception:
             logger.exception("get_phase_detail query failed for %s", subject)
@@ -634,7 +640,9 @@ class DashboardService:
             ancestor_sparql = (
                 f"PREFIX trace: <{TRACE_NS}>\n"
                 f"SELECT ?ancestor WHERE {{\n"
-                f"  <{subject}> trace:tracesTo+ ?ancestor .\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f"    <{subject}> trace:tracesTo+ ?ancestor .\n"
+                f"  }}\n"
                 f"}}"
             )
             ancestor_result = self._kg_store.query(ancestor_sparql)
@@ -646,7 +654,7 @@ class DashboardService:
 
             # Fetch facts for starting subject and ancestors
             for uri in [subject] + trace_ancestors:
-                self._kg_store.query(f"SELECT ?p ?o WHERE {{ <{uri}> ?p ?o . }}")
+                self._kg_store.query(f"SELECT ?p ?o WHERE {{ GRAPH <{PHASES_GRAPH}> {{ <{uri}> ?p ?o . }} }}")
         except Exception:
             logger.warning("traverse_chain failed for %s", subject)
 
@@ -735,10 +743,12 @@ class DashboardService:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT ?s ?p ?o WHERE {{\n"
-                f'  ?s phase:forRequirement "{idea_id}" .\n'
-                f"  ?s phase:producedBy ?produced .\n"
-                f'  FILTER(STRSTARTS(?produced, "impl-"))\n'
-                f"  ?s ?p ?o .\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f'    ?s phase:forRequirement "{idea_id}" .\n'
+                f"    ?s phase:producedBy ?produced .\n"
+                f'    FILTER(STRSTARTS(?produced, "impl-"))\n'
+                f"    ?s ?p ?o .\n"
+                f"  }}\n"
                 f"}}"
             )
             result = self._kg_store.query(sparql)
@@ -775,8 +785,10 @@ class DashboardService:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT ?s ?p ?o WHERE {{\n"
-                f'  ?s phase:forRequirement "{subject}" .\n'
-                f"  ?s ?p ?o .\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f'    ?s phase:forRequirement "{subject}" .\n'
+                f"    ?s ?p ?o .\n"
+                f"  }}\n"
                 f"}}"
             )
             result = self._kg_store.query(sparql)
@@ -852,9 +864,13 @@ class DashboardService:
         return output
 
     def get_triples_for_uri(self, uri: str) -> list[dict[str, str]]:
-        """Return all predicate-object pairs for *uri* from the KG."""
+        """Return all predicate-object pairs for *uri* from the KG.
+
+        Queries across all named graphs to find triples for the URI.
+        """
         try:
-            sparql = f"SELECT ?p ?o WHERE {{ <{uri}> ?p ?o . }}"
+            # Query across all graphs to find triples
+            sparql = f"SELECT ?p ?o WHERE {{ GRAPH ?g {{ <{uri}> ?p ?o . }} }}"
             result = self._kg_store.query(sparql)
             return [
                 {"predicate": b.get("p", ""), "object": b.get("o", "")}
