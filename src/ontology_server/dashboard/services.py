@@ -131,10 +131,12 @@ _TYPE_DISPATCH: dict[str, str] = {
     f"{PHASE_NS}PhaseOutput": "phase_detail",
     f"{SKOS_NS}Concept": "idea_detail",
     f"{PRD_NS}Requirement": "requirement_detail",
+    f"{PRD_NS}Project": "project_detail",
     # Compact prefix forms (for KG results using compact prefixes)
     "phase:PhaseOutput": "phase_detail",
     "skos:Concept": "idea_detail",
     "prd:Requirement": "requirement_detail",
+    "prd:Project": "project_detail",
 }
 
 _PRESERVES_PREFIX = f"{PHASE_NS}preserves-"
