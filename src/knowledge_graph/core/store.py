@@ -42,12 +42,12 @@ NAMESPACES = {
     "bfo": "http://purl.obolibrary.org/obo/BFO_",
     "cco": "http://www.ontologyrepository.com/CommonCoreOntologies/",
     # Phase pipeline ontology
-    "phase": "http://impl-ralph.io/phase#",
-    "trace": "http://impl-ralph.io/trace#",
+    "phase": "http://tulla.dev/phase#",
+    "trace": "http://tulla.dev/trace#",
     # Project governance (idea 69)
-    "prd": "http://impl-ralph.io/prd#",
-    "isaqb": "http://impl-ralph.io/isaqb#",
-    "arch": "http://impl-ralph.io/architecture#",
+    "prd": "http://tulla.dev/prd#",
+    "isaqb": "http://tulla.dev/isaqb#",
+    "arch": "http://tulla.dev/architecture#",
 }
 
 # Named graph URIs (aligned with semantic-tool-use namespace)
@@ -291,10 +291,18 @@ class KnowledgeGraphStore:
         g = self._graph_node(graph)
         return len(list(self._store.quads_for_pattern(None, None, None, g)))
 
-    def export_turtle(self, graph: str | None = None) -> str:
-        """Export graph as Turtle format."""
+    def export_turtle(self, graph: str | None = None, subject: str | None = None) -> str:
+        """Export graph as Turtle format.
+
+        Args:
+            graph: Named graph URI to export from.
+            subject: Optional subject URI to filter by.  When given, only
+                triples with this subject are exported — used by SHACL
+                validation to scope to a single instance.
+        """
         g = self._graph_node(graph)
-        quads = list(self._store.quads_for_pattern(None, None, None, g))
+        s = ox.NamedNode(subject) if subject else None
+        quads = list(self._store.quads_for_pattern(s, None, None, g))
 
         # Build turtle manually since pyoxigraph doesn't have direct serialization
         lines = []
@@ -341,21 +349,30 @@ class KnowledgeGraphStore:
                             o_str = f"{prefix}:{obj.value[len(uri):]}"
                             break
                 elif isinstance(obj, ox.Literal):
+                    # Escape special chars for Turtle string literals
+                    escaped = (
+                        obj.value
+                        .replace("\\", "\\\\")
+                        .replace('"', '\\"')
+                        .replace("\n", "\\n")
+                        .replace("\r", "\\r")
+                        .replace("\t", "\\t")
+                    )
                     if obj.language:
-                        o_str = f'"{obj.value}"@{obj.language}'
+                        o_str = f'"{escaped}"@{obj.language}'
                     elif obj.datatype:
                         dt = str(obj.datatype.value)
                         if dt == f"{NAMESPACES['xsd']}string":
-                            o_str = f'"{obj.value}"'
+                            o_str = f'"{escaped}"'
                         else:
                             dt_compact = f"<{dt}>"
                             for prefix, uri in NAMESPACES.items():
                                 if dt.startswith(uri):
                                     dt_compact = f"{prefix}:{dt[len(uri):]}"
                                     break
-                            o_str = f'"{obj.value}"^^{dt_compact}'
+                            o_str = f'"{escaped}"^^{dt_compact}'
                     else:
-                        o_str = f'"{obj.value}"'
+                        o_str = f'"{escaped}"'
                 else:
                     o_str = f'"{obj}"'
 

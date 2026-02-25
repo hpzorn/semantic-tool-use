@@ -24,11 +24,11 @@ _PACKAGE_DIR = Path(__file__).resolve().parent
 
 # Namespace prefix table used by the short_uri Jinja2 filter.
 _SHORT_URI_PREFIXES = [
-    ("http://impl-ralph.io/phase#", "phase:"),
-    ("http://impl-ralph.io/prd#", "prd:"),
-    ("http://impl-ralph.io/isaqb#", "isaqb:"),
-    ("http://impl-ralph.io/architecture#", "arch:"),
-    ("http://impl-ralph.io/trace#", "trace:"),
+    ("http://tulla.dev/phase#", "phase:"),
+    ("http://tulla.dev/prd#", "prd:"),
+    ("http://tulla.dev/isaqb#", "isaqb:"),
+    ("http://tulla.dev/architecture#", "arch:"),
+    ("http://tulla.dev/trace#", "trace:"),
     ("http://www.w3.org/2004/02/skos/core#", "skos:"),
     # Semantic tool-use ontologies
     ("http://semantic-tool-use.org/ontology/tool-use#", "stu:"),

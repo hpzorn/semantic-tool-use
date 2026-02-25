@@ -210,7 +210,7 @@ principles: list[dict] = [
 adrs: list[dict] = [
     {
         "id": "adr-74-1",
-        "uri": "http://impl-ralph.io/arch#adr-74-1",
+        "uri": "http://tulla.dev/arch#adr-74-1",
         "title": "Registry-Based Type Dispatch",
         "context": "URI resolver needs to map arbitrary URIs to appropriate detail views",
         "decision": "Use a Python dict registry mapping RDF type URIs to route names...",
@@ -525,7 +525,7 @@ Add to `TYPE_REGISTRY` in routes.py:
 ```python
 TYPE_REGISTRY = {
     # ... existing entries ...
-    "http://impl-ralph.io/arch#ArchitectureContext": "arch_detail",
+    "http://tulla.dev/arch#ArchitectureContext": "arch_detail",
 }
 ```
 

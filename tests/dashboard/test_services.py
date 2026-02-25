@@ -7,7 +7,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ontology_server.dashboard.services import DashboardService, KNOWN_PHASES, PHASE_NS
+from ontology_server.dashboard.services import (
+    DashboardService,
+    KNOWN_PHASES,
+    PHASE_NS,
+    PHASES_GRAPH,
+    PRD_NS,
+)
 
 
 def _make_service(kg_store: MagicMock | None = None) -> DashboardService:
@@ -379,7 +385,7 @@ class TestResolveUri:
         route, params = svc.resolve_uri(f"{PHASE_NS}idea50-d1")
 
         assert route == "phase_detail"
-        assert params == {"uri": f"{PHASE_NS}idea50-d1"}
+        assert params == {"idea_id": "idea50", "phase_id": "d1"}
 
     def test_skos_concept_dispatch(self) -> None:
         """A URI with rdf:type skos:Concept maps to idea_detail with extracted id."""
@@ -397,7 +403,7 @@ class TestResolveUri:
     def test_prd_namespace_dispatch(self) -> None:
         """A URI whose rdf:type is in the prd: namespace maps to requirement_detail."""
         kg = MagicMock()
-        kg.query.return_value = _type_bindings(["http://impl-ralph.io/prd#Requirement"])
+        kg.query.return_value = _type_bindings(["http://tulla.dev/prd#Requirement"])
         svc = _make_service(kg)
 
         route, params = svc.resolve_uri("http://example.org/prd-idea-50/req-50-1-1")
@@ -637,7 +643,7 @@ class TestGetRequirementPhaseHistory:
 
     def test_follows_traces_to_chain(self) -> None:
         """Phase outputs linked via trace:tracesTo are included in the result."""
-        trace_pred = "http://impl-ralph.io/trace#tracesTo"
+        trace_pred = "http://tulla.dev/trace#tracesTo"
         kg = MagicMock()
         # d3 links to d2 via tracesTo; d2 is not directly forRequirement
         kg.query.side_effect = [
@@ -726,3 +732,104 @@ class TestGetRequirementPhaseHistory:
 
         assert len(result) == 1
         assert set(result[0].keys()) == {"phase_id", "produced_by", "intent_fields", "timestamp"}
+
+
+# -- Tests for get_project_detail ------------------------------------------
+
+
+class TestGetProjectDetail:
+    """Tests for DashboardService.get_project_detail()."""
+
+    def test_returns_properties_for_existing_project(self) -> None:
+        """A project with triples returns found=True and populated properties."""
+        kg = MagicMock()
+        kg.query.return_value = _po_bindings([
+            ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type", f"{PRD_NS}Project"),
+            (f"{PRD_NS}hasTitle", "My Project"),
+            (f"{PRD_NS}hasRequirement", f"{PRD_NS}req-1-1"),
+            (f"{PRD_NS}hasRequirement", f"{PRD_NS}req-1-2"),
+        ])
+        svc = _make_service(kg)
+
+        result = svc.get_project_detail("prd-idea-50")
+
+        assert result["found"] is True
+        assert result["project_id"] == "prd-idea-50"
+        assert result["uri"] == f"{PRD_NS}prd-idea-50"
+        assert "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in result["properties"]
+        assert result["properties"][f"{PRD_NS}hasTitle"] == ["My Project"]
+        assert result["properties"][f"{PRD_NS}hasRequirement"] == [
+            f"{PRD_NS}req-1-1",
+            f"{PRD_NS}req-1-2",
+        ]
+
+    def test_multi_valued_predicates_collected_as_list(self) -> None:
+        """Multiple objects for the same predicate are collected into a list."""
+        kg = MagicMock()
+        kg.query.return_value = _po_bindings([
+            (f"{PRD_NS}hasRequirement", f"{PRD_NS}req-1"),
+            (f"{PRD_NS}hasRequirement", f"{PRD_NS}req-2"),
+            (f"{PRD_NS}hasRequirement", f"{PRD_NS}req-3"),
+        ])
+        svc = _make_service(kg)
+
+        result = svc.get_project_detail("proj-1")
+
+        assert len(result["properties"][f"{PRD_NS}hasRequirement"]) == 3
+
+    def test_not_found_returns_empty_properties(self) -> None:
+        """When no triples match, found is False and properties is empty."""
+        kg = MagicMock()
+        kg.query.return_value = _po_bindings([])
+        svc = _make_service(kg)
+
+        result = svc.get_project_detail("nonexistent")
+
+        assert result["found"] is False
+        assert result["project_id"] == "nonexistent"
+        assert result["uri"] == f"{PRD_NS}nonexistent"
+        assert result["properties"] == {}
+
+    def test_query_exception_returns_not_found(self) -> None:
+        """On SPARQL error, return found=False with empty properties."""
+        kg = MagicMock()
+        kg.query.side_effect = RuntimeError("Oxigraph unavailable")
+        svc = _make_service(kg)
+
+        result = svc.get_project_detail("broken-proj")
+
+        assert result["found"] is False
+        assert result["project_id"] == "broken-proj"
+        assert result["properties"] == {}
+
+    def test_uri_construction_uses_prd_ns(self) -> None:
+        """The project URI is constructed as PRD_NS + project_id."""
+        kg = MagicMock()
+        kg.query.return_value = _po_bindings([])
+        svc = _make_service(kg)
+
+        result = svc.get_project_detail("prd-idea-79")
+
+        assert result["uri"] == f"{PRD_NS}prd-idea-79"
+
+    def test_sparql_queries_phases_graph(self) -> None:
+        """The SPARQL query targets the phases named graph."""
+        kg = MagicMock()
+        kg.query.return_value = _po_bindings([])
+        svc = _make_service(kg)
+
+        svc.get_project_detail("prd-idea-42")
+
+        sparql_arg = kg.query.call_args[0][0]
+        assert PHASES_GRAPH in sparql_arg
+
+    def test_sparql_query_uses_project_id_in_uri(self) -> None:
+        """The SPARQL query includes the project_id within the constructed URI."""
+        kg = MagicMock()
+        kg.query.return_value = _po_bindings([])
+        svc = _make_service(kg)
+
+        svc.get_project_detail("prd-idea-42")
+
+        sparql_arg = kg.query.call_args[0][0]
+        assert "prd-idea-42" in sparql_arg

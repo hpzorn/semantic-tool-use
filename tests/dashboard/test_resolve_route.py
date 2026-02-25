@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 
 from ontology_server.dashboard import create_dashboard_app
 
-PHASE_NS = "http://impl-ralph.io/phase#"
-PRD_NS = "http://impl-ralph.io/prd#"
+PHASE_NS = "http://tulla.dev/phase#"
+PRD_NS = "http://tulla.dev/prd#"
 
 
 def _kg_store_factory(query_side_effects: list) -> MagicMock:
@@ -74,7 +74,7 @@ class TestResolveRouteRedirect:
     def test_phase_output_uri_returns_302(self) -> None:
         """A phase:PhaseOutput URI triggers a 302 redirect to phase_detail."""
         # Use a slash-based URI (not hash URI) to avoid fragment stripping
-        uri = "http://impl-ralph.io/phase/idea50-d1"
+        uri = "http://tulla.dev/phase/idea50-d1"
         client = _make_client([
             # resolve_uri: returns phase_detail
             _type_result([f"{PHASE_NS}PhaseOutput"]),
@@ -89,7 +89,7 @@ class TestResolveRouteRedirect:
     def test_prd_project_uri_returns_302(self) -> None:
         """A prd:Project URI triggers a 302 redirect to project_detail."""
         # URL-encode the '#' to prevent fragment stripping by the HTTP client
-        uri = "http://impl-ralph.io/prd%23project-ralph"
+        uri = "http://tulla.dev/prd%23project-ralph"
         client = _make_client([
             _type_result([f"{PRD_NS}Project"]),
         ])

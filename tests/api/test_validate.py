@@ -203,7 +203,7 @@ class TestValidatePrefixCompactedURI:
         # Use a compact URI — the endpoint wraps it in angle brackets
         # and ask() handles prefix expansion internally
         resp = client.post("/validate", json={
-            "instance_uri": "http://impl-ralph.io/prd#project-ralph",
+            "instance_uri": "http://tulla.dev/prd#project-ralph",
             "shape_uri": "http://example.org/ThingShape",
         })
 
@@ -212,7 +212,7 @@ class TestValidatePrefixCompactedURI:
 
         # Verify the URI was passed through to the ASK query
         ask_sparql = kg.ask.call_args[0][0]
-        assert "http://impl-ralph.io/prd#project-ralph" in ask_sparql
+        assert "http://tulla.dev/prd#project-ralph" in ask_sparql
 
 
 class TestValidateFallbackToTBox:

@@ -13,7 +13,7 @@ This document specifies the expected RDF data structure for the architecture vie
 ## Namespace Prefixes
 
 ```turtle
-@prefix arch: <http://impl-ralph.io/arch#> .
+@prefix arch: <http://tulla.dev/arch#> .
 @prefix ideas: <http://semantic-tool-use.org/ideas/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
@@ -170,7 +170,7 @@ arch:adr-74-5 a arch:ArchitectureDecisionRecord ;
 ### Query 1: Get Quality Goals for an Idea
 
 ```sparql
-PREFIX arch: <http://impl-ralph.io/arch#>
+PREFIX arch: <http://tulla.dev/arch#>
 PREFIX ideas: <http://semantic-tool-use.org/ideas/>
 
 SELECT ?goal
@@ -193,7 +193,7 @@ ORDER BY ?goal
 ### Query 2: Get Design Principles for an Idea
 
 ```sparql
-PREFIX arch: <http://impl-ralph.io/arch#>
+PREFIX arch: <http://tulla.dev/arch#>
 PREFIX ideas: <http://semantic-tool-use.org/ideas/>
 
 SELECT ?principle
@@ -216,7 +216,7 @@ ORDER BY ?principle
 ### Query 3: Get All ADRs for an Idea
 
 ```sparql
-PREFIX arch: <http://impl-ralph.io/arch#>
+PREFIX arch: <http://tulla.dev/arch#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 
 SELECT ?adr ?title ?context ?decision ?status ?date
@@ -244,7 +244,7 @@ ORDER BY ?adr
 ### Query 4: Get Accepted ADRs Only
 
 ```sparql
-PREFIX arch: <http://impl-ralph.io/arch#>
+PREFIX arch: <http://tulla.dev/arch#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 
 SELECT ?adr ?title ?decision
@@ -263,7 +263,7 @@ ORDER BY ?adr
 ### Query 5: Count Architecture Artifacts for Summary Display
 
 ```sparql
-PREFIX arch: <http://impl-ralph.io/arch#>
+PREFIX arch: <http://tulla.dev/arch#>
 PREFIX ideas: <http://semantic-tool-use.org/ideas/>
 
 SELECT
@@ -294,7 +294,7 @@ WHERE {
 This query is used to determine if the architecture context link should be enabled in the idea detail view.
 
 ```sparql
-PREFIX arch: <http://impl-ralph.io/arch#>
+PREFIX arch: <http://tulla.dev/arch#>
 PREFIX ideas: <http://semantic-tool-use.org/ideas/>
 
 ASK

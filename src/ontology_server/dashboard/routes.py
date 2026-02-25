@@ -183,7 +183,7 @@ async def phase_detail(
 
     if detail is None:
         # Fall back to generic detail with raw triples
-        uri = f"http://impl-ralph.io/phase#{idea_id}-{phase_id}"
+        uri = f"http://tulla.dev/phase#{idea_id}-{phase_id}"
         triples = service.get_triples_for_uri(uri)
         return templates.TemplateResponse(
             "generic_detail.html",

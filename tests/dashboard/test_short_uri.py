@@ -13,9 +13,9 @@ class TestShortUri:
     @pytest.mark.parametrize(
         ("uri", "expected"),
         [
-            ("http://impl-ralph.io/phase#D1Output", "phase:D1Output"),
-            ("http://impl-ralph.io/prd#req-74-2-2", "prd:req-74-2-2"),
-            ("http://impl-ralph.io/trace#run-001", "trace:run-001"),
+            ("http://tulla.dev/phase#D1Output", "phase:D1Output"),
+            ("http://tulla.dev/prd#req-74-2-2", "prd:req-74-2-2"),
+            ("http://tulla.dev/trace#run-001", "trace:run-001"),
             ("http://www.w3.org/2004/02/skos/core#Concept", "skos:Concept"),
         ],
     )
@@ -30,7 +30,7 @@ class TestShortUri:
 
     def test_bare_namespace_no_local(self) -> None:
         """A URI equal to just the namespace prefix produces 'prefix:' with empty local."""
-        assert short_uri("http://impl-ralph.io/phase#") == "phase:"
+        assert short_uri("http://tulla.dev/phase#") == "phase:"
 
     def test_empty_string(self) -> None:
         """An empty string returns an empty string."""
@@ -39,6 +39,6 @@ class TestShortUri:
     def test_first_match_wins(self) -> None:
         """The first matching prefix in the list is used."""
         # All four prefixes are distinct so this just verifies iteration order
-        uri = "http://impl-ralph.io/phase#SomePhase"
+        uri = "http://tulla.dev/phase#SomePhase"
         result = short_uri(uri)
         assert result.startswith("phase:")

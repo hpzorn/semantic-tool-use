@@ -13,8 +13,8 @@ This document specifies the SPARQL query patterns for calculating annotation cov
 ## Namespace Prefixes
 
 ```sparql
-PREFIX trace: <http://impl-ralph.io/trace#>
-PREFIX prd: <http://impl-ralph.io/prd#>
+PREFIX trace: <http://tulla.dev/trace#>
+PREFIX prd: <http://tulla.dev/prd#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 ```
@@ -30,7 +30,7 @@ PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 ### SPARQL Pattern
 
 ```sparql
-PREFIX trace: <http://impl-ralph.io/trace#>
+PREFIX trace: <http://tulla.dev/trace#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 SELECT ?annotation ?sourceFile ?startLine ?endLine ?annotationText
@@ -49,7 +49,7 @@ ORDER BY ?sourceFile ?startLine
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `{requirement_uri}` | URI | Full URI of the requirement (e.g., `http://impl-ralph.io/prd#req-74-1-1` or compact `prd:req-74-1-1`) |
+| `{requirement_uri}` | URI | Full URI of the requirement (e.g., `http://tulla.dev/prd#req-74-1-1` or compact `prd:req-74-1-1`) |
 
 ### Result Shape
 
@@ -79,7 +79,7 @@ ORDER BY ?sourceFile ?startLine
 ### SPARQL Pattern
 
 ```sparql
-PREFIX trace: <http://impl-ralph.io/trace#>
+PREFIX trace: <http://tulla.dev/trace#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 SELECT ?sourceFile
@@ -132,7 +132,7 @@ ORDER BY ?sourceFile
 ### SPARQL Pattern
 
 ```sparql
-PREFIX trace: <http://impl-ralph.io/trace#>
+PREFIX trace: <http://tulla.dev/trace#>
 
 SELECT (COUNT(?annotation) AS ?totalAnnotations)
 WHERE {

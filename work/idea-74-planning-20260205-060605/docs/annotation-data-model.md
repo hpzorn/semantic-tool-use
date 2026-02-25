@@ -13,8 +13,8 @@ This document specifies the expected RDF data model for implementation annotatio
 ## Namespace Prefixes
 
 ```turtle
-@prefix trace: <http://impl-ralph.io/trace#> .
-@prefix prd: <http://impl-ralph.io/prd#> .
+@prefix trace: <http://tulla.dev/trace#> .
+@prefix prd: <http://tulla.dev/prd#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -24,8 +24,8 @@ This document specifies the expected RDF data model for implementation annotatio
 
 | Prefix | IRI | Description |
 |--------|-----|-------------|
-| `trace:` | `http://impl-ralph.io/trace#` | Traceability vocabulary for implementation annotations |
-| `prd:` | `http://impl-ralph.io/prd#` | PRD vocabulary for requirements |
+| `trace:` | `http://tulla.dev/trace#` | Traceability vocabulary for implementation annotations |
+| `prd:` | `http://tulla.dev/prd#` | PRD vocabulary for requirements |
 | `xsd:` | `http://www.w3.org/2001/XMLSchema#` | XML Schema datatypes |
 
 ---
@@ -126,9 +126,9 @@ Annotations in source code follow the pattern `impl(prd:req-{idea}-{task})` in c
 ```python
 # impl(prd:req-74-1-1): Expand Namespace Prefix Registry
 _SHORT_URI_PREFIXES = [
-    ("http://impl-ralph.io/phase#", "phase:"),
-    ("http://impl-ralph.io/prd#", "prd:"),
-    ("http://impl-ralph.io/trace#", "trace:"),
+    ("http://tulla.dev/phase#", "phase:"),
+    ("http://tulla.dev/prd#", "prd:"),
+    ("http://tulla.dev/trace#", "trace:"),
     ("http://semantic-tool-use.org/ontology/tool-use#", "stu:"),
     # ... additional prefixes
 ]

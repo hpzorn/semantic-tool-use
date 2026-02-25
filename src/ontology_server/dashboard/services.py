@@ -25,12 +25,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-PHASE_NS = "http://impl-ralph.io/phase#"
-TRACE_NS = "http://impl-ralph.io/trace#"
-PRD_NS = "http://impl-ralph.io/prd#"
+PHASE_NS = "http://tulla.dev/phase#"
+TRACE_NS = "http://tulla.dev/trace#"
+PRD_NS = "http://tulla.dev/prd#"
 SKOS_NS = "http://www.w3.org/2004/02/skos/core#"
-ISAQB_NS = "http://impl-ralph.io/isaqb#"
-ARCH_NS = "http://impl-ralph.io/architecture#"
+ISAQB_NS = "http://tulla.dev/isaqb#"
+ARCH_NS = "http://tulla.dev/architecture#"
 PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
 KNOWN_PHASES = ["d0", "d1", "d2", "d3", "d4", "d5"]
 
@@ -682,8 +682,8 @@ class DashboardService:
     ) -> dict[str, Any]:
         """Extract route parameters based on route name and URI."""
         if route_name == "phase_detail":
-            # URI format: http://impl-ralph.io/phase#<idea_id>-<phase_id>
-            # e.g., http://impl-ralph.io/phase#idea-50-d0
+            # URI format: http://tulla.dev/phase#<idea_id>-<phase_id>
+            # e.g., http://tulla.dev/phase#idea-50-d0
             after_hash = uri.split("#", 1)[-1] if "#" in uri else uri.rsplit("/", 1)[-1]
             # Find the last dash to split idea_id and phase_id
             last_dash = after_hash.rfind("-")
@@ -710,7 +710,7 @@ class DashboardService:
             return {"context": context, "subject": subject}
 
         if route_name == "project_detail":
-            # URI format: http://impl-ralph.io/prd#project-<name>
+            # URI format: http://tulla.dev/prd#project-<name>
             after_hash = uri.split("#", 1)[-1]
             return {"project_id": after_hash}
 
