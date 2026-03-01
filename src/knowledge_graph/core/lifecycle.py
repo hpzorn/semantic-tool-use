@@ -39,20 +39,21 @@ RALPH_LIFECYCLES = [
 ]
 
 # Valid lifecycle transitions
+# Note: "completed" is allowed from most active states for quick completion
 LIFECYCLE_TRANSITIONS: dict[str, list[str]] = {
-    "seed": ["backlog", "sprout"],
-    "sprout": ["backlog"],
-    "backlog": ["researching"],
-    "researching": ["researched", "invalidated", "parked"],
-    "researched": ["decomposing", "scoped"],
+    "seed": ["backlog", "sprout", "completed", "invalidated"],
+    "sprout": ["backlog", "completed", "invalidated"],
+    "backlog": ["researching", "completed", "invalidated"],
+    "researching": ["researched", "invalidated", "parked", "completed"],
+    "researched": ["decomposing", "scoped", "completed"],
     "invalidated": [],  # Terminal
-    "parked": ["backlog", "researching"],
-    "decomposing": ["scoped"],  # Also spawns children to backlog
-    "scoped": ["implementing"],
+    "parked": ["backlog", "researching", "completed", "invalidated"],
+    "decomposing": ["scoped", "completed"],  # Also spawns children to backlog
+    "scoped": ["implementing", "completed"],
     "implementing": ["completed", "failed", "blocked"],
-    "blocked": ["backlog", "implementing"],
-    "completed": [],  # Terminal (but can reopen)
-    "failed": ["backlog"],  # Can retry
+    "blocked": ["backlog", "implementing", "completed"],
+    "completed": ["backlog"],  # Can reopen if needed
+    "failed": ["backlog", "completed"],  # Can retry or mark done
 }
 
 

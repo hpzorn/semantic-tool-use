@@ -666,6 +666,79 @@ h2 {
     border-bottom: none;
 }
 
+/* ── PRD Progress Bar ───────────────────────────────── */
+.prd-progress-section {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.prd-progress-section h2 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+}
+
+.progress-container {
+    width: 100%;
+    height: 20px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    transition: width 0.3s ease;
+}
+
+.progress-label {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+/* ── Context Navigation ─────────────────────────────── */
+.context-navigation {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.context-nav-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.context-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25em 0.6em;
+    border-radius: 3px;
+    text-decoration: none;
+}
+
+.context-badge.context-available {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.context-badge.context-available:hover {
+    background: #c3e6cb;
+    text-decoration: none;
+}
+
+.context-badge.context-missing {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+
 /* ── Idea detail ────────────────────────────────────── */
 .idea-content {
     background: var(--color-surface);
@@ -708,9 +781,205 @@ h2 {
     font-weight: 600;
 }
 
+/* ── Sub-idea Tree ──────────────────────────────────── */
+.sub-idea-tree {
+    list-style: none;
+    margin: 0 0 1.5rem 0;
+    padding: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.sub-idea-item {
+    padding: 0.5rem 0.75rem 0.5rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
+}
+
+.sub-idea-item:last-child {
+    border-bottom: none;
+}
+
+.sub-idea-item::before {
+    content: "└";
+    position: absolute;
+    left: 0.5rem;
+    color: var(--color-text-muted);
+    font-family: monospace;
+}
+
+.sub-idea-link {
+    display: inline-block;
+    padding: 0.1em 0.35em;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-family: monospace;
+}
+
+.sub-idea-link:hover {
+    border-color: var(--color-primary);
+    text-decoration: none;
+}
+
+.empty-placeholder {
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ── Dependency Card ───────────────────────────────── */
+.dependency-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.dep-section {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.dep-section:last-child {
+    border-bottom: none;
+}
+
+.dep-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    transition: background 0.15s;
+}
+
+.dep-summary::-webkit-details-marker {
+    display: none;
+}
+
+.dep-summary:hover {
+    background: var(--color-bg);
+}
+
+.dep-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-radius: 3px;
+}
+
+.dep-indicator-blocks {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.dep-indicator-blocked {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.dep-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.dep-list {
+    padding: 0.5rem 1rem 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--color-bg);
+}
+
+.dep-list .dep-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3em 0.5em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-family: monospace;
+    width: fit-content;
+}
+
+.dep-list .dep-link:hover {
+    border-color: var(--color-primary);
+    text-decoration: none;
+}
+
+.dep-arrow {
+    font-weight: 700;
+    color: var(--color-text-muted);
+}
+
+.dep-blocks .dep-arrow {
+    color: #856404;
+}
+
+.dep-blocked-by .dep-arrow {
+    color: #721c24;
+}
+
 /* ── Summary cards wrap ─────────────────────────────── */
 .summary-cards {
     flex-wrap: wrap;
+}
+
+/* ── Breadcrumbs ────────────────────────────────────── */
+.breadcrumbs {
+    margin-bottom: 1rem;
+}
+
+.breadcrumb-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.875rem;
+}
+
+.breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.breadcrumb-link {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.breadcrumb-link:hover {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+}
+
+.breadcrumb-separator {
+    margin: 0 0.5rem;
+    color: var(--color-text-muted);
+    font-weight: 300;
+}
+
+.breadcrumb-current .breadcrumb-text {
+    color: var(--color-text);
+    font-weight: 600;
 }
 
 /* ── Responsive ──────────────────────────────────────── */

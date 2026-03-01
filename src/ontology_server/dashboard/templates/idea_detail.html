@@ -45,6 +45,8 @@
         {% else %}
         <span class="context-badge context-missing" title="Lessons context not yet available">Lessons —</span>
         {% endif %}
+        {% set phase_id = id.replace('idea-', '') if id.startswith('idea-') else id %}
+        <a href="{{ dashboard_url(request, 'phase_trail', idea_id=phase_id) }}" class="context-badge context-available" title="View phase execution trail">Phases →</a>
     </div>
     {% endif %}
 

@@ -192,7 +192,9 @@ def create_app(
                     f"ASK {{ GRAPH <{GRAPH_PHASES}> {{ <{instance_uri}> ?p ?o }} }}"
                 )
                 if exists:
-                    instance_ttl = kg_store.export_turtle(GRAPH_PHASES)
+                    # Scope to this instance only — prevents stale triples
+                    # from other instances causing spurious SHACL failures.
+                    instance_ttl = kg_store.export_turtle(GRAPH_PHASES, subject=instance_uri)
 
             # Step 2: Fall back to OntologyStore (legacy)
             if instance_ttl is None:
@@ -443,6 +445,22 @@ def create_app(
                 # Drop embedding (large, not useful for display)
                 data.pop("embedding", None)
                 return data
+            except Exception as e:
+                return {"error": str(e)}
+
+        # -- Idea lifecycle endpoint -----------------------------------------
+
+        from knowledge_graph.core.lifecycle import LifecycleManager
+        lifecycle_mgr = LifecycleManager(kg_store, ideas_store)
+
+        @app.post("/ideas/{idea_id}/lifecycle")
+        async def idea_lifecycle(idea_id: str, request: Request) -> dict[str, Any]:
+            """Transition an idea's lifecycle state."""
+            try:
+                body = await request.json()
+                new_state = body.get("new_state", "")
+                reason = body.get("reason", "")
+                return lifecycle_mgr.set_lifecycle(idea_id, new_state, reason)
             except Exception as e:
                 return {"error": str(e)}
 
