@@ -89,8 +89,10 @@ def main():
     parser.add_argument(
         "--ontology-path",
         type=Path,
-        default=settings.ontology_path,
-        help=f"Path to ontology files (default: {settings.ontology_path})"
+        action="append",
+        dest="ontology_paths",
+        default=[],
+        help="Path to ontology files (can be specified multiple times)"
     )
     parser.add_argument(
         "--shapes-path",
@@ -146,9 +148,13 @@ def main():
     else:
         logger.info("Authentication: disabled (set ONTOLOGY_AUTH_ENABLED=1 to enable)")
 
-    # Create settings with CLI overrides
+    # Resolve ontology paths: CLI args, or fall back to default
+    ontology_paths = [resolve_ontology_path(p) for p in args.ontology_paths] if args.ontology_paths else [resolve_ontology_path(settings.ontology_path)]
+
+    # Create settings with CLI overrides (use first path for backward compat)
     cli_settings = Settings(
-        ontology_path=args.ontology_path,
+        ontology_path=ontology_paths[0] if ontology_paths else settings.ontology_path,
+        ontology_paths=ontology_paths,
         shapes_path=args.shapes_path,
         host=args.host,
         port=args.port,
@@ -158,26 +164,30 @@ def main():
         api_key=api_key,
     )
 
-    # Resolve paths
-    ontology_path = resolve_ontology_path(cli_settings.ontology_path)
+    # Resolve shapes path
     shapes_path = resolve_ontology_path(cli_settings.shapes_path)
 
-    logger.info(f"Ontology path: {ontology_path}")
+    logger.info(f"Ontology paths: {[str(p) for p in ontology_paths]}")
     logger.info(f"Shapes path: {shapes_path}")
 
-    # Initialize store and load ontologies
+    # Initialize store and load ontologies from all paths
     store = OntologyStore()
 
-    if ontology_path.exists():
-        count = store.load_directory(ontology_path)
-        logger.info(f"Loaded {count} ontologies from {ontology_path}")
+    total_loaded = 0
+    for ontology_path in ontology_paths:
+        if ontology_path.exists():
+            count = store.load_directory(ontology_path)
+            total_loaded += count
+            logger.info(f"Loaded {count} ontologies from {ontology_path}")
+        else:
+            logger.warning(f"Ontology path does not exist: {ontology_path}")
 
-        # Log loaded ontologies
-        for onto in store.list_ontologies():
-            logger.debug(f"  - {onto['uri']}: {onto['triple_count']} triples")
-    else:
-        logger.warning(f"Ontology path does not exist: {ontology_path}")
+    if total_loaded == 0:
         logger.warning("Server will start with no ontologies loaded")
+
+    # Log loaded ontologies
+    for onto in store.list_ontologies():
+        logger.debug(f"  - {onto['uri']}: {onto['triple_count']} triples")
 
     # Initialize validator
     validator = SHACLValidator(shapes_path if shapes_path.exists() else None)
