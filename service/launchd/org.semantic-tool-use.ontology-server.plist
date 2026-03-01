@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.semantic-tool-use.ontology-server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{VENV_PATH}}/bin/python</string>
+        <string>-m</string>
+        <string>ontology_server</string>
+        <string>--http</string>
+        <string>--host</string>
+        <string>localhost</string>
+        <string>--port</string>
+        <string>{{PORT}}</string>
+        <string>--enable-abox</string>
+        <string>--kg-persist</string>
+        <string>{{DATA_DIR}}/kg</string>
+        <string>--ontology-path</string>
+        <string>{{ONTOLOGY_PATH}}</string>
+        <string>--shapes-path</string>
+        <string>{{SHAPES_PATH}}</string>
+        <string>--log-level</string>
+        <string>INFO</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>{{PROJECT_DIR}}/src</string>
+        <key>ONTOLOGY_AUTH_ENABLED</key>
+        <string>{{AUTH_ENABLED}}</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>{{PROJECT_DIR}}</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>{{DATA_DIR}}/ontology-server.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{DATA_DIR}}/ontology-server.error.log</string>
+</dict>
+</plist>

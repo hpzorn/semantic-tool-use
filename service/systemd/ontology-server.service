@@ -1,0 +1,23 @@
+[Unit]
+Description=Ontology Server - MCP and REST API for ontology management
+After=network.target
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{PROJECT_DIR}}
+Environment=PYTHONPATH={{PROJECT_DIR}}/src
+Environment=ONTOLOGY_AUTH_ENABLED={{AUTH_ENABLED}}
+ExecStart={{VENV_PATH}}/bin/python -m ontology_server \
+    --http --host localhost --port {{PORT}} \
+    --enable-abox --kg-persist {{DATA_DIR}}/kg \
+    --ontology-path {{ONTOLOGY_PATH}} \
+    --shapes-path {{SHAPES_PATH}} \
+    --log-level INFO
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:{{DATA_DIR}}/ontology-server.log
+StandardError=append:{{DATA_DIR}}/ontology-server.error.log
+
+[Install]
+WantedBy=multi-user.target

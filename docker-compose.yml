@@ -1,28 +1,19 @@
-version: '3.8'
-
 services:
-  # Main application
-  app:
+  ontology-server:
     build: .
     volumes:
       - ./src:/app/src
       - ./ontology:/app/ontology
-      - ./data:/app/data
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-
-  # Apache Jena Fuseki SPARQL server
-  fuseki:
-    image: stain/jena-fuseki:latest
+      - kg-data:/data/kg
     environment:
-      - ADMIN_PASSWORD=admin
-      - JVM_ARGS=-Xmx2g
+      - ONTOLOGY_AUTH_ENABLED=0
     ports:
-      - "3030:3030"
-    volumes:
-      - fuseki-data:/fuseki
+      - "8100:8100"
+    command: >
+      uv run python -m ontology_server
+      --http --host 0.0.0.0 --port 8100
+      --enable-abox --kg-persist /data/kg
+      --ontology-path /app/ontology/domain/visual-artifacts
 
 volumes:
-  fuseki-data:
+  kg-data:

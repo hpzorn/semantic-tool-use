@@ -1,23 +1,20 @@
 FROM python:3.11-slim
 
-# Install Java for reasoners
-RUN apt-get update && apt-get install -y \
-    openjdk-17-jre-headless \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-# Copy requirements first for caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install uv for fast dependency management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy source
+# Copy project files
+COPY pyproject.toml uv.lock ./
+RUN uv sync --all-extras --no-dev
+
+# Copy source and ontologies
 COPY src/ ./src/
 COPY ontology/ ./ontology/
-COPY tools/ ./tools/
 
-ENV PYTHONPATH=/app
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PYTHONPATH=/app/src
 
-CMD ["python", "-m", "src.pipeline"]
+EXPOSE 8100
+
+CMD ["uv", "run", "python", "-m", "ontology_server", "--http", "--host", "0.0.0.0", "--port", "8100"]

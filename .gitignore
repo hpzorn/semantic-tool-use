@@ -41,7 +41,6 @@ htmlcov/
 
 # Work directories
 work/
-archive/
 
 # Claude Code
 .claude/
