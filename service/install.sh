@@ -18,7 +18,7 @@ PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
 # Defaults
 VENV_PATH="${VENV_PATH:-$PROJECT_DIR/.venv}"
 ONTOLOGY_PATH="${ONTOLOGY_PATH:-$PROJECT_DIR/ontology/domain/visual-artifacts}"
-SHAPES_PATH="${SHAPES_PATH:-$PROJECT_DIR/src/ontology_server/shapes}"
+SHAPES_PATH="${SHAPES_PATH:-$PROJECT_DIR/ontology/shapes}"
 DATA_DIR="${DATA_DIR:-$HOME/.semantic-tool-use}"
 PORT="${PORT:-8100}"
 AUTH_ENABLED="${AUTH_ENABLED:-0}"

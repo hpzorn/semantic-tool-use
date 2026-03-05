@@ -23,7 +23,7 @@ PORT="${ONTOLOGY_PORT:-8100}"
 PERSIST_PATH="${ONTOLOGY_PERSIST:-$DATA_DIR/kg}"
 IDEAS_DIR="${IDEAS_DIR:-$HOME/ideas}"
 ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/visual-artifacts}"
-SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/src/ontology_server/shapes}"
+SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/ontology/shapes}"
 
 stop_server() {
     if [ -f "$PID_FILE" ]; then

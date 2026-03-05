@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Paths
     ontology_path: Path = Path("ontologies")
     ontology_paths: list[Path] = []  # Additional ontology directories
-    shapes_path: Path = Path("ontologies/shapes")
+    shapes_path: Path = Path("ontology/shapes")
 
     # Server settings
     host: str = "0.0.0.0"
