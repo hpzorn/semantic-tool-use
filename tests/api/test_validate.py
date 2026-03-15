@@ -113,8 +113,8 @@ class TestValidateInstanceFoundInKG:
         assert len(validate_ask_calls) == 1
         assert "ASK" in validate_ask_calls[0][0][0]
 
-        # Verify export_turtle was called with phases graph
-        kg.export_turtle.assert_called_once_with(GRAPH_PHASES)
+        # Verify export_turtle was called with phases graph and subject filter
+        kg.export_turtle.assert_called_once_with(GRAPH_PHASES, subject="http://example.org/MyInstance")
 
         # Verify validator.validate was called
         mock_validator.validate.assert_called_once()

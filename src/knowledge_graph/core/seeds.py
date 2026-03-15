@@ -37,7 +37,7 @@ class SeedStore:
     def capture_seed(
         self,
         content: str,
-        author: str = "hpz",
+        author: str = "anonymous",
         agent: str | None = None,
     ) -> dict[str, Any]:
         """

@@ -36,7 +36,7 @@ class TestStaticTokenVerifier:
         result = await verifier.verify_token("test-secret-key")
         assert result is not None
         assert result.token == "test-secret-key"
-        assert result.client_id == "ralph-pipeline"
+        assert result.client_id == "ontology-client"
         assert result.scopes == []
         assert result.expires_at is None
 

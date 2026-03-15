@@ -480,7 +480,7 @@ def create_app(
                 return {
                     "variables": results.variables,
                     "bindings": results.bindings,
-                    "results": results.bindings,  # compat alias for tulla phase_facts
+                    "results": results.bindings,  # compat alias
                     "count": len(results.bindings),
                 }
             except Exception as e:

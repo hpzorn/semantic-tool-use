@@ -31,7 +31,7 @@ class StaticTokenVerifier:
         if token == self._api_key:
             return AccessToken(
                 token=token,
-                client_id="ralph-pipeline",
+                client_id="ontology-client",
                 scopes=[],
                 expires_at=None,
             )

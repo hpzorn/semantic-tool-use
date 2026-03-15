@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "semantic-tool-use"
 version = "0.1.0"
-description = "Semantic Tool Use for Neosymbolic AI Research"
+description = "Ontology server and knowledge graph backend for semantic AI tool orchestration"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [

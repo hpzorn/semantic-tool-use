@@ -322,7 +322,7 @@ def parse_seed_file(filepath: Path) -> Idea | None:
     first_line = body.strip().split('\n')[0][:100] if body.strip() else "Untitled seed"
     title = first_line if first_line else "Untitled seed"
 
-    author = frontmatter.get('author', 'hpz')
+    author = frontmatter.get('author', 'anonymous')
     agent = frontmatter.get('agent')
 
     # Parse captured_at from frontmatter or filename

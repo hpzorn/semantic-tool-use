@@ -714,14 +714,14 @@ def _register_knowledge_graph_tools(
     @mcp.tool()
     def capture_seed(
         content: str,
-        author: str = "hpz",
+        author: str = "anonymous",
         agent: str | None = None,
     ) -> dict[str, Any]:
         """Instant brain dump - no title, no structure, just capture.
 
         Args:
             content: Raw content to capture
-            author: Author name (default "hpz")
+            author: Author name (default "anonymous")
             agent: Optional AI agent name
         """
         return seed_store.capture_seed(content, author, agent)
@@ -792,7 +792,7 @@ def _register_knowledge_graph_tools(
 
     @mcp.tool()
     def get_workable_ideas(limit: int = 20) -> list[dict[str, Any]]:
-        """Get ideas ready for Ralph (backlog + unblocked).
+        """Get ideas ready for work (backlog + unblocked).
 
         Args:
             limit: Maximum results
@@ -805,7 +805,7 @@ def _register_knowledge_graph_tools(
 
         Returns counts by lifecycle state, active/blocked/completed stats.
         """
-        return lifecycle_mgr.get_ralph_status()
+        return lifecycle_mgr.get_workflow_status()
 
     @mcp.tool()
     def get_ideas_by_lifecycle(lifecycle: str) -> list[dict[str, Any]]:
@@ -1183,13 +1183,13 @@ def _register_knowledge_graph_tools(
         - Memory fact counts
         - Wikidata cache status
         """
-        from knowledge_graph.core.lifecycle import RALPH_LIFECYCLES
+        from knowledge_graph.core.lifecycle import IDEA_LIFECYCLES
 
         base_stats = kg_store.get_stats()
 
         # Add idea lifecycle breakdown
         lifecycle_counts = {}
-        for state in RALPH_LIFECYCLES:
+        for state in IDEA_LIFECYCLES:
             lifecycle_counts[state] = ideas_store.count_ideas(lifecycle=state)
 
         # Add tag count

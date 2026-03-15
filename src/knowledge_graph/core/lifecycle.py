@@ -1,5 +1,5 @@
 """
-Lifecycle Manager - Ralph workflow state machine.
+Lifecycle Manager - Idea workflow state machine.
 
 Manages the 12+1 lifecycle states and valid transitions for ideas:
   seed → backlog → researching → researched → scoped → implementing → completed
@@ -21,18 +21,18 @@ logger = logging.getLogger(__name__)
 IDEAS = NAMESPACES["ideas"]
 IDEA = NAMESPACES["idea"]
 
-# Ralph Lifecycle States
-RALPH_LIFECYCLES = [
+# Idea Lifecycle States
+IDEA_LIFECYCLES = [
     "seed",         # Raw captured thought (in seeds/)
     "sprout",       # Crystallized seed, basic idea
-    "backlog",      # Queued, ready for Ralph to pick
+    "backlog",      # Queued, ready for processing
     "researching",  # Academic groundwork in progress
     "researched",   # Research complete, ready for breakdown
     "invalidated",  # Dead end (prior art, flawed premise)
     "parked",       # Paused, needs human input
     "decomposing",  # Breaking into sub-ideas
     "scoped",       # PRD created, ready for implementation
-    "implementing", # Ralph loop active
+    "implementing", # Implementation loop active
     "blocked",      # Implementation stuck, needs resolution
     "completed",    # Successfully implemented
     "failed",       # Implementation failed after retries
@@ -83,10 +83,10 @@ class LifecycleManager:
             return {"error": f"Idea not found: {idea_id}"}
 
         current = idea.lifecycle
-        if new_state not in RALPH_LIFECYCLES:
+        if new_state not in IDEA_LIFECYCLES:
             return {
                 "error": f"Invalid state: {new_state}",
-                "valid_states": RALPH_LIFECYCLES,
+                "valid_states": IDEA_LIFECYCLES,
             }
 
         allowed = LIFECYCLE_TRANSITIONS.get(current, [])
@@ -138,10 +138,10 @@ class LifecycleManager:
             for r in results
         ]
 
-    def get_ralph_status(self) -> dict[str, Any]:
+    def get_workflow_status(self) -> dict[str, Any]:
         """Get overall workflow status dashboard."""
         counts: dict[str, int] = {}
-        for state in RALPH_LIFECYCLES:
+        for state in IDEA_LIFECYCLES:
             counts[state] = self._ideas.count_ideas(lifecycle=state)
 
         total = sum(counts.values())
@@ -182,8 +182,8 @@ class LifecycleManager:
 
     def get_ideas_by_lifecycle(self, lifecycle: str) -> list[dict[str, Any]]:
         """List ideas in a specific lifecycle state."""
-        if lifecycle not in RALPH_LIFECYCLES:
-            return [{"error": f"Invalid lifecycle: {lifecycle}", "valid": RALPH_LIFECYCLES}]
+        if lifecycle not in IDEA_LIFECYCLES:
+            return [{"error": f"Invalid lifecycle: {lifecycle}", "valid": IDEA_LIFECYCLES}]
         return self._ideas.get_ideas_by_lifecycle(lifecycle)
 
     def move_to_backlog(self, idea_id: str, priority: int | None = None) -> dict[str, Any]:

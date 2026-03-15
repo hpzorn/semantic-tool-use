@@ -21,7 +21,7 @@ LOG_FILE="$DATA_DIR/ontology-server.log"
 HOST="${ONTOLOGY_HOST:-localhost}"
 PORT="${ONTOLOGY_PORT:-8100}"
 PERSIST_PATH="${ONTOLOGY_PERSIST:-$DATA_DIR/kg}"
-IDEAS_DIR="${IDEAS_DIR:-$HOME/ideas}"
+IDEAS_DIR="${IDEAS_DIR:-}"
 ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/visual-artifacts}"
 SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/ontology/shapes}"
 
@@ -78,8 +78,8 @@ SERVER_ARGS=(
     --log-level INFO
 )
 
-# Add ideas dir if it exists
-if [ -d "$IDEAS_DIR" ]; then
+# Add ideas dir if configured and exists
+if [ -n "$IDEAS_DIR" ] && [ -d "$IDEAS_DIR" ]; then
     SERVER_ARGS+=(--ideas-dir "$IDEAS_DIR")
 fi
 
