@@ -11,7 +11,7 @@
 </p>
 
 ---
-semantic-tool-use is experimental software built for research purposes. It is not meant for production use. It still has major security issues (such as prompt injection during research) that are typical for LLM based agents. It should only be used in sandbox environments without access to sensitive data/information. It is completely AI generated - mostly coded by itself. I only prompt, I did not review every line of code - which is an experiment and not recommended policy, especially it is not policy at my employer. This is a private project.
+semantic-tool-use is experimental software built for research purposes. It is not meant for production use. It still has major security issues (such as a very primitive auth for http and mcp endpoints and no https - use a sandbox!) that are typical for LLM based agents. It should only be used in sandbox environments without access to sensitive data/information. It is completely AI generated - mostly coded by itself. I only prompt, I did not review every line of code - which is an experiment and not recommended policy, especially it is not policy at my employer. This is a private project.
 
 LLM tool calling today is a `dict[str, Any]` with a prayer. JSON Schema checks if you passed a string — it can't check if you passed a *valid* string, or if the operation even makes sense given the current state of the world.
 
