@@ -23,6 +23,7 @@ PORT="${ONTOLOGY_PORT:-8100}"
 PERSIST_PATH="${ONTOLOGY_PERSIST:-$DATA_DIR/kg}"
 IDEAS_DIR="${IDEAS_DIR:-}"
 ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/visual-artifacts}"
+TULLA_ONTOLOGY_PATH="${TULLA_ONTOLOGY_PATH:-$(dirname "$SCRIPT_DIR")/tulla/ontologies}"
 SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/ontology/shapes}"
 
 stop_server() {
@@ -78,6 +79,11 @@ SERVER_ARGS=(
     --log-level INFO
 )
 
+# Add tulla ontology path if directory exists
+if [ -d "$TULLA_ONTOLOGY_PATH" ]; then
+    SERVER_ARGS+=(--ontology-path "$TULLA_ONTOLOGY_PATH")
+fi
+
 # Add ideas dir if configured and exists
 if [ -n "$IDEAS_DIR" ] && [ -d "$IDEAS_DIR" ]; then
     SERVER_ARGS+=(--ideas-dir "$IDEAS_DIR")
@@ -94,6 +100,11 @@ else
     echo "Starting Ontology Server..."
     echo "  HTTP: http://$HOST:$PORT"
     echo "  SSE:  http://$HOST:$PORT/sse"
+    echo "  Ontology paths:"
+    echo "    $ONTOLOGY_PATH"
+    if [ -d "$TULLA_ONTOLOGY_PATH" ]; then
+        echo "    $TULLA_ONTOLOGY_PATH"
+    fi
     echo ""
     python -m ontology_server "${SERVER_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
 fi
