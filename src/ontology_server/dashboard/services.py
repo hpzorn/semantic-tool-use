@@ -17,6 +17,21 @@ import logging
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
+
+def _sparql_escape_literal(value: str) -> str:
+    """Escape *value* for safe embedding inside a SPARQL ``"..."`` literal.
+
+    Replaces the characters that would allow an attacker (or a malformed
+    idea-id) to break out of the string literal and inject arbitrary SPARQL.
+    This is a best-effort safe-input guard; callers must ensure *value* does
+    not come from untrusted external input without prior validation.
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
 if TYPE_CHECKING:
     from knowledge_graph.core.memory import AgentMemory
     from knowledge_graph.core.ideas import IdeasStore
@@ -25,13 +40,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-PHASE_NS = "http://tulla.dev/phase#"
-TRACE_NS = "http://tulla.dev/trace#"
-PRD_NS = "http://tulla.dev/prd#"
+# Shared phase-pipeline namespace constants — do NOT redefine locally.
+from ontology_server.phase_constants import (  # noqa: E402
+    PHASE_NS,
+    TRACE_NS,
+    PRD_NS,
+    PHASES_GRAPH,
+    _PRESERVES_PREFIX,
+)
+
 SKOS_NS = "http://www.w3.org/2004/02/skos/core#"
 ISAQB_NS = "http://tulla.dev/isaqb#"
 ARCH_NS = "http://tulla.dev/architecture#"
-PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
 KNOWN_PHASES = ["d0", "d1", "d2", "d3", "d4", "d5"]
 
 # Quality Focus Chain mappings: quality focus → pattern → principle
@@ -139,7 +159,6 @@ _TYPE_DISPATCH: dict[str, str] = {
     "prd:Project": "project_detail",
 }
 
-_PRESERVES_PREFIX = f"{PHASE_NS}preserves-"
 _ITERATION_INTENT_FIELDS = {
     "requirement_id", "quality_focus", "passed", "feedback", "commit_hash",
 }
@@ -529,7 +548,7 @@ class DashboardService:
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT DISTINCT ?phase WHERE {{\n"
                 f"  GRAPH <{PHASES_GRAPH}> {{\n"
-                f'    ?s phase:forRequirement "{idea_id}" .\n'
+                f'    ?s phase:forRequirement "{_sparql_escape_literal(idea_id)}" .\n'
                 f"    ?s phase:producedBy ?phase .\n"
                 f"  }}\n"
                 f"}}"
@@ -574,7 +593,7 @@ class DashboardService:
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT ?s ?p ?o WHERE {{\n"
                 f"  GRAPH <{PHASES_GRAPH}> {{\n"
-                f'    ?s phase:forRequirement "{idea_id}" .\n'
+                f'    ?s phase:forRequirement "{_sparql_escape_literal(idea_id)}" .\n'
                 f"    ?s ?p ?o .\n"
                 f"  }}\n"
                 f"}}"
@@ -751,7 +770,7 @@ class DashboardService:
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT ?s ?p ?o WHERE {{\n"
                 f"  GRAPH <{PHASES_GRAPH}> {{\n"
-                f'    ?s phase:forRequirement "{idea_id}" .\n'
+                f'    ?s phase:forRequirement "{_sparql_escape_literal(idea_id)}" .\n'
                 f"    ?s phase:producedBy ?produced .\n"
                 f'    FILTER(STRSTARTS(?produced, "impl-"))\n'
                 f"    ?s ?p ?o .\n"
@@ -793,7 +812,7 @@ class DashboardService:
                 f"PREFIX phase: <{PHASE_NS}>\n"
                 f"SELECT ?s ?p ?o WHERE {{\n"
                 f"  GRAPH <{PHASES_GRAPH}> {{\n"
-                f'    ?s phase:forRequirement "{subject}" .\n'
+                f'    ?s phase:forRequirement "{_sparql_escape_literal(subject)}" .\n'
                 f"    ?s ?p ?o .\n"
                 f"  }}\n"
                 f"}}"

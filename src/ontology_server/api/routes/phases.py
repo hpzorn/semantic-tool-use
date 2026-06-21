@@ -31,12 +31,11 @@ from ...mcp.phase_tools import (
     render_phase_prompt,
     render_tools,
 )
+from ...phase_constants import PHASE_NS  # shared constant — do NOT redefine
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-PHASE_NS = "http://tulla.dev/phase#"
 
 
 # ---------------------------------------------------------------------------

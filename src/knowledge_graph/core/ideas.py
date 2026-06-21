@@ -34,6 +34,22 @@ from .store import KnowledgeGraphStore, NAMESPACES
 
 logger = logging.getLogger(__name__)
 
+def _sparql_escape_literal(value: str) -> str:
+    """Escape a string for safe embedding as a SPARQL plain-literal value.
+
+    Replaces backslash, double-quote, and newline characters so the result
+    can be wrapped in ``"..."`` inside a SPARQL query without enabling
+    injection.  This is *not* a substitute for parameterised queries, but
+    it provides a safe guard for the internal SPARQL generated in this
+    module where all callers are trusted application code.
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
+
 # Namespace shortcuts
 RDF = NAMESPACES["rdf"]
 RDFS = NAMESPACES["rdfs"]
@@ -744,9 +760,9 @@ class IdeasStore:
         """
         filters = []
         if lifecycle:
-            filters.append(f'FILTER(?lifecycle = "{lifecycle}")')
+            filters.append(f'FILTER(?lifecycle = "{_sparql_escape_literal(lifecycle)}")')
         if author:
-            filters.append(f'FILTER(?author = "{author}")')
+            filters.append(f'FILTER(?author = "{_sparql_escape_literal(author)}")')
         if tag:
             filters.append(f'?idea dcterms:subject <{IDEA}tag/{tag}> .')
 
@@ -791,8 +807,8 @@ class IdeasStore:
         Returns:
             List of matching ideas
         """
-        # Escape special characters in search term
-        term = term.lower().replace('"', '\\"')
+        # Escape the search term before embedding in SPARQL string literals.
+        term = _sparql_escape_literal(term.lower())
 
         query = f"""
         SELECT DISTINCT ?idea ?title ?description ?lifecycle
@@ -876,7 +892,7 @@ class IdeasStore:
 
     def count_ideas(self, lifecycle: str | None = None) -> int:
         """Count ideas, optionally filtered by lifecycle."""
-        filter_clause = f'FILTER(?lifecycle = "{lifecycle}")' if lifecycle else ""
+        filter_clause = f'FILTER(?lifecycle = "{_sparql_escape_literal(lifecycle)}")' if lifecycle else ""
 
         query = f"""
         SELECT (COUNT(DISTINCT ?idea) as ?count)
