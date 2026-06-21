@@ -125,9 +125,12 @@ def _build_query(idea_id: str) -> str:
 
 def collect_upstream_facts(
     sparql: SparqlClient,
-    idea_id: str,
+    idea_id: str | None,
 ) -> dict[str, dict[str, Any]]:
     """Collect and group all phase facts for *idea_id* in one call."""
+    if not idea_id:
+        return {}
+
     query = _build_query(idea_id)
 
     try:
@@ -648,11 +651,17 @@ def next_phase(
 
     for binding in bindings:
         branch = str(binding.get("verdict", ""))
-        if branch and branch == verdict:
+        if branch == verdict:
             next_id = str(binding.get("phaseId", ""))
             if next_id:
                 return {"next_id": next_id}
 
+    logger.warning(
+        "No verdictBranch=%r successor for phase=%s family=%s; terminating",
+        verdict,
+        current_id,
+        agent_family,
+    )
     return {"next_id": TERMINATE}
 
 
