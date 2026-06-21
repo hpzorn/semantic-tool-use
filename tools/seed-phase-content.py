@@ -10,7 +10,7 @@ import sys
 import uuid
 from pathlib import Path
 
-import requests
+import httpx
 from rdflib import ConjunctiveGraph, URIRef, Literal, BNode
 
 PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
@@ -62,6 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description="Seed Tulla phase definitions into the KG.")
     parser.add_argument("--url", default="http://localhost:8100", help="Base URL of the ontology server")
     parser.add_argument("--trig-file", default=str(default_trig), help="Path to phase-content.trig")
+    parser.add_argument("--force", action="store_true", help="Re-seed even if already seeded (clears existing data first)")
     args = parser.parse_args()
 
     base_url = args.url.rstrip("/")
@@ -71,18 +72,21 @@ def main():
         print(f"ERROR: TriG file not found: {trig_path}", file=sys.stderr)
         sys.exit(1)
 
-    # Idempotency check
-    try:
-        resp = requests.post(f"{base_url}/kg/sparql", params={"query": IDEMPOTENCY_ASK}, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        already_seeded = data.get("result") is True or data.get("boolean") is True
-        if already_seeded:
-            print("Phase definitions already seeded — skipping.")
-            sys.exit(0)
-    except requests.RequestException as exc:
-        print(f"ERROR: Idempotency check failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+    # Idempotency check (skip when --force)
+    if not args.force:
+        try:
+            resp = httpx.post(f"{base_url}/kg/sparql", params={"query": IDEMPOTENCY_ASK}, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            already_seeded = data.get("result") is True or data.get("boolean") is True
+            if already_seeded:
+                print("Phase definitions already seeded — skipping.")
+                sys.exit(0)
+        except httpx.HTTPError as exc:
+            print(f"ERROR: Idempotency check failed: {exc}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print("--force: skipping idempotency check, re-seeding.")
 
     # Parse TriG
     g = ConjunctiveGraph()
@@ -110,7 +114,7 @@ def main():
 
     # POST to /kg/update
     try:
-        resp = requests.post(
+        resp = httpx.post(
             f"{base_url}/kg/update",
             json={"query": sparql},
             headers={"Content-Type": "application/json"},
@@ -118,7 +122,7 @@ def main():
         )
         resp.raise_for_status()
         result = resp.json()
-    except requests.RequestException as exc:
+    except httpx.HTTPError as exc:
         print(f"ERROR: INSERT failed: {exc}", file=sys.stderr)
         sys.exit(1)
 

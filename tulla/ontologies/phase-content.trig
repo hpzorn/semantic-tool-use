@@ -1,0 +1,1020 @@
+# =============================================================================
+# phase-content.trig — Tulla Pipeline Phase Definitions
+# =============================================================================
+#
+# WHAT THIS FILE IS
+# -----------------
+# This file defines every phase in the Tulla agent pipeline as RDF
+# individuals (the A-Box "content" layer), stored inside the phases named
+# graph so that both no-GRAPH (methodology/tools/gates) and explicit
+# GRAPH <phases> (list_pipeline/next_phase/output_contract) queries find them.
+#
+# It is separate from phase-ontology.ttl which holds the T-Box
+# (class/property declarations and SHACL output shapes).
+#
+# HOW TO LOAD
+# -----------
+# seed-phase-content.py parses this file with rdflib,
+# generates a SPARQL INSERT DATA, and POSTs it to /kg/update.
+# The seed is idempotent: it is skipped if phase:d1 already exists.
+#
+# NAMESPACES
+# ----------
+#   phase: http://tulla.dev/phase#
+#   rdfs:  http://www.w3.org/2000/01/rdf-schema#
+#   xsd:   http://www.w3.org/2001/XMLSchema#
+#   sh:    http://www.w3.org/ns/shacl#
+#
+# PREDICATES USED BY RENDER ENDPOINTS
+# ------------------------------------
+# Pipeline ordering (list_pipeline / next_phase):
+#   phase:phaseId        xsd:string   e.g. "d1"
+#   phase:agentFamily    xsd:string   e.g. "design"
+#   phase:upstreamPhase  phase:Phase  predecessor phase URI (absent = first)
+#
+# Phase content (render-methodology / render-tools / render-gates):
+#   phase:procedure      xsd:string   multi-line step-by-step methodology
+#   phase:requiresTool   xsd:string   repeated: Claude tool names
+#   phase:requiresMcp    xsd:string   repeated: MCP tool names
+#   phase:shaclGate      phase:*Shape SHACL NodeShape URI for output validation
+#
+# Output contract (render-output-contract):
+#   phase:emitsIntentField xsd:string  repeated: IntentField-annotated field names
+#
+# Input contract (render-input-contract):
+#   phase:inputContract  _:node       blank node with requiresField/fieldType/fieldDescription
+#
+# =============================================================================
+
+@prefix phase: <http://tulla.dev/phase#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+
+# phase:Phase class supplement (the T-Box defines properties; this adds the class)
+phase:Phase a rdfs:Class ;
+    rdfs:label "Phase" ;
+    rdfs:comment "A pipeline phase definition with procedure, tools, contracts, and ordering." .
+
+
+# =============================================================================
+# Named graph: all definition triples must live here so both GRAPH-scoped
+# (list_pipeline, next_phase, output_contract) and no-GRAPH queries
+# (methodology, tools, gates, input_contract) can reach them.
+# =============================================================================
+
+<http://semantic-tool-use.org/graphs/phases> {
+
+# -----------------------------------------------------------------------------
+# DESIGN FAMILY — D1 → D2 → D3 → D4 → D5
+#
+# Purpose: understand the idea, its users, its value, its gaps, and decide
+# whether to research further or proceed to planning.
+# Agent family: "design"
+# -----------------------------------------------------------------------------
+
+phase:d1 a phase:Phase ;
+    rdfs:label "D1 – Tool & MCP Inventory" ;
+    phase:phaseId "d1" ;
+    phase:agentFamily "design" ;
+    # No upstreamPhase: D1 is the entry point of the design pipeline.
+    phase:procedure """Audit what currently exists related to this idea — in the codebase, idea pool, and ecosystem.
+
+1. Read the idea via mcp__ontology-server__get_idea using the idea identifier.
+2. Search for related work: use mcp__ontology-server__query_ideas to find connected ideas; use Glob and Grep to find related code/files in the repo.
+3. Catalog existing components: tools/systems that touch this domain, related ideas in the pool, prior work completed.
+4. Write findings to d1-inventory.md with these sections:
+   - The Idea (short summary)
+   - Related Ideas in Pool (table: ID | Title | Relationship)
+   - Existing Systems & Tools (table: Component | Location | Relevance)
+   - Prior Work
+   - Current Gaps
+   - Ecosystem Context
+5. Persist results via mcp__ontology-server__record_phase_result_tool.
+
+Be thorough — good discovery starts with knowing what exists.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresTool "Grep" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__query_ideas" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:D1OutputShape ;
+    phase:emitsIntentField "key_capabilities" ;
+    phase:emitsIntentField "ecosystem_context" ;
+    phase:emitsIntentField "reuse_opportunities" ;
+    phase:inputContract [
+        phase:requiresField "idea_id" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Identifier of the idea to inventory (e.g. 'idea-42')"
+    ] .
+
+phase:d2 a phase:Phase ;
+    rdfs:label "D2 – Persona Discovery" ;
+    phase:phaseId "d2" ;
+    phase:agentFamily "design" ;
+    phase:upstreamPhase phase:d1 ;
+    phase:procedure """Identify who would use this idea, their jobs-to-be-done, and their pain points.
+
+Context: read the idea (get_idea) and the D1 inventory (d1-inventory.md).
+
+1. Identify 2–4 distinct user personas who would benefit from this idea.
+2. For each persona, map:
+   - Jobs-to-be-done (JTBD framework): the functional, emotional, and social jobs
+   - Current pain points with existing solutions
+   - Desired outcomes and context of use
+3. Write to d2-personas.md with sections:
+   - Persona Overview (table: Persona | Role | Primary JTBD | Frequency)
+   - Detailed Personas (one subsection per persona)
+   - Cross-Persona Insights (common pain points, conflicting needs, priority ranking)
+   - JTBD Summary Statement: "When I [situation], I want [motivation], so I can [outcome]"
+4. Persist results via mcp__ontology-server__record_phase_result_tool.
+
+Think like a product manager. Focus on real user needs, not features.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:D2OutputShape ;
+    phase:emitsIntentField "personas" ;
+    phase:emitsIntentField "non_negotiable_needs" ;
+    phase:emitsIntentField "primary_persona_jtbd" ;
+    phase:inputContract [
+        phase:requiresField "key_capabilities" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Reusable components and ecosystem context from D1"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "ecosystem_context" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "How this idea fits into the broader system (from D1)"
+    ] .
+
+phase:d3 a phase:Phase ;
+    rdfs:label "D3 – Value Mapping" ;
+    phase:phaseId "d3" ;
+    phase:agentFamily "design" ;
+    phase:upstreamPhase phase:d2 ;
+    phase:procedure """Assess business value, strategic fit, and ROI potential.
+
+Context: read the idea (get_idea), d1-inventory.md, and d2-personas.md.
+
+1. Assess the idea against multiple value dimensions, each scored 1–5 with evidence:
+   - User Value: does it solve a real pain? Does the JTBD match?
+   - Business Value: revenue potential, cost savings, strategic alignment
+   - Technical Value: reduces debt, enables other ideas, improves quality
+2. Consider strategic fit with existing systems and roadmap goals.
+3. Estimate effort (S/M/L/XL) vs. impact. Classify into a 2x2 Quadrant:
+   - Quick Win (low effort, high impact)
+   - Major Project (high effort, high impact)
+   - Fill-in (low effort, low impact)
+   - Thankless Task (high effort, low impact)
+4. Write to d3-value-mapping.md ending with a Value Summary:
+   total_value_score | Priority (P0-P3) | ROI verdict | Confidence
+5. Persist results via mcp__ontology-server__record_phase_result_tool.
+
+Think like a product strategist. Be honest about value and effort.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:D3OutputShape ;
+    phase:emitsIntentField "quadrant" ;
+    phase:emitsIntentField "strategic_constraints" ;
+    phase:emitsIntentField "verdict" ;
+    phase:inputContract [
+        phase:requiresField "personas" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "JSON list of {name, role, primary_jtbd} from D2"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "primary_persona_jtbd" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Synthesized JTBD statement from D2"
+    ] .
+
+phase:d4 a phase:Phase ;
+    rdfs:label "D4 – Gap Analysis" ;
+    phase:phaseId "d4" ;
+    phase:agentFamily "design" ;
+    phase:upstreamPhase phase:d3 ;
+    phase:procedure """Identify what's missing to move this idea forward and prioritize the gaps.
+
+Context: read all previous discovery phase outputs (d1-inventory.md, d2-personas.md, d3-value-mapping.md). Optionally query the ontology-server for iSAQB quality attributes, patterns, and risks.
+
+1. Identify all gaps between current state and desired state.
+2. Categorize each gap by type:
+   - Knowledge gap: we don't know how to do X
+   - Technical gap: the code/infrastructure doesn't exist yet
+   - Quality-Attribute gap: current system lacks the required quality level
+   - Resource gap: missing tooling, time, or people
+   - Integration gap: missing connectors or protocols
+3. Build a Priority Matrix: value_impact x effort -> Critical / High / Medium / Low
+4. Write to d4-gap-analysis.md with sections:
+   - Gap Categories (table: Gap | Type | Priority | Evidence)
+   - Priority Matrix
+   - Blockers (gaps on the critical path that must resolve before proceeding)
+   - Root Blocker (the single gap everything else depends on)
+   - Recommended Next Steps
+5. Persist results via mcp__ontology-server__record_phase_result_tool.
+
+Be specific — vague gaps can't be closed.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__query_ontology" ;
+    phase:requiresMcp "mcp__ontology-server__sparql_query" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:D4OutputShape ;
+    phase:emitsIntentField "blockers" ;
+    phase:emitsIntentField "root_blocker" ;
+    phase:emitsIntentField "recommended_next_steps" ;
+    phase:inputContract [
+        phase:requiresField "quadrant" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Value-effort quadrant from D3"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "verdict" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Strategic verdict (priority + ROI + confidence) from D3"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "strategic_constraints" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "JSON list of constraints, risks, dependencies from D3"
+    ] .
+
+phase:d5 a phase:Phase ;
+    rdfs:label "D5 – Discovery Integration" ;
+    phase:phaseId "d5" ;
+    phase:agentFamily "design" ;
+    phase:upstreamPhase phase:d4 ;
+    phase:procedure """Mode-dependent integration phase: creates either a Research Brief (upstream) or a Product Spec (downstream).
+
+Determine mode first: if r6-research-synthesis.md exists in the work directory, run DOWNSTREAM; otherwise run UPSTREAM.
+
+UPSTREAM mode (pre-research -- produce a Research Brief):
+1. Read all discovery phase outputs (d1-d4).
+2. Synthesise into d5-research-brief.md:
+   - Idea northstar (what it is, for whom, success definition in 2-3 sentences)
+   - Open research questions (from D4 knowledge gaps), ordered by business value
+   - Mandatory features -- listed verbatim from the idea text, must survive into planning
+   - Key constraints (technical, user, time)
+3. Set recommendation = "research" and mode = "upstream".
+
+DOWNSTREAM mode (post-research -- produce a Product Spec):
+1. Read all discovery outputs AND r6-research-synthesis.md.
+2. Integrate research findings with product discovery into d5-product-spec.md:
+   - Executive summary
+   - User story (one primary JTBD)
+   - Product requirements P0 / P1 / P2 (with acceptance criteria)
+   - Success metrics
+   - Integration points
+3. Set recommendation = "implement" if all blockers resolved, else "research".
+
+In both modes:
+- Set mode = "upstream" or "downstream"
+- Set northstar, mandatory_features, key_constraints
+- Append a summary to the idea via mcp__ontology-server__append_to_idea
+- Persist results via mcp__ontology-server__record_phase_result_tool""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__append_to_idea" ;
+    phase:requiresMcp "mcp__ontology-server__capture_seed" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:D5OutputShape ;
+    phase:emitsIntentField "mode" ;
+    phase:emitsIntentField "recommendation" ;
+    phase:emitsIntentField "northstar" ;
+    phase:emitsIntentField "mandatory_features" ;
+    phase:emitsIntentField "key_constraints" ;
+    phase:inputContract [
+        phase:requiresField "blockers" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Critical path narrative of blocking gaps from D4"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "root_blocker" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "The single gap everything depends on, from D4"
+    ] .
+
+
+# -----------------------------------------------------------------------------
+# RESEARCH FAMILY — R1 -> R2 -> R3 -> R4 -> R5 -> R6
+#
+# Purpose: answer specific research questions to unblock planning.
+# Three modes: Groundwork (raw idea), Discovery-Fed (D5 brief), Spike (P5 requests)
+# Prior phases for upstream_facts: d1-d5
+# Agent family: "research"
+# -----------------------------------------------------------------------------
+
+phase:r1 a phase:Phase ;
+    rdfs:label "R1 – Research Question Refinement" ;
+    phase:phaseId "r1" ;
+    phase:agentFamily "research" ;
+    # No upstreamPhase: R1 is the entry point of the research pipeline.
+    phase:procedure """Refine or generate precise, answerable research questions.
+
+Three modes -- select based on available context:
+
+GROUNDWORK (neither planning_dir nor discovery_dir provided):
+1. Read the idea via mcp__ontology-server__get_idea.
+2. Generate 3-5 research questions from the raw idea.
+3. Assess novelty: Novel / Partially Novel / Derivative. If Derivative, flag for early synthesis in R6.
+
+DISCOVERY-FED (discovery_dir provided):
+1. Read d5-research-brief.md from the discovery output.
+2. Refine the open questions from D5 into precise, answerable RQs.
+
+SPIKE (planning_dir provided):
+1. Read p5-research-requests.md from the planning output.
+2. Refine each blocked research request into an answerable RQ.
+
+For every RQ regardless of mode, produce:
+- A precise, answerable question (not "how does X work" but "what is the minimum interface needed to...")
+- Acceptance criteria: what a good answer looks like
+- Methodology: literature / experiment / codebase inspection
+- Primary source type
+
+Write to r1-question-refinement.md.
+Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:R1OutputShape ;
+    phase:emitsIntentField "research_questions" ;
+    phase:emitsIntentField "questions_refined" .
+
+phase:r2 a phase:Phase ;
+    rdfs:label "R2 – Source Identification" ;
+    phase:phaseId "r2" ;
+    phase:agentFamily "research" ;
+    phase:upstreamPhase phase:r1 ;
+    phase:procedure """Identify relevant sources for each research question.
+
+1. Read the refined research questions from r1-question-refinement.md.
+2. For each RQ, identify:
+   - Official documentation and API references
+   - Relevant code repositories or examples (search GitHub, codebase)
+   - Academic papers or technical blog posts
+   - Existing implementations to study
+3. Search the local codebase for existing patterns using Glob and Grep.
+4. Note which RQs have sparse sources -- these will need experimentation in R5.
+5. Write to r2-source-identification.md.
+   Format: ## RQ N: [question] / ### Sources (table: Source | Type | Relevance | URL)
+6. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresTool "Grep" ;
+    phase:requiresTool "WebSearch" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:R2OutputShape ;
+    phase:emitsIntentField "source_map" ;
+    phase:emitsIntentField "source_gaps" ;
+    phase:emitsIntentField "sources_identified" .
+
+phase:r3 a phase:Phase ;
+    rdfs:label "R3 – Research Questions Investigation" ;
+    phase:phaseId "r3" ;
+    phase:agentFamily "research" ;
+    phase:upstreamPhase phase:r2 ;
+    phase:procedure """Investigate each research question using identified sources and produce evidence-backed answers.
+
+1. Read the refined questions from r1-question-refinement.md.
+2. Read the source map from r2-source-identification.md.
+3. For each research question:
+   a. Read the identified sources (docs, code, papers).
+   b. Gather concrete evidence that answers the question.
+   c. Note contradictions, caveats, or gaps between sources.
+   d. Assign a confidence level: High / Medium / Low.
+4. Write to r3-research-questions.md.
+   Per-RQ format:
+   ## RQ N: [question]
+   **Status**: Answered | Partial | Open
+   **Confidence**: High | Medium | Low
+   **Answer**: ...
+   **Evidence**: ...
+   **Caveats**: ...
+   **Remaining unknowns**: ...
+5. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "WebFetch" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:R3OutputShape ;
+    phase:emitsIntentField "rq_answers" ;
+    phase:emitsIntentField "remaining_unknowns" ;
+    phase:emitsIntentField "research_questions" .
+
+phase:r4 a phase:Phase ;
+    rdfs:label "R4 – Literature Review" ;
+    phase:phaseId "r4" ;
+    phase:agentFamily "research" ;
+    phase:upstreamPhase phase:r3 ;
+    phase:procedure """Conduct a structured literature review per research question, synthesising findings into actionable technical guidance.
+
+1. Read the source map from r2-source-identification.md.
+2. Read the investigation results from r3-research-questions.md.
+3. For each RQ, perform a deeper review:
+   - Read all identified sources thoroughly (not just skim).
+   - Compare approaches and trade-offs across sources.
+   - Identify best practices and anti-patterns.
+   - Synthesise into a concrete recommendation.
+4. Write to r4-literature-review.md.
+   Per-RQ format:
+   ## RQ N: [question]
+   ### Key Findings
+   ### Best Practices
+   ### Anti-Patterns / Pitfalls
+   ### Recommendation (actionable)
+5. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "WebFetch" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:R4OutputShape ;
+    phase:emitsIntentField "key_findings" ;
+    phase:emitsIntentField "papers_reviewed" ;
+    phase:emitsIntentField "rqs_addressed" .
+
+phase:r5 a phase:Phase ;
+    rdfs:label "R5 – Experiments & Prototyping" ;
+    phase:phaseId "r5" ;
+    phase:agentFamily "research" ;
+    phase:upstreamPhase phase:r4 ;
+    phase:procedure """Run experiments and build prototypes to answer research questions not fully resolved by literature review.
+
+1. Read r3-research-questions.md -- focus on RQs with Status=Open or Status=Partial.
+2. Read r4-literature-review.md for context on what literature found and recommended.
+3. For each unresolved RQ:
+   a. Design a minimal experiment (smallest thing that answers the question).
+   b. Implement and run it (use acceptEdits permission mode for code).
+   c. Record result: pass | fail | inconclusive.
+   d. Extract the finding: what does this tell us for implementation?
+   e. On failure, retry up to max_retries times, adjusting the approach.
+4. Write to r5-research-findings.md.
+   Per-experiment format:
+   ## Experiment N -- [short title]
+   **RQ**: ...
+   **Hypothesis**: ...
+   **Method**: ...
+   **Result**: pass | fail | inconclusive
+   **Finding**: ...
+   **Implementation implications**: ...
+5. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Bash" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:R5OutputShape ;
+    phase:emitsIntentField "experiment_results" ;
+    phase:emitsIntentField "impl_implications" ;
+    phase:emitsIntentField "experiments_run" ;
+    phase:emitsIntentField "experiments_passed" .
+
+phase:r6 a phase:Phase ;
+    rdfs:label "R6 – Research Synthesis" ;
+    phase:phaseId "r6" ;
+    phase:agentFamily "research" ;
+    phase:upstreamPhase phase:r5 ;
+    phase:procedure """Synthesise all research findings into a coherent conclusion with actionable recommendations.
+
+1. Read all prior research outputs:
+   - r1-question-refinement.md (the refined questions)
+   - r3-research-questions.md (investigation results)
+   - r4-literature-review.md (literature review)
+   - r5-research-findings.md (experiment findings)
+2. For each research question, synthesise:
+   - The final answer (combining literature + experiments)
+   - Confidence level and evidence quality
+   - Concrete implications for implementation planning
+3. Produce an executive summary with overall recommendation:
+   "proceed with planning" | "revise plan" | "more research needed"
+4. List residual risks: what is still unknown or risky.
+5. Write to r6-research-synthesis.md:
+   - Executive Summary
+   - Per-RQ Synthesis (table: RQ | Answer | Confidence | Implication)
+   - Recommendations
+   - Risks (table: Risk | Likelihood | Impact | Mitigation)
+6. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:R6OutputShape ;
+    phase:emitsIntentField "synthesised_answers" ;
+    phase:emitsIntentField "recommendation" ;
+    phase:emitsIntentField "risks" ;
+    phase:emitsIntentField "findings_count" .
+
+
+# -----------------------------------------------------------------------------
+# PLANNING FAMILY — P1 -> P2 -> P3 -> P4 -> P5 -> P6
+#
+# Purpose: transform discovery + research into a detailed, executable
+# implementation plan and PRD exported to the knowledge graph.
+# Prior phases for upstream_facts: d1-d5, r1-r6
+# Agent family: "planning"
+# -----------------------------------------------------------------------------
+
+phase:p1 a phase:Phase ;
+    rdfs:label "P1 – Discovery Context Load" ;
+    phase:phaseId "p1" ;
+    phase:agentFamily "planning" ;
+    # No upstreamPhase: P1 is the entry point of the planning pipeline.
+    phase:procedure """Read and synthesise discovery documents (D1-D5) and optional research findings into a consolidated planning context.
+
+1. Read the idea via mcp__ontology-server__get_idea.
+2. Read all discovery phase outputs from discovery_dir (use Glob if names vary):
+   d1-inventory.md, d2-personas.md, d3-value-mapping.md, d4-gap-analysis.md,
+   d5-research-brief.md or d5-product-spec.md
+3. If research_dir is provided, read research outputs (use Glob):
+   r3-research-questions.md, r4-literature-review.md,
+   r5-research-findings.md, r6-research-synthesis.md
+   Research findings SUPERSEDE open questions from D5 -- the RQs have been answered.
+4. Check upstream_facts from the KG (via mcp__ontology-server__collect_upstream_facts_tool)
+   for any persisted fields from prior phases.
+5. Synthesise into p1-discovery-context.md:
+   - Idea Summary
+   - Key Personas and JTBD
+   - Value Verdict and Quadrant
+   - Constraints and Risks
+   - Research Findings (if any -- per-RQ answers and implications)
+   - Open Questions (only those not answered by research)
+6. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresMcp "mcp__ontology-server__get_idea" ;
+    phase:requiresMcp "mcp__ontology-server__collect_upstream_facts_tool" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:emitsIntentField "discovery_summary" .
+
+phase:p2 a phase:Phase ;
+    rdfs:label "P2 – Codebase Analysis" ;
+    phase:phaseId "p2" ;
+    phase:agentFamily "planning" ;
+    phase:upstreamPhase phase:p1 ;
+    phase:procedure """Deeply analyse existing code, skills, MCP servers, and integration patterns. Understand HOW things work, not just WHAT they do.
+
+Context: read p1-discovery-context.md.
+
+1. Enumerate relevant components from the discovery context.
+2. For each component, read its implementation:
+   - Understand its public interface (inputs, outputs, error cases)
+   - Understand its extension points and constraints
+   - Map its internal data flow
+3. Identify integration patterns in the codebase.
+4. Determine build-vs-reuse for each capability this idea needs:
+   - Can it be reused as-is? Extended? Or must be built from scratch?
+5. Write to p2-codebase-analysis.md:
+   - Component Inventory (table: Component | Location | Interface | Extension Points)
+   - Integration Patterns observed
+   - Build-vs-Reuse Analysis (table: Capability | Approach | Rationale)
+   - Gaps that need new code
+6. Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresTool "Grep" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:emitsIntentField "codebase_summary" .
+
+phase:p3 a phase:Phase ;
+    rdfs:label "P3 – Architecture Design" ;
+    phase:phaseId "p3" ;
+    phase:agentFamily "planning" ;
+    phase:upstreamPhase phase:p2 ;
+    phase:procedure """Design the architecture using existing components, guided by the iSAQB quality model and applicable design principles.
+
+Context: read p1-discovery-context.md and p2-codebase-analysis.md.
+If schema_context is provided, query the ontology-server for iSAQB quality attributes and architecture patterns.
+
+1. Query the ontology-server for relevant quality attributes, architecture patterns, and design principles.
+2. Define the target architecture:
+   - Component structure (what components, their responsibilities)
+   - Data flow (how data moves between components)
+   - Integration points with existing systems
+3. Write Architecture Decision Records (ADRs) for each significant decision.
+   Each ADR must use dual framing: positive (why this choice) + negative (why not the alternatives).
+   ADR fields: title | decision | rationale | quality_attributes | consequences
+4. Identify quality goals: for each goal, specify attribute + priority (P0/P1/P2).
+5. Analyse dependencies: count total and circular dependencies.
+6. Write to p3-architecture-design.md:
+   - Architecture Overview (diagram or component table)
+   - ADRs (one subsection each)
+   - Quality Goals (table: Attribute | Priority | Acceptance Criterion)
+   - Dependency Analysis
+7. Persist results via mcp__ontology-server__record_phase_result_tool.
+
+Follow any Project ADRs in Effect if provided in the context. Feature ADRs must operate within that governance.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__query_ontology" ;
+    phase:requiresMcp "mcp__ontology-server__sparql_query" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:P3OutputShape ;
+    phase:emitsIntentField "architecture_decisions" ;
+    phase:emitsIntentField "quality_goals" ;
+    phase:emitsIntentField "total_dependencies" ;
+    phase:emitsIntentField "circular_dependencies" .
+
+phase:p4 a phase:Phase ;
+    rdfs:label "P4 – Implementation Plan" ;
+    phase:phaseId "p4" ;
+    phase:agentFamily "planning" ;
+    phase:upstreamPhase phase:p3 ;
+    phase:procedure """Create a detailed, executable implementation plan with file-level and task-level specificity.
+
+Context: read p1-discovery-context.md, p2-codebase-analysis.md, p3-architecture-design.md.
+
+1. Enumerate ALL implementation tasks. For each task specify:
+   - File to create or modify (exact path)
+   - What changes to make (concrete, not vague)
+   - Acceptance criteria (testable condition that proves it's done)
+   - Effort estimate: S (<2h) | M (2-4h) | L (>4h)
+   - Dependencies on other tasks
+2. Mark blocked tasks explicitly in a "Blocked Tasks (Need Research)" section with:
+   - Blocking question (precise and answerable)
+   - Which task is blocked
+   - What information would unblock it
+3. Define the critical path (ordered task sequence that enables everything else).
+4. Write to p4-implementation-plan.md:
+   - Task List (table: ID | File | Changes | Acceptance Criteria | Effort | Deps)
+   - Critical Path
+   - Blocked Tasks section (if any)
+5. Persist results via mcp__ontology-server__record_phase_result_tool.
+
+Someone must be able to implement this without asking any questions.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" .
+
+phase:p5 a phase:Phase ;
+    rdfs:label "P5 – Research Requests" ;
+    phase:phaseId "p5" ;
+    phase:agentFamily "planning" ;
+    phase:upstreamPhase phase:p4 ;
+    phase:procedure """Determine if implementation can proceed, or if targeted research is needed first.
+
+Context: read BOTH p4-implementation-plan.md (look for Blocked Tasks) and p4b-persona-walkthrough.md if it exists (look for Blocking Gaps).
+
+The plan is BLOCKED if EITHER document has blockers:
+- P4 has a non-empty "Blocked Tasks" section, OR
+- P4b has "Blocking Gaps" that prevent the persona from completing their goal
+
+If BLOCKED:
+1. Write p5-research-requests.md listing each blocker as a research request:
+   {id, title, question, blocking_task, acceptance_criteria}
+2. Persist results with research_requests field populated.
+3. Final line: "status: blocked"
+
+If READY (no blockers):
+1. Write a brief p5-research-requests.md stating the plan is ready.
+2. Final line: "status: ready"
+
+Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:emitsIntentField "research_requests" .
+
+phase:p6 a phase:Phase ;
+    rdfs:label "P6 – Export PRD to RDF" ;
+    phase:phaseId "p6" ;
+    phase:agentFamily "planning" ;
+    phase:upstreamPhase phase:p5 ;
+    phase:procedure """Export the implementation plan (P4) as RDF prd:Requirement instances, bridging planning and implementation.
+
+1. Read p4-implementation-plan.md.
+2. Generate a Turtle RDF file (prd-export.ttl) with one prd:Requirement per task:
+   - prd:id (task ID)
+   - prd:description (what to do)
+   - prd:priority (P0 | P1 | P2)
+   - Links to architecture decisions (from P3 ADRs)
+   - Links to quality goals (from P3)
+3. Write prd-export.ttl to the work directory.
+   IMPORTANT: The Python layer parses this file and calls store_fact for each triple
+   programmatically -- do NOT make individual MCP tool calls for each triple.
+4. Write a summary to p6-prd-export-summary.md.
+
+This is the bridge between planning and implementation:
+- The ontology dashboard shows PRD data after this phase.
+- Implementation-tulla reads requirements from the KG.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresMcp "mcp__ontology-server__store_fact" .
+
+
+# -----------------------------------------------------------------------------
+# LIGHTWEIGHT FAMILY — intake -> context-scan -> plan -> execute -> trace
+#
+# Purpose: handle well-scoped, low-risk changes without the full 17-phase
+# discovery/research/planning pipeline. Suitable for bugfixes, chores,
+# enhancements where the intent is already clear.
+# Agent family: "lightweight"
+# NOTE: phase_shapes.py key "lw-trace" maps to this phase's URI (phase:lw-trace)
+# but phase_id is "trace". The phase URI is phase:lw-trace to avoid collision
+# with any future "trace" phase in other families.
+# -----------------------------------------------------------------------------
+
+phase:intake a phase:Phase ;
+    rdfs:label "LW-Intake – Change Classification" ;
+    phase:phaseId "intake" ;
+    phase:agentFamily "lightweight" ;
+    # No upstreamPhase: intake is the entry point of the lightweight pipeline.
+    phase:procedure """Classify the incoming change request and gate eligibility for the lightweight pipeline.
+
+1. Read the change_description from context.
+2. Classify using the 6-category taxonomy:
+   bugfix | feature | enhancement | chore | test | refactor
+3. Identify affected_files using Glob/Grep if not explicitly provided.
+4. Determine scope:
+   - single-package: all changes within one package boundary
+   - cross-package: changes span multiple packages
+5. Determine lightweight_eligible (boolean):
+   True only when ALL of:
+   - Scope is single-package
+   - No new external dependencies required
+   - No architectural decisions needed
+   - Change is well-understood and bounded
+   False -> recommend full pipeline (discovery -> planning).
+6. Write classification to intake-output.json.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresTool "Grep" ;
+    phase:shaclGate phase:LWIntakeOutputShape ;
+    phase:emitsIntentField "change_type" ;
+    phase:emitsIntentField "affected_files" ;
+    phase:emitsIntentField "scope" ;
+    phase:emitsIntentField "lightweight_eligible" .
+    # Input contract: none — reads change_description from agent context
+
+phase:context-scan a phase:Phase ;
+    rdfs:label "LW-ContextScan – Conformance Analysis" ;
+    phase:phaseId "context-scan" ;
+    phase:agentFamily "lightweight" ;
+    phase:upstreamPhase phase:intake ;
+    phase:procedure """Scan the affected code for conformance violations and applicable design patterns.
+
+Context: read intake-output.json.
+
+1. Read all affected_files from intake output.
+2. Check for conformance violations:
+   - Design principle adherence (SRP, OCP, DIP...)
+   - Naming convention compliance
+   - Architectural constraints (existing ADRs in effect)
+   - Pattern consistency with surrounding code
+3. Identify applicable design patterns for this type of change.
+4. Determine quality_focus: the primary iSAQB quality attribute impacted.
+5. Set conformance_status in format: 'structural-only:{status}'
+   where status is: compliant | violations-found | pending-adr
+6. Write to context-scan-output.json.
+
+Query the ontology-server for iSAQB patterns and principles if relevant.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Glob" ;
+    phase:requiresTool "Grep" ;
+    phase:requiresMcp "mcp__ontology-server__query_ontology" ;
+    phase:shaclGate phase:LWContextScanOutputShape ;
+    phase:emitsIntentField "conformance_assertion" ;
+    phase:emitsIntentField "patterns_found" ;
+    phase:emitsIntentField "test_coverage_note" ;
+    phase:inputContract [
+        phase:requiresField "change_type" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Change category from intake (bugfix/feature/enhancement/chore/test/refactor)"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "affected_files" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Comma-separated list of affected files from intake"
+    ] .
+
+phase:plan a phase:Phase ;
+    rdfs:label "LW-Plan – Change Planning" ;
+    phase:phaseId "plan" ;
+    phase:agentFamily "lightweight" ;
+    phase:upstreamPhase phase:context-scan ;
+    phase:procedure """Plan the specific code changes, respecting detected patterns and conformance requirements.
+
+Context: read intake-output.json and context-scan-output.json.
+
+1. Enumerate specific changes: for each file, what to add / modify / delete and why.
+2. Order changes by dependency: files that others depend on come first.
+3. Assess risk: what could break, what tests cover this area.
+4. Check for any conformance violations from context-scan that must be addressed.
+5. Write to plan-output.json:
+   - plan_summary: one-sentence description of the change
+   - plan_steps: ordered list of concrete steps
+   - files_to_modify: exact file paths
+   - risk_notes: what to watch for during execution""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:shaclGate phase:LWPlanOutputShape ;
+    phase:emitsIntentField "plan_summary" ;
+    phase:emitsIntentField "plan_steps" ;
+    phase:emitsIntentField "files_to_modify" ;
+    phase:emitsIntentField "risk_notes" ;
+    phase:inputContract [
+        phase:requiresField "conformance_assertion" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Conformance status from context-scan (e.g. 'structural-only:compliant')"
+    ] .
+
+phase:execute a phase:Phase ;
+    rdfs:label "LW-Execute – Code Changes" ;
+    phase:phaseId "execute" ;
+    phase:agentFamily "lightweight" ;
+    phase:upstreamPhase phase:plan ;
+    phase:procedure """Execute the planned code changes, run tests, and create a commit.
+
+Context: read plan-output.json.
+
+1. Implement each planned change in the order specified by plan_steps.
+2. After each significant change, run tests:
+   - Focus on tests covering the changed files
+   - Fix any failures before proceeding to the next step
+3. Once all changes are complete and tests pass:
+   - Create a commit with a descriptive message following the project's commit convention
+   - Record the commit reference
+4. Write to execute-output.json:
+   - changes_summary: what was done
+   - files_modified: actual files changed (may differ slightly from plan)
+   - commit_ref: git commit hash or reference
+   - execution_notes: anything notable (unexpected issues, trade-offs made)""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresTool "Write" ;
+    phase:requiresTool "Bash" ;
+    phase:shaclGate phase:LWExecuteOutputShape ;
+    phase:emitsIntentField "changes_summary" ;
+    phase:emitsIntentField "files_modified" ;
+    phase:emitsIntentField "commit_ref" ;
+    phase:emitsIntentField "execution_notes" ;
+    phase:inputContract [
+        phase:requiresField "plan_summary" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "One-sentence description of the planned change from plan phase"
+    ] ;
+    phase:inputContract [
+        phase:requiresField "plan_steps" ;
+        phase:fieldType "xsd:string" ;
+        phase:fieldDescription "Ordered list of concrete change steps from plan phase"
+    ] .
+
+phase:trace a phase:Phase ;
+    rdfs:label "LW-Trace – KG Persistence" ;
+    phase:phaseId "trace" ;
+    phase:agentFamily "lightweight" ;
+    phase:upstreamPhase phase:execute ;
+    phase:procedure """Record thecompleted lightweight change in the knowledge graph for traceability.
+
+Context: read all prior lightweight phase outputs.
+
+1. Read intake-output.json, context-scan-output.json, execute-output.json.
+2. Compose the full trace record with all IntentField values:
+
+   Required (must be non-empty):
+   - change_type: from intake (bugfix/feature/enhancement/chore/test/refactor)
+   - affected_files: comma-separated list from execute output
+   - conformance_assertion: from context-scan (e.g. "structural-only:compliant")
+   - commit_ref: git commit reference from execute output
+   - change_summary: one-sentence description of what was changed and why
+   - timestamp: ISO 8601 datetime (e.g. "2026-06-21T14:30:00Z")
+
+   Optional (set to null if not applicable):
+   - issue_ref: issue tracker reference (e.g. "GH-123")
+   - sprint_id: sprint identifier (e.g. "sprint-42")
+   - story_points: estimate as string (e.g. "3")
+
+3. Call mcp__ontology-server__record_phase_result_tool with all fields.
+
+The SHACL gate (LWTraceOutputShape) validates the required 6 fields.
+If validation fails, review and correct before retrying.""" ;
+    phase:requiresTool "Read" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:LWTraceOutputShape ;
+    phase:emitsIntentField "change_type" ;
+    phase:emitsIntentField "affected_files" ;
+    phase:emitsIntentField "conformance_assertion" ;
+    phase:emitsIntentField "commit_ref" ;
+    phase:emitsIntentField "change_summary" ;
+    phase:emitsIntentField "timestamp" ;
+    phase:emitsIntentField "issue_ref" ;
+    phase:emitsIntentField "sprint_id" ;
+    phase:emitsIntentField "story_points" .
+
+
+# -----------------------------------------------------------------------------
+# SHACL OUTPUT SHAPES — Lightweight pipeline gate definitions
+#
+# These NodeShapes validate phase:PhaseOutput instances written by
+# record_phase_result. Each shape is referenced via phase:shaclGate on the
+# corresponding phase definition above.
+# -----------------------------------------------------------------------------
+
+phase:LWIntakeOutputShape a sh:NodeShape ;
+    rdfs:label "LW Intake Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-change_type ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "change_type is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-lightweight_eligible ;
+        sh:minCount 1 ;
+        sh:message "lightweight_eligible is required" ;
+    ] .
+
+phase:LWContextScanOutputShape a sh:NodeShape ;
+    rdfs:label "LW Context Scan Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-conformance_assertion ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "conformance_assertion is required and must be non-empty" ;
+    ] .
+
+phase:LWPlanOutputShape a sh:NodeShape ;
+    rdfs:label "LW Plan Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-plan_summary ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "plan_summary is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-plan_steps ;
+        sh:minCount 1 ;
+        sh:message "plan_steps is required" ;
+    ] .
+
+phase:LWExecuteOutputShape a sh:NodeShape ;
+    rdfs:label "LW Execute Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-commit_ref ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "commit_ref is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-changes_summary ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "changes_summary is required and must be non-empty" ;
+    ] .
+
+phase:LWTraceOutputShape a sh:NodeShape ;
+    rdfs:label "LW Trace Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-change_type ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "change_type is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-affected_files ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "affected_files is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-conformance_assertion ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "conformance_assertion is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-commit_ref ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "commit_ref is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-change_summary ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "change_summary is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-timestamp ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "timestamp is required" ;
+    ] .
+
+}

@@ -559,7 +559,11 @@ def render_phase_prompt(sparql: SparqlClient, phase_id: str) -> str:
     sections: list[str] = []
     for header, renderer_name in PHASE_PROMPT_SECTIONS:
         body = renderers[renderer_name](sparql, phase_id)
-        sections.append(f"## {header}\n\n{body}")
+        if renderer_name == "render_tools":
+            # render_tools already includes its own ## Tools / ## MCP Tools headers
+            sections.append(body)
+        else:
+            sections.append(f"## {header}\n\n{body}")
     return "\n\n".join(sections)
 
 
