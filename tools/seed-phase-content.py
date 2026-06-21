@@ -73,10 +73,11 @@ def main():
 
     # Idempotency check
     try:
-        resp = requests.get(f"{base_url}/kg/sparql", params={"query": IDEMPOTENCY_ASK}, timeout=10)
+        resp = requests.post(f"{base_url}/kg/sparql", params={"query": IDEMPOTENCY_ASK}, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        if data.get("result") is True:
+        already_seeded = data.get("result") is True or data.get("boolean") is True
+        if already_seeded:
             print("Phase definitions already seeded — skipping.")
             sys.exit(0)
     except requests.RequestException as exc:
