@@ -1,13 +1,10 @@
-"""Server-side reimplementation of phase fact collection and grouping.
+"""Phase pipeline MCP tools.
 
-Reimplements :func:`tulla.core.phase_facts.collect_upstream_facts` and
-:func:`tulla.core.phase_facts.group_upstream_facts` for execution inside the
-ontology-server process.  Because the server cannot import the ``tulla.*``
-package, the coercion semantics of ``tulla.core.phase_facts._try_coerce` are
-mirrored here verbatim.
-
-Behaviour must be **byte-identical** to the in-process variant for any idea
-whose phase facts are stored in the ``phases`` named graph.
+Contains the 10 core phase-pipeline functions (ported from
+``wip-from-claude-tulla/mcp/phase_tools.py``), adapter classes that
+bridge the ``KnowledgeGraphStore`` to the ``SparqlClient`` /
+``OntologyClient`` protocols, and the ``register_phase_tools`` entry
+point used by ``mcp/server.py``.
 
 Architecture decisions: arch:adr-73-1, arch:adr-73-5, arch:adr-130-7
 Quality focus: isaqb:FunctionalCorrectness
@@ -17,14 +14,20 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Protocol
+from typing import Any, Protocol, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
+    from knowledge_graph.core.store import KnowledgeGraphStore
+    from ontology_server.core.validation import SHACLValidator
 
 logger = logging.getLogger(__name__)
 
 
-# Namespace and predicate prefixes are duplicated from tulla.namespaces on
-# purpose — the server side does not depend on the tulla package.
+# ---------------------------------------------------------------------------
+# Namespace constants
+# ---------------------------------------------------------------------------
+
 PHASE_NS = "http://tulla.dev/phase#"
 TRACE_NS = "http://tulla.dev/trace#"
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -32,27 +35,20 @@ PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
 _PRESERVES_PREFIX = f"{PHASE_NS}preserves-"
 
 
-class SparqlClient(Protocol):
-    """Minimal contract for the SPARQL backend the server passes in.
+# ---------------------------------------------------------------------------
+# Protocol definitions
+# ---------------------------------------------------------------------------
 
-    Any object exposing a ``sparql_query(query: str) -> dict[str, Any]`` method
-    that returns ``{"results": [...]}`` satisfies this protocol.
-    """
+
+class SparqlClient(Protocol):
+    """Minimal contract for the SPARQL backend the server passes in."""
 
     def sparql_query(self, query: str) -> dict[str, Any]:  # pragma: no cover
         ...
 
 
 class OntologyClient(Protocol):
-    """Extended contract for record_phase_result.
-
-    Adds the triple-mutation and SHACL-validation methods on top of
-    :class:`SparqlClient` so the persist-validate-rollback cycle of
-    :func:`record_phase_result` can be expressed without leaking the
-    raw SPARQL transport.  Compatible with
-    :class:`tulla.ports.ontology.OntologyPort` and any adapter that
-    exposes the same surface.
-    """
+    """Extended contract for record_phase_result."""
 
     def sparql_query(self, query: str) -> dict[str, Any]:  # pragma: no cover
         ...
@@ -81,14 +77,13 @@ class OntologyClient(Protocol):
         ...
 
 
-def _try_coerce(value: str) -> Any:
-    """Attempt to coerce a string value to a richer Python type.
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-    Mirrors ``tulla.core.phase_facts._try_coerce`` byte-for-byte: tries int,
-    then float, then RDF/SPARQL canonical bool (``"true"``/``"false"``), then
-    JSON for compound (list/dict) values, then falls back to the original
-    string.
-    """
+
+def _try_coerce(value: str) -> Any:
+    """Coerce a string value to int, float, bool, JSON, or keep as str."""
     try:
         return int(value)
     except (ValueError, TypeError):
@@ -99,7 +94,7 @@ def _try_coerce(value: str) -> Any:
     except (ValueError, TypeError):
         pass
 
-    if value.lower() in ("true", "false"):
+    if isinstance(value, str) and value.lower() in ("true", "false"):
         return value.lower() == "true"
 
     try:
@@ -113,9 +108,6 @@ def _try_coerce(value: str) -> Any:
 
 
 def _build_query(idea_id: str) -> str:
-    """Return the SPARQL SELECT for all triples in the ``phases`` graph that
-    belong to the given idea (matched via ``phase:forRequirement``).
-    """
     return (
         f"SELECT ?s ?p ?o WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -126,23 +118,16 @@ def _build_query(idea_id: str) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# collect_upstream_facts
+# ---------------------------------------------------------------------------
+
+
 def collect_upstream_facts(
     sparql: SparqlClient,
     idea_id: str,
 ) -> dict[str, dict[str, Any]]:
-    """Collect and group all phase facts for *idea_id* in one call.
-
-    Equivalent to ``group_upstream_facts(collect_upstream_facts(...))`` from
-    :mod:`tulla.core.phase_facts` when the upstream filter accepts every
-    phase.  Returns ``{phase_id: {field_name: typed_value}}``.
-
-    Only ``phase:preserves-*`` predicates contribute fields; metadata
-    predicates (``producedBy``, ``forRequirement``, ``rdf:type``,
-    ``trace:tracesTo``) are silently skipped, matching the in-process
-    grouping logic.
-
-    On query failure, returns an empty dict with a log warning.
-    """
+    """Collect and group all phase facts for *idea_id* in one call."""
     query = _build_query(idea_id)
 
     try:
@@ -187,7 +172,6 @@ def collect_upstream_facts(
 
 
 def _build_methodology_query(phase_id: str) -> str:
-    """Return the SPARQL SELECT for ``phase:procedure`` of *phase_id*."""
     return (
         f"SELECT ?proc WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -198,21 +182,7 @@ def _build_methodology_query(phase_id: str) -> str:
 
 
 def render_methodology(sparql: SparqlClient, phase_id: str) -> str:
-    """Return the markdown body of ``phase:<phase_id> phase:procedure``.
-
-    Issues a single SPARQL SELECT against the ``phases`` named graph and
-    returns the literal value of the ``?proc`` binding verbatim.
-
-    Edge cases (per req-130-2-2):
-        * A falsy *phase_id* raises :class:`ValueError` so the HTTP twin
-          can map it onto a 404.
-        * A missing ``phase:procedure`` triple (no bindings) returns the
-          empty string and emits a warning log — callers treat the phase
-          as having no agent-driven methodology.
-        * Any SPARQL transport failure also returns the empty string with
-          a warning log, matching the resilience profile of
-          :func:`collect_upstream_facts`.
-    """
+    """Return the markdown body of phase:procedure for *phase_id*."""
     if not phase_id:
         raise ValueError("phase_id is required")
 
@@ -249,9 +219,6 @@ _MCP_PREFIX = "mcp__"
 
 
 def _build_tools_query(phase_id: str) -> str:
-    """Return the SPARQL SELECT UNION-ing ``phase:requiresTool`` and
-    ``phase:requiresMcp`` literal values for *phase_id*.
-    """
     return (
         f"SELECT ?val WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -264,12 +231,6 @@ def _build_tools_query(phase_id: str) -> str:
 
 
 def _format_tools_markdown(values: list[str]) -> str:
-    """Group *values* into Tools vs MCP Tools and emit the two-section markdown.
-
-    Values whose name starts with ``mcp__`` are classified as MCP tools;
-    everything else is a native tool.  Within each section the names are
-    de-duplicated and lexically sorted to produce a deterministic body.
-    """
     tools: set[str] = set()
     mcps: set[str] = set()
     for raw in values:
@@ -290,21 +251,7 @@ def _format_tools_markdown(values: list[str]) -> str:
 
 
 def render_tools(sparql: SparqlClient, phase_id: str) -> str:
-    """Return the markdown two-section bullet list of tools for *phase_id*.
-
-    Issues a single SPARQL UNION SELECT against the ``phases`` named graph
-    over ``phase:requiresTool`` and ``phase:requiresMcp``.  The resulting
-    literals are grouped into a ``## Tools`` section (native names) and a
-    ``## MCP Tools`` section (``mcp__server__tool`` form).
-
-    Edge cases (mirroring :func:`render_methodology`):
-        * Falsy *phase_id* raises :class:`ValueError` so the HTTP twin can
-          map it onto a 404.
-        * No bindings: returns the two empty sections (still markdown).
-        * SPARQL transport failure: also returns the two empty sections
-          with a warning log, matching the resilience profile of
-          :func:`collect_upstream_facts`.
-    """
+    """Return the markdown two-section tool list for *phase_id*."""
     if not phase_id:
         raise ValueError("phase_id is required")
 
@@ -331,13 +278,6 @@ def render_tools(sparql: SparqlClient, phase_id: str) -> str:
 
 
 def _build_gates_query(phase_id: str) -> str:
-    """Return the SPARQL SELECT for ``phase:shaclGate`` shapes of *phase_id*.
-
-    Includes the optional ``rdfs:label`` so a missing label still binds the
-    shape URI.  The query targets the ``phases`` named graph; shape labels,
-    however, typically live in the phase ontology — the OPTIONAL clause is
-    unscoped so the engine resolves labels from any graph that asserts them.
-    """
     return (
         f"SELECT ?shape ?label WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -349,29 +289,16 @@ def _build_gates_query(phase_id: str) -> str:
 
 
 def _abbreviate_shape_uri(uri: str) -> str:
-    """Return *uri* with the ``phase:`` prefix substituted when applicable.
-
-    Keeps the verification criterion deterministic by rendering shapes that
-    live in the phase namespace as ``phase:Local`` while passing other URIs
-    through unchanged.
-    """
     if uri.startswith(PHASE_NS):
         return f"phase:{uri[len(PHASE_NS):]}"
     return uri
 
 
 def _format_gates_markdown(rows: list[tuple[str, str]]) -> str:
-    """Render *rows* as one ``SHACL Gate: <uri> — <label>`` line per gate.
-
-    Shapes are deduplicated by URI and sorted lexically for determinism.
-    The label segment renders an empty string when no ``rdfs:label`` is
-    available, matching the spec format verbatim.
-    """
     seen: dict[str, str] = {}
     for shape_uri, label in rows:
         if not shape_uri:
             continue
-        # Keep first non-empty label encountered.
         if shape_uri not in seen or (not seen[shape_uri] and label):
             seen[shape_uri] = label
     lines: list[str] = []
@@ -382,22 +309,7 @@ def _format_gates_markdown(rows: list[tuple[str, str]]) -> str:
 
 
 def render_gates(sparql: SparqlClient, phase_id: str) -> str:
-    """Return the markdown gate list for *phase_id* (one line per shape).
-
-    Issues a single SPARQL SELECT against the ``phases`` named graph for
-    ``phase:shaclGate`` triples, joining each shape with its optional
-    ``rdfs:label``.  Output format mirrors the requirement spec verbatim::
-
-        SHACL Gate: <shape_uri> — <label>
-
-    Edge cases (mirroring :func:`render_methodology`):
-        * Falsy *phase_id* raises :class:`ValueError` so the HTTP twin can
-          map it onto a 404.
-        * No bindings: returns the empty string (still a successful body).
-        * SPARQL transport failure: returns the empty string with a warning
-          log, matching the resilience profile of
-          :func:`collect_upstream_facts`.
-    """
+    """Return the markdown gate list for *phase_id*."""
     if not phase_id:
         raise ValueError("phase_id is required")
 
@@ -428,15 +340,6 @@ def render_gates(sparql: SparqlClient, phase_id: str) -> str:
 
 
 def _build_input_contract_query(phase_id: str) -> str:
-    """Return the SPARQL SELECT for the ``phase:inputContract`` fields of
-    *phase_id*.
-
-    Joins the phase to its contract node, the contract to each
-    ``phase:requiresField`` literal and the matching ``phase:fieldType``
-    literal, and OPTIONALly the ``phase:fieldDescription``.  The literal
-    of the SELECT mirrors the spec verbatim so the verification criterion
-    can be checked against the query text directly.
-    """
     return (
         f"SELECT ?field ?type ?desc WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -450,13 +353,6 @@ def _build_input_contract_query(phase_id: str) -> str:
 
 
 def _format_input_contract_markdown(rows: list[tuple[str, str, str]]) -> str:
-    """Render *rows* as a three-column markdown table.
-
-    Columns are ``Field | Type | Description``.  Rows are de-duplicated by
-    field name (first non-empty type/description wins) and sorted lexically
-    for determinism.  When *rows* is empty the function returns the empty
-    string so callers can distinguish "no contract" from "header-only".
-    """
     seen: dict[str, tuple[str, str]] = {}
     for field, ftype, fdesc in rows:
         if not field:
@@ -466,10 +362,7 @@ def _format_input_contract_markdown(rows: list[tuple[str, str, str]]) -> str:
             seen[field] = (ftype, fdesc)
         else:
             cur_type, cur_desc = cur
-            seen[field] = (
-                cur_type or ftype,
-                cur_desc or fdesc,
-            )
+            seen[field] = (cur_type or ftype, cur_desc or fdesc)
 
     if not seen:
         return ""
@@ -485,25 +378,7 @@ def _format_input_contract_markdown(rows: list[tuple[str, str, str]]) -> str:
 
 
 def render_input_contract(sparql: SparqlClient, phase_id: str) -> str:
-    """Return the markdown table of the input contract for *phase_id*.
-
-    Issues a single SPARQL SELECT against the ``phases`` named graph for
-    ``phase:inputContract`` and its ``phase:requiresField`` /
-    ``phase:fieldType`` / optional ``phase:fieldDescription`` fields.
-    Result is a three-column markdown table::
-
-        | Field | Type | Description |
-        |-------|------|-------------|
-        | <field> | <type> | <desc> |
-
-    Edge cases (mirroring :func:`render_gates`):
-        * Falsy *phase_id* raises :class:`ValueError` so the HTTP twin can
-          map it onto a 404.
-        * No bindings: returns the empty string.
-        * SPARQL transport failure: returns the empty string with a warning
-          log, matching the resilience profile of
-          :func:`collect_upstream_facts`.
-    """
+    """Return the markdown input contract table for *phase_id*."""
     if not phase_id:
         raise ValueError("phase_id is required")
 
@@ -535,15 +410,6 @@ def render_input_contract(sparql: SparqlClient, phase_id: str) -> str:
 
 
 def _build_output_contract_query(phase_id: str) -> str:
-    """Return the SPARQL SELECT for the ``phase:outputContract`` fields and
-    the ``phase:emitsIntentField`` literals of *phase_id*.
-
-    A single UNION SELECT keeps the function at one round-trip — one branch
-    captures the (field, type, desc) shape of the contract proper, the
-    other captures the intent-field names the subagent must emit (the keys
-    expected in its JSON response, sourced from the triples populated by
-    the extractor in Task 1.2 from ``PHASE_PREDICATE_NAMES``).
-    """
     return (
         f"SELECT ?field ?type ?desc ?intent WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -564,25 +430,6 @@ def _format_output_contract_markdown(
     rows: list[tuple[str, str, str]],
     intent_fields: list[str],
 ) -> str:
-    """Render the output-contract table and the emits-intent-field block.
-
-    The contract table reuses the same three-column ``Field | Type |
-    Description`` layout as :func:`_format_input_contract_markdown` so
-    downstream renderers can pattern-match on a single header.  Rows are
-    de-duplicated by field name (first non-empty type/description wins)
-    and sorted lexically for determinism.
-
-    The intent-field block lists each ``phase:emitsIntentField`` value as
-    a bullet item under a ``## Emits Intent Fields`` heading.  Intent
-    field names are de-duplicated **while preserving first-seen order**
-    so that the Pydantic order recorded by the extractor (Task 1.2)
-    survives the round trip — this is the load-bearing invariant for the
-    requirement's verification criterion.
-
-    Returns the empty string when both the table and the intent-field
-    list are empty, so callers can distinguish "no output contract" from
-    "header-only table".
-    """
     seen_rows: dict[str, tuple[str, str]] = {}
     for field, ftype, fdesc in rows:
         if not field:
@@ -626,27 +473,7 @@ def _format_output_contract_markdown(
 
 
 def render_output_contract(sparql: SparqlClient, phase_id: str) -> str:
-    """Return the markdown output contract for *phase_id*.
-
-    Issues a single SPARQL UNION SELECT against the ``phases`` named
-    graph for ``phase:outputContract`` (with its
-    ``phase:requiresField`` / ``phase:fieldType`` / optional
-    ``phase:fieldDescription``) and for ``phase:emitsIntentField``.
-
-    The resulting markdown is a three-column table of the output
-    contract followed by a ``## Emits Intent Fields`` bullet list whose
-    order mirrors the Pydantic field order recorded by the extractor
-    (Task 1.2).  The intent block is what tells the phase subagent
-    which keys it must put in its JSON response.
-
-    Edge cases (mirroring :func:`render_input_contract`):
-        * Falsy *phase_id* raises :class:`ValueError` so the HTTP twin
-          can map it onto a 404.
-        * No bindings: returns the empty string.
-        * SPARQL transport failure: returns the empty string with a
-          warning log, matching the resilience profile of
-          :func:`collect_upstream_facts`.
-    """
+    """Return the markdown output contract for *phase_id*."""
     if not phase_id:
         raise ValueError("phase_id is required")
 
@@ -682,14 +509,10 @@ def render_output_contract(sparql: SparqlClient, phase_id: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# render_phase_prompt (req-130-2-7) — coarse default
+# render_phase_prompt (req-130-2-7)
 # ---------------------------------------------------------------------------
 
 
-# Canonical section order — see the requirement description.  The phase
-# subagent's static .md body calls ``render_phase_prompt(phase_id)`` at
-# step 1, so this ordering doubles as the contract between the renderer
-# and every downstream prompt template.
 PHASE_PROMPT_SECTIONS: tuple[tuple[str, str], ...] = (
     ("Methodology", "render_methodology"),
     ("Tools", "render_tools"),
@@ -700,45 +523,7 @@ PHASE_PROMPT_SECTIONS: tuple[tuple[str, str], ...] = (
 
 
 def render_phase_prompt(sparql: SparqlClient, phase_id: str) -> str:
-    """Return the composed initial-seed prompt body for *phase_id*.
-
-    Composition of the five granular renderers (req-130-2-2 .. 2-6) in
-    canonical order::
-
-        ## Methodology
-
-        <render_methodology output>
-
-        ## Tools
-
-        <render_tools output>
-
-        ## Gates
-
-        <render_gates output>
-
-        ## Input Contract
-
-        <render_input_contract output>
-
-        ## Output Contract
-
-        <render_output_contract output>
-
-    Each granular renderer is invoked exactly once; their bodies are
-    inlined verbatim under the canonical H2 header.  Sections whose
-    granular renderer returns the empty string still emit the header so
-    the downstream prompt template can rely on a stable skeleton — the
-    body is the renderer's own resilience signal (e.g. "no procedure
-    set"), not the composer's.
-
-    Edge cases:
-        * Falsy *phase_id* raises :class:`ValueError` so the HTTP twin
-          can map it onto a 404.
-        * Granular renderer failures (SPARQL transport errors) are
-          surfaced as empty bodies by the renderers themselves; the
-          composer remains side-effect free.
-    """
+    """Return the composed initial-seed prompt body for *phase_id*."""
     if not phase_id:
         raise ValueError("phase_id is required")
 
@@ -758,21 +543,11 @@ def render_phase_prompt(sparql: SparqlClient, phase_id: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# list_pipeline (req-130-2-8) — DAG topo sort by ancestor depth
+# list_pipeline (req-130-2-8)
 # ---------------------------------------------------------------------------
 
 
 def _build_list_pipeline_query(agent_family: str) -> str:
-    """Return the SPARQL SELECT for the *agent_family* pipeline.
-
-    Counts each phase's transitive upstream ancestors via the
-    ``phase:upstreamPhase+`` property path so the result can be ordered
-    topologically (by ancestor depth ascending, breaking ties by
-    ``phase:phaseId`` for determinism).  Both the phase under
-    consideration and its ancestors are constrained to the same
-    *agent_family* so that the closure stays within the family DAG even
-    when the underlying graph holds cross-family edges.
-    """
     return (
         f"SELECT ?phaseId (COUNT(?ancestor) AS ?depth) WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -790,23 +565,7 @@ def _build_list_pipeline_query(agent_family: str) -> str:
 
 
 def list_pipeline(sparql: SparqlClient, agent_family: str) -> list[str]:
-    """Return the ordered phase_id list for *agent_family*.
-
-    Issues a single SPARQL SELECT against the ``phases`` named graph that
-    computes the transitive closure over ``phase:upstreamPhase+`` for
-    every phase whose ``phase:agentFamily`` matches *agent_family*, then
-    orders the result topologically by ancestor depth (depth 0 first).
-    The returned list contains the ``phase:phaseId`` literals — the same
-    string identifiers accepted by :func:`render_methodology` and friends.
-
-    Edge cases:
-        * Falsy *agent_family* raises :class:`ValueError` so the HTTP twin
-          can map it onto a 404.
-        * An agent family with no phases returns ``[]`` (a successful
-          empty pipeline, not an error).
-        * SPARQL transport failure also returns ``[]`` with a warning log,
-          matching the resilience profile of :func:`collect_upstream_facts`.
-    """
+    """Return the ordered phase_id list for *agent_family*."""
     if not agent_family:
         raise ValueError("agent_family is required")
 
@@ -832,7 +591,7 @@ def list_pipeline(sparql: SparqlClient, agent_family: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# next_phase (req-130-2-9) — inverse-phase:upstreamPhase + verdict branch
+# next_phase (req-130-2-9)
 # ---------------------------------------------------------------------------
 
 
@@ -840,18 +599,6 @@ TERMINATE = "terminate"
 
 
 def _build_next_phase_query(agent_family: str, current_id: str) -> str:
-    """Return the SPARQL SELECT for the successors of *current_id* within
-    *agent_family*.
-
-    The inverse of ``phase:upstreamPhase`` is computed by binding the
-    current phase via its ``phase:phaseId`` literal, then matching every
-    ``?next phase:upstreamPhase ?current`` triple whose ``?next`` shares
-    the same ``phase:agentFamily``.  The optional
-    ``phase:verdictBranch`` literal allows the caller to disambiguate
-    between multiple successor edges (e.g. ``"proceed"`` vs
-    ``"retry"``).  The phase_id of each successor is projected so the
-    callable can return the verdict-matching one to the user.
-    """
     return (
         f"SELECT ?phaseId ?verdict WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -872,28 +619,7 @@ def next_phase(
     current_id: str,
     verdict: str,
 ) -> dict[str, str]:
-    """Return ``{"next_id": <phase_id> | "terminate"}`` for *current_id*.
-
-    Resolves the successor phase via the inverse of
-    ``phase:upstreamPhase`` within *agent_family*:
-
-    * A single successor edge (linear pipeline step) is returned
-      verbatim, **regardless of *verdict*** — the verdict is only
-      consulted when the DAG branches.
-    * Multiple successor edges qualified by ``phase:verdictBranch`` are
-      filtered by *verdict* — the first edge whose literal matches is
-      returned.
-    * No successor at all (or no verdict match in a branching node)
-      returns ``{"next_id": "terminate"}`` so the runner can halt the
-      pipeline cleanly.
-
-    Edge cases:
-        * Falsy *agent_family* or *current_id* raises :class:`ValueError`
-          so the HTTP twin can map them onto a 404 / MCP error.
-        * SPARQL transport failure returns ``{"next_id": "terminate"}``
-          with a warning log, matching the resilience profile of
-          :func:`collect_upstream_facts`.
-    """
+    """Return {\"next_id\": phase_id | \"terminate\"} for *current_id*."""
     if not agent_family:
         raise ValueError("agent_family is required")
     if not current_id:
@@ -931,41 +657,20 @@ def next_phase(
 
 
 # ---------------------------------------------------------------------------
-# record_phase_result (req-130-3-3) — ADR-130-7's 8-step persist sequence
+# record_phase_result (req-130-3-3, ADR-130-7)
 # ---------------------------------------------------------------------------
 
 
 def _allowed_intent_fields(phase_id: str) -> frozenset[str]:
-    """Return the local-name set of ``phase:preserves-*`` keys for *phase_id*.
-
-    Resolves against :data:`tulla.ontology.phase_predicate_names.PHASE_PREDICATE_NAMES`
-    via the ``get_predicates_for_phase`` helper so dynamic
-    ``p6-iter-{N}`` iteration ids fall back to the canonical ``p6-iter``
-    stem.  Returns an empty frozenset for unknown phase ids — record
-    still proceeds, but no ``preserves-*`` triples are written.
-
-    The import is deliberately lazy so the server-side module remains
-    importable in deployments where the ``tulla`` package is unavailable;
-    in that scenario the returned set is empty and the caller is
-    expected to provide an allow-list via another mechanism.
-    """
+    """Return the allowed ``phase:preserves-*`` key set for *phase_id*."""
     try:
-        from tulla.ontology.phase_predicate_names import (
-            get_predicates_for_phase,
-        )
-    except Exception:  # pragma: no cover - defensive for embedded use
+        from tulla.ontology.phase_predicate_names import get_predicates_for_phase
+    except Exception:
         return frozenset()
     return get_predicates_for_phase(phase_id)
 
 
 def _build_shacl_gate_query(phase_id: str) -> str:
-    """Return the SPARQL SELECT for the ``phase:shaclGate`` of *phase_id*.
-
-    Limits to a single binding because :func:`record_phase_result`
-    validates against at most one shape per persist (matching the
-    single ``shacl_shape_id`` parameter of
-    :class:`tulla.core.phase_facts.PhaseFactPersister.persist`).
-    """
     return (
         f"SELECT ?shape WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
@@ -977,7 +682,6 @@ def _build_shacl_gate_query(phase_id: str) -> str:
 
 
 def _lookup_shacl_gate(ontology: OntologyClient, phase_id: str) -> str | None:
-    """Look up the SHACL gate shape URI for *phase_id*, or ``None``."""
     query = _build_shacl_gate_query(phase_id)
     try:
         result = ontology.sparql_query(query)
@@ -994,14 +698,7 @@ def _lookup_shacl_gate(ontology: OntologyClient, phase_id: str) -> str | None:
 
 
 def _literalise(value: Any) -> str:
-    """Convert *value* to its RDF literal string form.
-
-    Scalars round-trip through ``str()``; compound values (list / dict)
-    are JSON-stringified so that :func:`_try_coerce` on the read path
-    can recover the original Python structure.  Mirrors
-    :meth:`PhaseFactPersister.persist`'s ``str(value)`` for scalars and
-    the JSON-stringify discipline documented by ADR-130-7 for compounds.
-    """
+    """Convert *value* to its RDF literal string form."""
     if isinstance(value, (list, dict)):
         return json.dumps(value)
     if isinstance(value, bool):
@@ -1017,62 +714,7 @@ def record_phase_result(
     result_json: dict[str, Any],
     predecessor_phase_id: str | None = None,
 ) -> dict[str, Any]:
-    """Persist a phase subagent's intent-field JSON to the phases graph.
-
-    Implements ADR-130-7's 8-step persist-validate-rollback sequence in
-    order — behaviour matches
-    :meth:`tulla.core.phase_facts.PhaseFactPersister.persist`:
-
-    1. Compute the subject URI ``{PHASE_NS}{idea_id}-{phase_id}``.
-    2. Idempotent cleanup — ``remove_triples_by_subject(subject)``.
-       This is load-bearing for both RQ1 re-entry and RQ2
-       self-baseline measurement (see arch:adr-130-7).
-    3. ``rdf:type phase:PhaseOutput`` for SHACL ``sh:targetClass``.
-    4. For every ``key`` in *result_json* whose name is in
-       :data:`PHASE_PREDICATE_NAMES[phase_id]`, add
-       ``subject phase:preserves-<key> str(value)`` (compounds are
-       JSON-stringified so :func:`_try_coerce` can recover the
-       original Python value on the read path).  Keys outside the
-       allow-list are silently dropped — they would not survive the
-       drift harness round-trip in any case.
-    5. ``phase:producedBy <phase_id>`` metadata edge.
-    6. ``phase:forRequirement <idea_id>`` metadata edge.
-    7. ``trace:tracesTo phase:<idea_id>-<predecessor_phase_id>`` when
-       a predecessor is given.
-    8. Look up ``phase:shaclGate``; when present, validate the
-       subject against the shape and, on violation, roll back via a
-       second ``remove_triples_by_subject(subject)`` so the persist is
-       atomic.
-
-    Arguments:
-        ontology: Client exposing the four mutation/validation methods
-            of :class:`OntologyClient`.
-        phase_id: The phase identifier (``r5``, ``p3``, ``p6-iter-3``).
-        idea_id: The requirement identifier (``130``, ``73``).
-        artifact_path: Path of the on-disk artefact produced by the
-            subagent.  Audit/logging only — *not* persisted as a triple.
-        result_json: The JSON object the subagent emitted; only
-            intent-field keys (per :data:`PHASE_PREDICATE_NAMES`) are
-            persisted as ``phase:preserves-*`` triples.
-        predecessor_phase_id: Optional upstream phase id to link via
-            ``trace:tracesTo``.
-
-    Returns:
-        ``{"ok": True, "violations": []}`` on a clean persist (or when
-        no SHACL gate is attached to the phase).  On SHACL violation —
-        or on an exception from :func:`validate_instance` — the
-        persisted triples are rolled back and the function returns
-        ``{"ok": False, "violations": [...]}`` with the violation
-        messages collected from the SHACL report.
-
-    Edge cases:
-        * Falsy *phase_id* or *idea_id* raises :class:`ValueError` so
-          the HTTP twin can map it onto a 404.
-        * *result_json* is treated as empty when not a dict — the
-          metadata triples (rdf:type / producedBy / forRequirement /
-          tracesTo) are still emitted so the audit trail records the
-          attempt.
-    """
+    """Persist a phase result using ADR-130-7's 8-step sequence."""
     if not phase_id:
         raise ValueError("phase_id is required")
     if not idea_id:
@@ -1088,7 +730,7 @@ def record_phase_result(
     # (1) Compute subject URI.
     subject = f"{PHASE_NS}{idea_id}-{phase_id}"
 
-    # (2) Idempotent cleanup — FIRST.  Load-bearing per ADR-130-7.
+    # (2) Idempotent cleanup — FIRST.
     try:
         cleared = ontology.remove_triples_by_subject(subject)
     except Exception as exc:
@@ -1101,10 +743,10 @@ def record_phase_result(
     if cleared:
         logger.info("Cleared %d existing triples for subject %s", cleared, subject)
 
-    # (3) rdf:type phase:PhaseOutput so SHACL sh:targetClass matches.
+    # (3) rdf:type phase:PhaseOutput.
     ontology.add_triple(subject, RDF_TYPE, f"{PHASE_NS}PhaseOutput")
 
-    # (4) phase:preserves-<name> edges for each known intent field.
+    # (4) phase:preserves-<name> edges for known intent fields.
     allowed = _allowed_intent_fields(phase_id)
     fields = result_json if isinstance(result_json, dict) else {}
     for key, value in fields.items():
@@ -1171,3 +813,217 @@ def record_phase_result(
     except Exception:
         logger.exception("rollback after SHACL violation failed")
     return {"ok": False, "violations": error_strs}
+
+
+# ---------------------------------------------------------------------------
+# KnowledgeGraphStore adapters
+# ---------------------------------------------------------------------------
+
+
+class KGSparqlClient:
+    """Adapts ``KnowledgeGraphStore.query()`` to the ``SparqlClient`` protocol.
+
+    ``kg_store.query()`` returns a ``QueryResult`` with ``.bindings`` as
+    ``[{var: value}]`` (already Python-native).  This adapter wraps it
+    as ``{"results": bindings}`` so the phase functions above can call
+    ``result.get("results", [])``.
+    """
+
+    def __init__(self, kg_store: "KnowledgeGraphStore") -> None:
+        self._store = kg_store
+
+    def sparql_query(self, query: str) -> dict[str, Any]:
+        result = self._store.query(query)
+        return {"results": result.bindings}
+
+
+class KGOntologyClient(KGSparqlClient):
+    """Extends ``KGSparqlClient`` with triple-mutation and SHACL validation.
+
+    Wraps ``KnowledgeGraphStore`` methods to satisfy the ``OntologyClient``
+    protocol used by ``record_phase_result``.  All mutations target
+    ``GRAPH_PHASES`` (``http://semantic-tool-use.org/graphs/phases``).
+    """
+
+    def __init__(
+        self,
+        kg_store: "KnowledgeGraphStore",
+        validator: "SHACLValidator | None" = None,
+    ) -> None:
+        super().__init__(kg_store)
+        self._validator = validator
+
+    def add_triple(
+        self,
+        subject: str,
+        predicate: str,
+        object: str,
+        *,
+        is_literal: bool = False,
+    ) -> None:
+        self._store.add_triple(
+            subject, predicate, object,
+            is_literal=is_literal,
+            graph=PHASES_GRAPH,
+        )
+
+    def remove_triples_by_subject(self, subject: str) -> int:
+        return self._store.remove_triple(subject=subject, graph=PHASES_GRAPH)
+
+    def validate_instance(
+        self,
+        instance_uri: str,
+        shape_uri: str,
+    ) -> dict[str, Any]:
+        if self._validator is None:
+            logger.warning(
+                "validate_instance called but no SHACLValidator configured; "
+                "reporting conforms=True"
+            )
+            return {"conforms": True, "violations": []}
+
+        instance_ttl = self._store.export_turtle(graph=PHASES_GRAPH, subject=instance_uri)
+        result = self._validator.validate(instance_ttl, shapes_uri=shape_uri)
+        rd = result.to_dict()
+        # Normalise violations to strings for record_phase_result.
+        violations = [
+            v.get("message", str(v)) if isinstance(v, dict) else str(v)
+            for v in rd.get("violations", [])
+        ]
+        return {"conforms": rd["conforms"], "violations": violations}
+
+
+# ---------------------------------------------------------------------------
+# MCP tool registration
+# ---------------------------------------------------------------------------
+
+
+def register_phase_tools(
+    mcp: "FastMCP",
+    kg_store: "KnowledgeGraphStore",
+    validator: "SHACLValidator | None" = None,
+) -> None:
+    """Register the 10 phase pipeline tools against *mcp*.
+
+    Args:
+        mcp: FastMCP server instance to attach tools to.
+        kg_store: Knowledge graph store (backing the SPARQL transport).
+        validator: Optional SHACL validator (needed for record_phase_result).
+    """
+    sparql_client = KGSparqlClient(kg_store)
+    ontology_client = KGOntologyClient(kg_store, validator)
+
+    @mcp.tool()
+    def collect_upstream_facts_tool(idea_id: str) -> dict[str, Any]:
+        """Collect all phase facts for an idea grouped by phase.
+
+        Args:
+            idea_id: The requirement / idea identifier (e.g. "130").
+        """
+        return collect_upstream_facts(sparql_client, idea_id)
+
+    @mcp.tool()
+    def render_methodology_tool(phase_id: str) -> str:
+        """Return the markdown procedure body for a phase.
+
+        Args:
+            phase_id: Phase identifier (e.g. "r3").
+        """
+        return render_methodology(sparql_client, phase_id)
+
+    @mcp.tool()
+    def render_tools_tool(phase_id: str) -> str:
+        """Return the markdown two-section tool list for a phase.
+
+        Args:
+            phase_id: Phase identifier.
+        """
+        return render_tools(sparql_client, phase_id)
+
+    @mcp.tool()
+    def render_gates_tool(phase_id: str) -> str:
+        """Return the markdown SHACL gate list for a phase.
+
+        Args:
+            phase_id: Phase identifier.
+        """
+        return render_gates(sparql_client, phase_id)
+
+    @mcp.tool()
+    def render_input_contract_tool(phase_id: str) -> str:
+        """Return the markdown input contract table for a phase.
+
+        Args:
+            phase_id: Phase identifier.
+        """
+        return render_input_contract(sparql_client, phase_id)
+
+    @mcp.tool()
+    def render_output_contract_tool(phase_id: str) -> str:
+        """Return the markdown output contract for a phase.
+
+        Args:
+            phase_id: Phase identifier.
+        """
+        return render_output_contract(sparql_client, phase_id)
+
+    @mcp.tool()
+    def render_phase_prompt_tool(phase_id: str) -> str:
+        """Return the composed initial-seed prompt body for a phase.
+
+        Args:
+            phase_id: Phase identifier.
+        """
+        return render_phase_prompt(sparql_client, phase_id)
+
+    @mcp.tool()
+    def list_pipeline_tool(agent_family: str) -> list[str]:
+        """Return the topologically ordered phase_id list for an agent family.
+
+        Args:
+            agent_family: Agent family name (e.g. "research").
+        """
+        return list_pipeline(sparql_client, agent_family)
+
+    @mcp.tool()
+    def next_phase_tool(
+        agent_family: str,
+        current_id: str,
+        verdict: str = "",
+    ) -> dict[str, str]:
+        """Return the next phase_id or "terminate" for the current phase.
+
+        Args:
+            agent_family: Agent family name.
+            current_id: Current phase identifier.
+            verdict: Optional verdict string for branching DAGs.
+        """
+        return next_phase(sparql_client, agent_family, current_id, verdict)
+
+    @mcp.tool()
+    def record_phase_result_tool(
+        phase_id: str,
+        idea_id: str,
+        artifact_path: str = "",
+        result_json: dict[str, Any] | None = None,
+        predecessor_phase_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist a phase subagent's result (8-step ADR-130-7 sequence).
+
+        Args:
+            phase_id: Phase identifier (e.g. "r3").
+            idea_id: Requirement / idea identifier (e.g. "130").
+            artifact_path: Path of the on-disk artefact (audit only).
+            result_json: The JSON object the subagent emitted.
+            predecessor_phase_id: Optional upstream phase id for trace edge.
+        """
+        return record_phase_result(
+            ontology_client,
+            phase_id,
+            idea_id,
+            artifact_path,
+            result_json or {},
+            predecessor_phase_id,
+        )
+
+    logger.info("Registered 10 phase pipeline tools")

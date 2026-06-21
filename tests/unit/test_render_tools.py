@@ -1,27 +1,22 @@
 """Tests for the render_tools MCP tool (req-130-2-3).
 
-Covers the server-side function in :mod:`mcp.phase_tools`, the HTTP twin
-in :mod:`api.routes.phases`, and the default port implementation on
-:class:`tulla.ports.ontology.OntologyPort`.
+Covers the server-side function in :mod:`ontology_server.mcp.phase_tools`, the
+HTTP twin in :mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort`.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from api.routes.phases import handle_render_tools
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_render_tools
+from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
     _build_tools_query,
     render_tools,
 )
 from tulla.ports.ontology import OntologyPort
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 class _RecordingSparql:
@@ -49,11 +44,6 @@ def _r3_bindings() -> dict:
     ]}
 
 
-# ---------------------------------------------------------------------------
-# render_tools (mcp/phase_tools.py)
-# ---------------------------------------------------------------------------
-
-
 class TestRenderTools:
     def test_query_targets_phases_graph_with_union(self) -> None:
         query = _build_tools_query("r3")
@@ -68,14 +58,12 @@ class TestRenderTools:
 
         result = render_tools(sparql, "r3")
 
-        # Verification criterion: bullet list containing Read, Write, etc.
         assert "## Tools" in result
         assert "## MCP Tools" in result
         for tool in ("Read", "Write", "Glob", "Grep"):
             assert f"- {tool}" in result
         assert "- mcp__ontology-server__query_ontology" in result
 
-        # MCP-prefixed values must land under "## MCP Tools", not "## Tools".
         tools_section, _, mcp_section = result.partition("## MCP Tools")
         assert "mcp__" not in tools_section
         assert "- mcp__ontology-server__query_ontology" in mcp_section
@@ -96,21 +84,15 @@ class TestRenderTools:
         result = render_tools(sparql, "x99")
         assert "## Tools" in result
         assert "## MCP Tools" in result
-        # No bullet lines beyond the section headers
         assert "- " not in result
 
     def test_sparql_failure_returns_empty_sections(
         self, caplog: pytest.LogCaptureFixture,
     ) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="mcp.phase_tools"):
+        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
             result = render_tools(sparql, "r3")
         assert "## Tools" in result and "## MCP Tools" in result
-
-
-# ---------------------------------------------------------------------------
-# HTTP twin (api/routes/phases.py)
-# ---------------------------------------------------------------------------
 
 
 class TestHandleRenderTools:
@@ -133,11 +115,6 @@ class TestHandleRenderTools:
         assert status == 404
 
 
-# ---------------------------------------------------------------------------
-# OntologyPort default implementation
-# ---------------------------------------------------------------------------
-
-
 class _StubPort(OntologyPort):
     """Minimal OntologyPort whose sparql_query returns canned data."""
 
@@ -149,7 +126,6 @@ class _StubPort(OntologyPort):
         self.last_query = query
         return self.reply
 
-    # Unused abstract methods — minimal no-op stubs.
     def query_ideas(self, **_): return {}
     def get_idea(self, idea_id): return {}
     def store_fact(self, subject, predicate, object, **_): return {}

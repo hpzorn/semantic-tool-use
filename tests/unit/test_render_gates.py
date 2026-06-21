@@ -1,27 +1,22 @@
 """Tests for the render_gates MCP tool (req-130-2-4).
 
-Covers the server-side function in :mod:`mcp.phase_tools`, the HTTP twin
-in :mod:`api.routes.phases`, and the default port implementation on
-:class:`tulla.ports.ontology.OntologyPort`.
+Covers the server-side function in :mod:`ontology_server.mcp.phase_tools`, the
+HTTP twin in :mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort`.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from api.routes.phases import handle_render_gates
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_render_gates
+from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
     _build_gates_query,
     render_gates,
 )
 from tulla.ports.ontology import OntologyPort
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 class _RecordingSparql:
@@ -45,11 +40,6 @@ def _r3_bindings(label: str = "R3 output gate") -> dict:
     ]}
 
 
-# ---------------------------------------------------------------------------
-# render_gates (mcp/phase_tools.py)
-# ---------------------------------------------------------------------------
-
-
 class TestRenderGates:
     def test_query_targets_phases_graph_with_optional_label(self) -> None:
         query = _build_gates_query("r3")
@@ -64,7 +54,6 @@ class TestRenderGates:
 
         result = render_gates(sparql, "r3")
 
-        # Verification criterion: For phase r3, returns SHACL Gate: phase:R3OutputShape — ...
         assert result.startswith("SHACL Gate: phase:R3OutputShape — ")
         assert "R3 output gate" in result
 
@@ -78,7 +67,6 @@ class TestRenderGates:
 
         lines = result.split("\n")
         assert len(lines) == 2
-        # Both lines follow the SHACL Gate prefix.
         assert all(line.startswith("SHACL Gate: ") for line in lines)
         assert any("phase:R3OutputShape — primary" in line for line in lines)
         assert any("phase:AuxShape — secondary" in line for line in lines)
@@ -104,14 +92,9 @@ class TestRenderGates:
         self, caplog: pytest.LogCaptureFixture,
     ) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="mcp.phase_tools"):
+        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
             result = render_gates(sparql, "r3")
         assert result == ""
-
-
-# ---------------------------------------------------------------------------
-# HTTP twin (api/routes/phases.py)
-# ---------------------------------------------------------------------------
 
 
 class TestHandleRenderGates:
@@ -133,11 +116,6 @@ class TestHandleRenderGates:
         assert status == 404
 
 
-# ---------------------------------------------------------------------------
-# OntologyPort default implementation
-# ---------------------------------------------------------------------------
-
-
 class _StubPort(OntologyPort):
     """Minimal OntologyPort whose sparql_query returns canned data."""
 
@@ -149,7 +127,6 @@ class _StubPort(OntologyPort):
         self.last_query = query
         return self.reply
 
-    # Unused abstract methods — minimal no-op stubs.
     def query_ideas(self, **_): return {}
     def get_idea(self, idea_id): return {}
     def store_fact(self, subject, predicate, object, **_): return {}

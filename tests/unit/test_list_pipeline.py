@@ -1,20 +1,17 @@
 """Tests for the list_pipeline MCP tool (req-130-2-8).
 
 Covers the server-side SPARQL transitive-closure helper in
-:mod:`mcp.phase_tools`, the HTTP twin in :mod:`api.routes.phases`, and
-the default port implementation on :class:`tulla.ports.ontology.OntologyPort`.
-
-Verification criterion (req-130-2-8): ``list_pipeline(agent_family="research")``
-returns the research-family phase_ids in topological order (ancestor depth
-ascending, with phase_id as deterministic tie-break).
+:mod:`ontology_server.mcp.phase_tools`, the HTTP twin in
+:mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort`.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from api.routes.phases import handle_list_pipeline
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_list_pipeline
+from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
     _build_list_pipeline_query,
@@ -23,19 +20,16 @@ from mcp.phase_tools import (
 from tulla.ports.ontology import OntologyPort
 
 
-# Research family chain extracted from phase_content_seed.ttl — the
-# upstreamPhase edges form a linear DAG so the topological order is fully
-# determined by ancestor depth.
 _RESEARCH_PIPELINE: tuple[str, ...] = (
-    "r1-discovery-fed",   # depth 0 (no upstream)
-    "r1-groundwork",      # depth 1
-    "r1-spike",           # depth 2
-    "r2",                 # depth 3
-    "r3",                 # depth 4
-    "r4",                 # depth 5
-    "r5",                 # depth 6
-    "r5-retry",           # depth 7
-    "r6",                 # depth 8
+    "r1-discovery-fed",
+    "r1-groundwork",
+    "r1-spike",
+    "r2",
+    "r3",
+    "r4",
+    "r5",
+    "r5-retry",
+    "r6",
 )
 
 

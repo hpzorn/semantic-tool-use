@@ -7,6 +7,11 @@ import sys
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# Add tulla src to path for tulla package imports (phase_predicate_names, ports.ontology)
+_tulla_src = Path(__file__).parent.parent.parent.parent / "tulla" / "src"
+if _tulla_src.exists():
+    sys.path.insert(0, str(_tulla_src))
+
 from ontology_server.config import Settings
 from ontology_server.core.store import OntologyStore
 from ontology_server.core.validation import SHACLValidator

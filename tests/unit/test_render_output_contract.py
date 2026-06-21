@@ -1,33 +1,22 @@
 """Tests for the render_output_contract MCP tool (req-130-2-6).
 
-Covers the server-side function in :mod:`mcp.phase_tools`, the HTTP twin
-in :mod:`api.routes.phases`, and the default port implementation on
-:class:`tulla.ports.ontology.OntologyPort`.
-
-The verification criterion is "Output includes all IntentField names for
-the phase in Pydantic order" — exercised by feeding the SPARQL stub a
-result list ordered as the extractor would insert it (i.e. as
-``model_fields`` enumerates them on the underlying Pydantic class) and
-asserting that the rendered markdown reproduces that order.
+Covers the server-side function in :mod:`ontology_server.mcp.phase_tools`, the
+HTTP twin in :mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort`.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from api.routes.phases import handle_render_output_contract
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_render_output_contract
+from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
     _build_output_contract_query,
     render_output_contract,
 )
 from tulla.ports.ontology import OntologyPort
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 class _RecordingSparql:
@@ -45,14 +34,7 @@ class _RecordingSparql:
 
 
 def _r3_bindings() -> dict:
-    """Canonical R3 output-contract + emits-intent-field bindings.
-
-    Two contract rows (one with a description, one without) and four
-    intent fields ordered as the extractor would assert them — i.e. the
-    Pydantic ``model_fields`` ordering for the R3 output model.  The
-    order is the load-bearing part: the verification criterion checks
-    that the rendered markdown preserves it.
-    """
+    """Canonical R3 output-contract + emits-intent-field bindings."""
     return {"results": [
         {"field": "result_summary", "type": "string", "desc": "Short summary"},
         {"field": "evidence_links", "type": "list[str]"},
@@ -61,11 +43,6 @@ def _r3_bindings() -> dict:
         {"intent": "confidence"},
         {"intent": "caveats"},
     ]}
-
-
-# ---------------------------------------------------------------------------
-# render_output_contract (mcp/phase_tools.py)
-# ---------------------------------------------------------------------------
 
 
 class TestRenderOutputContract:
@@ -86,25 +63,16 @@ class TestRenderOutputContract:
 
         result = render_output_contract(sparql, "r3")
 
-        # Contract table header + both rows (sorted lexically).
         assert "| Field | Type | Description |" in result
         assert "|-------|------|-------------|" in result
         assert "| evidence_links | list[str] |  |" in result
         assert "| result_summary | string | Short summary |" in result
 
-        # Emits-intent-field block listing each intent name as a bullet.
         assert "## Emits Intent Fields" in result
         for name in ("result_summary", "evidence_links", "confidence", "caveats"):
             assert f"- {name}" in result
 
     def test_intent_fields_preserve_pydantic_order(self) -> None:
-        """Verification criterion: intent names appear in insertion order.
-
-        The SPARQL stub returns the fields in the order the extractor
-        would assert them (which is the Pydantic ``model_fields`` order
-        — see ``tulla.ontology.phase_predicate_names``).  The render
-        must not lexically sort that block.
-        """
         sparql = _RecordingSparql(_r3_bindings())
         result = render_output_contract(sparql, "r3")
 
@@ -113,10 +81,7 @@ class TestRenderOutputContract:
             intent_block.index(f"- {name}")
             for name in ("result_summary", "evidence_links", "confidence", "caveats")
         ]
-        assert positions == sorted(positions), (
-            "Intent field bullets must appear in the SPARQL result "
-            "(Pydantic) order, not lexically sorted"
-        )
+        assert positions == sorted(positions)
 
     def test_no_contract_only_intent_fields_renders_just_block(self) -> None:
         sparql = _RecordingSparql({"results": [
@@ -164,13 +129,8 @@ class TestRenderOutputContract:
         self, caplog: pytest.LogCaptureFixture,
     ) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="mcp.phase_tools"):
+        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
             assert render_output_contract(sparql, "r3") == ""
-
-
-# ---------------------------------------------------------------------------
-# HTTP twin (api/routes/phases.py)
-# ---------------------------------------------------------------------------
 
 
 class TestHandleRenderOutputContract:
@@ -196,11 +156,6 @@ class TestHandleRenderOutputContract:
             _RecordingSparql({"results": []}), None,
         )
         assert status == 404
-
-
-# ---------------------------------------------------------------------------
-# OntologyPort default implementation
-# ---------------------------------------------------------------------------
 
 
 class _StubPort(OntologyPort):
@@ -234,7 +189,6 @@ class TestOntologyPortRenderOutputContract:
         body = port.render_output_contract("r3")
         assert "| Field | Type | Description |" in body
         assert "## Emits Intent Fields" in body
-        # Verification criterion echoed at the port level too.
         intent_block = body.split("## Emits Intent Fields", 1)[1]
         positions = [
             intent_block.index(f"- {name}")

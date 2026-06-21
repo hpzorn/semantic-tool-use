@@ -1,9 +1,9 @@
 """Integration tests for record_phase_result (req-130-3-3, ADR-130-7).
 
 Covers the server-side persist-validate-rollback sequence in
-:mod:`mcp.phase_tools`, the HTTP twin in :mod:`api.routes.phases`, and the
-default port implementation on
-:class:`tulla.ports.ontology.OntologyPort.record_phase_result`.
+:mod:`ontology_server.mcp.phase_tools`, the HTTP twin in
+:mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort.record_phase_result`.
 
 The verification target (Task 3.4) is the 8-step sequence defined by
 ADR-130-7 — order-sensitive, idempotent cleanup before write, SHACL
@@ -17,8 +17,8 @@ import json
 
 import pytest
 
-from api.routes.phases import handle_record_phase_result
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_record_phase_result
+from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
     RDF_TYPE,
@@ -339,7 +339,6 @@ class _StubPort(OntologyPort):
     ):
         return self._inner.validate_instance(instance_uri, shape_uri)
 
-    # -- stubs for the rest of the ABC --
     def query_ideas(self, **_): return {}
     def get_idea(self, idea_id): return {}
     def store_fact(self, subject, predicate, object, **_): return {}

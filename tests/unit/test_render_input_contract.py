@@ -1,16 +1,16 @@
 """Tests for the render_input_contract MCP tool (req-130-2-5).
 
-Covers the server-side function in :mod:`mcp.phase_tools`, the HTTP twin
-in :mod:`api.routes.phases`, and the default port implementation on
-:class:`tulla.ports.ontology.OntologyPort`.
+Covers the server-side function in :mod:`ontology_server.mcp.phase_tools`, the
+HTTP twin in :mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort`.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from api.routes.phases import handle_render_input_contract
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_render_input_contract
+from ontology_server.mcp.phase_tools import (
     PHASES_GRAPH,
     _build_input_contract_query,
     render_input_contract,
@@ -56,11 +56,9 @@ class TestRenderInputContract:
 
         result = render_input_contract(sparql, "r3")
 
-        # Verification criterion: returns a table listing input contract fields
         lines = result.split("\n")
         assert lines[0] == "| Field | Type | Description |"
         assert lines[1].startswith("|") and "---" in lines[1]
-        # Both fields appear, lexically sorted (idea_id < phase_id)
         assert "| idea_id | string | Target idea id |" in result
         assert "| phase_id | string |  |" in result
 
@@ -76,7 +74,7 @@ class TestRenderInputContract:
         self, caplog: pytest.LogCaptureFixture,
     ) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="mcp.phase_tools"):
+        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
             assert render_input_contract(sparql, "r3") == ""
 
 

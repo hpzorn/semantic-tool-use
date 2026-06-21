@@ -1,17 +1,19 @@
 """Tests for the render_methodology MCP tool (req-130-2-2).
 
-Covers the server-side function in :mod:`mcp.phase_tools`, the HTTP twin
-in :mod:`api.routes.phases`, and the default port implementation on
-:class:`tulla.ports.ontology.OntologyPort`.
+Covers the server-side function in :mod:`ontology_server.mcp.phase_tools`, the
+HTTP twin in :mod:`ontology_server.api.routes.phases`, and the default port
+implementation on :class:`tulla.ports.ontology.OntologyPort`.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import rdflib
 
-from api.routes.phases import handle_render_methodology
-from mcp.phase_tools import (
+from ontology_server.api.routes.phases import handle_render_methodology
+from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
     _build_methodology_query,
@@ -24,13 +26,12 @@ from tulla.ports.ontology import OntologyPort
 # Helpers
 # ---------------------------------------------------------------------------
 
+_FIXTURE_TTL = Path(__file__).parent.parent / "fixtures" / "phase_content_curated.ttl"
 
-# Load the R3 procedure literal directly from the curated TTL — this is
-# the same content the loader pushes into the phases named graph, so the
-# verification criterion exercises the real shipping body.
+
 def _load_r3_procedure_body() -> str:
     graph = rdflib.Graph()
-    graph.parse("phase_content_curated.ttl", format="turtle")
+    graph.parse(str(_FIXTURE_TTL), format="turtle")
     subject = rdflib.URIRef(f"{PHASE_NS}r3")
     predicate = rdflib.URIRef(f"{PHASE_NS}procedure")
     value = graph.value(subject=subject, predicate=predicate)
@@ -79,7 +80,7 @@ class TestRenderMethodology:
     ) -> None:
         sparql = _RecordingSparql({"results": []})
 
-        with caplog.at_level("WARNING", logger="mcp.phase_tools"):
+        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
             result = render_methodology(sparql, "x99")
 
         assert result == ""
@@ -93,7 +94,7 @@ class TestRenderMethodology:
 
     def test_sparql_failure_returns_empty(self, caplog: pytest.LogCaptureFixture) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="mcp.phase_tools"):
+        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
             result = render_methodology(sparql, "r3")
         assert result == ""
 
@@ -145,7 +146,6 @@ class _StubPort(OntologyPort):
         self.last_query = query
         return self.reply
 
-    # Unused abstract methods — minimal no-op stubs.
     def query_ideas(self, **_): return {}
     def get_idea(self, idea_id): return {}
     def store_fact(self, subject, predicate, object, **_): return {}
