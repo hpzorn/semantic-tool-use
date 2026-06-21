@@ -96,6 +96,20 @@ if [ "${1:-}" = "--background" ]; then
     echo "  URL:  http://$HOST:$PORT"
     echo "  Logs: tail -f $LOG_FILE"
     echo "  Stop: $0 --stop"
+
+    # Seed phase definitions (idempotent — safe to run every start)
+    SEED_SCRIPT="$SCRIPT_DIR/tools/seed-phase-content.py"
+    if [ -f "$SEED_SCRIPT" ]; then
+        echo "Seeding phase definitions..."
+        # Wait for server to be ready (up to 10 seconds)
+        for i in $(seq 1 10); do
+            if curl -sf "http://$HOST:$PORT/health" > /dev/null 2>&1; then
+                break
+            fi
+            sleep 1
+        done
+        python "$SEED_SCRIPT" --url "http://$HOST:$PORT" && echo "Phase seed complete." || echo "Phase seed failed (server may not be ready yet; run manually: python tools/seed-phase-content.py)"
+    fi
 else
     echo "Starting Ontology Server..."
     echo "  HTTP: http://$HOST:$PORT"
