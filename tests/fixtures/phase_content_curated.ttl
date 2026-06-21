@@ -1,0 +1,14 @@
+@prefix phase: <http://tulla.dev/phase#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+phase:r3 a phase:Phase ;
+    rdfs:label "R3 – Structured Synthesis" ;
+    phase:procedure """Synthesise the findings from R2 into a structured deliverable.
+
+1. Load the collected sources from the upstream R2 phase result.
+2. For each source, extract the most relevant claims and evidence.
+3. Group claims by theme and resolve contradictions using primary sources.
+4. Write a structured summary with citations in the research_questions and rq_answers fields.
+5. Validate the deliverable against the R3 SHACL output shape.""" ;
+    phase:agentFamily "research" ;
+    phase:shaclGate phase:R3OutputShape .

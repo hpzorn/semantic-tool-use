@@ -485,6 +485,9 @@ def create_mcp_server(
         _register_knowledge_graph_tools(mcp, kg_store, settings)
         logger.info("Registered A-Box (knowledge graph) tools")
 
+        from .phase_tools import register_phase_tools
+        register_phase_tools(mcp, kg_store, validator)
+
     return mcp
 
 

@@ -48,6 +48,20 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_ignores = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/ontology_server", "src/knowledge_graph"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "fastapi>=0.135.1",
+    "httpx>=0.28.1",
+    "pyshacl>=0.31.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "rdflib>=7.6.0",
+    "uvicorn>=0.41.0",
+]

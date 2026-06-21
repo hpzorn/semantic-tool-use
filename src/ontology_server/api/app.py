@@ -497,6 +497,12 @@ def create_app(
             except Exception as e:
                 return {"error": str(e)}
 
+        # -- Phase content view (registered BEFORE the dashboard mount so
+        # that GET /dashboard/phases/<phase_id> resolves to the single-phase
+        # T-Box detail view rather than the dashboard's idea-trail route).
+        from .routes.phases import router as phases_router
+        app.include_router(phases_router)
+
         # -- Dashboard sub-application ------------------------------------
         # Mount BEFORE the MCP catch-all so /dashboard/* routes resolve
         # before the Starlette "/" mount swallows them.
