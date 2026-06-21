@@ -17,6 +17,15 @@ from .ideas import IdeasStore, Idea
 logger = logging.getLogger(__name__)
 
 IDEAS = NAMESPACES["ideas"]
+
+
+def _sparql_escape_literal(value: str) -> str:
+    """Escape a string for safe embedding as a SPARQL plain-literal value."""
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
 IDEA = NAMESPACES["idea"]
 SKOS = NAMESPACES["skos"]
 
@@ -341,9 +350,9 @@ Write the merged content in markdown format."""
         """List ideas filtered by author and/or agent."""
         filters = []
         if author:
-            filters.append(f'FILTER(?author = "{author}")')
+            filters.append(f'FILTER(?author = "{_sparql_escape_literal(author)}")')
         if agent:
-            filters.append(f'FILTER(?agent = "{agent}")')
+            filters.append(f'FILTER(?agent = "{_sparql_escape_literal(agent)}")')
         if not include_seeds:
             filters.append(f"FILTER NOT EXISTS {{ ?idea a <{IDEA}Seed> }}")
 

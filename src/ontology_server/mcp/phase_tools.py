@@ -25,14 +25,17 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Namespace constants
+# Namespace constants  (imported from shared module — do NOT redefine here)
 # ---------------------------------------------------------------------------
 
-PHASE_NS = "http://tulla.dev/phase#"
-TRACE_NS = "http://tulla.dev/trace#"
+from ontology_server.phase_constants import (  # noqa: E402
+    PHASE_NS,
+    TRACE_NS,
+    PHASES_GRAPH,
+    _PRESERVES_PREFIX,
+)
+
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
-_PRESERVES_PREFIX = f"{PHASE_NS}preserves-"
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +85,20 @@ class OntologyClient(Protocol):
 # ---------------------------------------------------------------------------
 
 
+def _sparql_escape_literal(value: str) -> str:
+    """Escape *value* for safe embedding inside a SPARQL ``"..."`` literal.
+
+    Prevents injection through idea-ids or phase-ids that contain quote or
+    backslash characters.  All internal callers pass only validated
+    application-controlled strings; this guard handles edge-cases.
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
+
 def _try_coerce(value: str) -> Any:
     """Coerce a string value to int, float, bool, JSON, or keep as str."""
     try:
@@ -111,7 +128,7 @@ def _build_query(idea_id: str) -> str:
     return (
         f"SELECT ?s ?p ?o WHERE {{\n"
         f"  GRAPH <{PHASES_GRAPH}> {{\n"
-        f'    ?s <{PHASE_NS}forRequirement> "{idea_id}" .\n'
+        f'    ?s <{PHASE_NS}forRequirement> "{_sparql_escape_literal(idea_id)}" .\n'
         f"    ?s ?p ?o .\n"
         f"  }}\n"
         f"}}"

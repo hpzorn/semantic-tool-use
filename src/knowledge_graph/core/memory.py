@@ -25,6 +25,16 @@ from .store import KnowledgeGraphStore, NAMESPACES, GRAPH_MEMORY
 
 logger = logging.getLogger(__name__)
 
+
+def _sparql_escape_literal(value: str) -> str:
+    """Escape a string for safe embedding as a SPARQL plain-literal value."""
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
+
 # Namespace shortcuts
 RDF = NAMESPACES["rdf"]
 XSD = NAMESPACES["xsd"]
@@ -217,11 +227,11 @@ class AgentMemory:
         """
         filters = []
         if subject:
-            filters.append(f'FILTER(?subject = "{subject}")')
+            filters.append(f'FILTER(?subject = "{_sparql_escape_literal(subject)}")')
         if predicate:
-            filters.append(f'FILTER(?predicate = "{predicate}")')
+            filters.append(f'FILTER(?predicate = "{_sparql_escape_literal(predicate)}")')
         if context:
-            filters.append(f'FILTER(?context = "{context}")')
+            filters.append(f'FILTER(?context = "{_sparql_escape_literal(context)}")')
         if min_confidence is not None:
             filters.append(f'FILTER(?confidence >= {min_confidence})')
 
