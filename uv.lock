@@ -1744,6 +1744,9 @@ name = "semantic-tool-use"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
+    { name = "click" },
+    { name = "httpx" },
     { name = "mcp" },
     { name = "pydantic-settings" },
     { name = "pyoxigraph" },
@@ -1785,8 +1788,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'llm'", specifier = ">=0.25" },
+    { name = "anyio" },
+    { name = "click", specifier = ">=8.0" },
     { name = "fastapi", marker = "extra == 'http'", specifier = ">=0.110" },
-    { name = "mcp", specifier = ">=1.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "mcp", specifier = ">=1.0,<2.0" },
     { name = "numpy", marker = "extra == 'search'", specifier = ">=1.24" },
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "pyoxigraph", specifier = ">=0.3" },

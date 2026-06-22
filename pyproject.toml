@@ -15,7 +15,10 @@ dependencies = [
     "rdflib>=7.0",
     "pyoxigraph>=0.3",
     "pydantic-settings>=2.0",
-    "mcp>=1.0",
+    "mcp>=1.0,<2.0",
+    "click>=8.0",
+    "httpx>=0.28.1",
+    "anyio",
 ]
 
 [project.optional-dependencies]
@@ -48,8 +51,11 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_ignores = true
 
+[project.scripts]
+mcp-check = "mcp_check.mcp_check:cli"
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/ontology_server", "src/knowledge_graph"]
+packages = ["src/ontology_server", "src/knowledge_graph", "src/mcp_check"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
