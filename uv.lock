@@ -1774,6 +1774,7 @@ search = [
 dev = [
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "jinja2" },
     { name = "pyshacl" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1800,6 +1801,7 @@ provides-extras = ["search", "llm", "http", "all"]
 dev = [
     { name = "fastapi", specifier = ">=0.135.1" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "jinja2", specifier = ">=3.1" },
     { name = "pyshacl", specifier = ">=0.31.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },

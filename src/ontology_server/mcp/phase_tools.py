@@ -687,12 +687,16 @@ def next_phase(
 # ---------------------------------------------------------------------------
 
 
-def _allowed_intent_fields(phase_id: str) -> frozenset[str]:
-    """Return the allowed ``phase:preserves-*`` key set for *phase_id*."""
+def _allowed_intent_fields(phase_id: str) -> frozenset[str] | None:
+    """Return the allowed ``phase:preserves-*`` key set for *phase_id*.
+
+    Returns ``None`` when the tulla package is not installed, which signals
+    callers to allow all fields rather than silently dropping everything.
+    """
     try:
         from tulla.ontology.phase_predicate_names import get_predicates_for_phase
     except Exception:
-        return frozenset()
+        return None
     return get_predicates_for_phase(phase_id)
 
 
@@ -773,10 +777,11 @@ def record_phase_result(
     ontology.add_triple(subject, RDF_TYPE, f"{PHASE_NS}PhaseOutput")
 
     # (4) phase:preserves-<name> edges for known intent fields.
+    # allowed=None means tulla package absent → allow all fields.
     allowed = _allowed_intent_fields(phase_id)
     fields = result_json if isinstance(result_json, dict) else {}
     for key, value in fields.items():
-        if key not in allowed:
+        if allowed is not None and key not in allowed:
             continue
         if value is None:
             continue
