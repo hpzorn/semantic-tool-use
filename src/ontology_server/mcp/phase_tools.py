@@ -190,7 +190,7 @@ def collect_upstream_facts(
 
     if consuming_phase_id is not None:
         try:
-            from tulla.ontology.phase_predicate_names import PHASE_CONSUMED_FIELDS
+            from ontology_server.phase_predicate_names import PHASE_CONSUMED_FIELDS
             needed = PHASE_CONSUMED_FIELDS.get(consuming_phase_id)
         except ImportError:
             needed = None
@@ -712,7 +712,7 @@ def _allowed_intent_fields(phase_id: str) -> frozenset[str] | None:
     callers to allow all fields rather than silently dropping everything.
     """
     try:
-        from tulla.ontology.phase_predicate_names import get_predicates_for_phase
+        from ontology_server.phase_predicate_names import get_predicates_for_phase
     except Exception:
         return None
     return get_predicates_for_phase(phase_id)
