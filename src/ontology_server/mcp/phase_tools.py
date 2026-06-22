@@ -143,8 +143,13 @@ def _build_query(idea_id: str) -> str:
 def collect_upstream_facts(
     sparql: SparqlClient,
     idea_id: str | None,
+    consuming_phase_id: str | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Collect and group all phase facts for *idea_id* in one call."""
+    """Collect and group all phase facts for *idea_id* in one call.
+
+    Pass consuming_phase_id to filter results to only the fields the
+    consuming phase declared it needs (reduces context size).
+    """
     if not idea_id:
         return {}
 
@@ -182,6 +187,19 @@ def collect_upstream_facts(
 
         bucket = grouped.setdefault(phase_id, {})
         bucket[field_name] = typed_value
+
+    if consuming_phase_id is not None:
+        try:
+            from tulla.ontology.phase_predicate_names import PHASE_CONSUMED_FIELDS
+            needed = PHASE_CONSUMED_FIELDS.get(consuming_phase_id)
+        except ImportError:
+            needed = None
+        if needed is not None:
+            grouped = {
+                phase_id: {k: v for k, v in fields.items() if k in needed}
+                for phase_id, fields in grouped.items()
+                if any(k in needed for k in fields)
+            }
 
     return grouped
 
@@ -945,13 +963,22 @@ def register_phase_tools(
     ontology_client = KGOntologyClient(kg_store, validator)
 
     @mcp.tool()
-    def collect_upstream_facts_tool(idea_id: str) -> dict[str, Any]:
+    def collect_upstream_facts_tool(
+        idea_id: str,
+        consuming_phase_id: str | None = None,
+    ) -> dict[str, Any]:
         """Collect all phase facts for an idea grouped by phase.
+
+        Pass consuming_phase_id to filter results to only the fields the
+        consuming phase declared it needs (reduces context size).
 
         Args:
             idea_id: The requirement / idea identifier (e.g. "130").
+            consuming_phase_id: Optional phase id of the consuming phase;
+                when provided, output is filtered to only the fields that
+                phase declared it needs via PHASE_CONSUMED_FIELDS.
         """
-        return collect_upstream_facts(sparql_client, idea_id)
+        return collect_upstream_facts(sparql_client, idea_id, consuming_phase_id)
 
     @mcp.tool()
     def render_methodology_tool(phase_id: str) -> str:
