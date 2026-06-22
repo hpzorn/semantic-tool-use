@@ -19,6 +19,7 @@ from ...mcp.phase_tools import (
     KGOntologyClient,
     KGSparqlClient,
     OntologyClient,
+    PipelineDataError,
     SparqlClient,
     collect_upstream_facts,
     list_pipeline,
@@ -224,7 +225,10 @@ def _get_ontology(request: Request) -> KGOntologyClient:
 async def upstream_facts(request: Request, idea_id: str) -> JSONResponse:
     """Collect all phase facts for an idea."""
     sparql = _get_sparql(request)
-    body = handle_collect_upstream_facts(sparql, idea_id)
+    try:
+        body = handle_collect_upstream_facts(sparql, idea_id)
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(body)
 
 
@@ -232,7 +236,10 @@ async def upstream_facts(request: Request, idea_id: str) -> JSONResponse:
 async def render_methodology_endpoint(request: Request) -> JSONResponse:
     """Render the procedure markdown for a phase."""
     sparql = _get_sparql(request)
-    status, payload = handle_render_methodology(sparql, await request.json())
+    try:
+        status, payload = handle_render_methodology(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -240,7 +247,10 @@ async def render_methodology_endpoint(request: Request) -> JSONResponse:
 async def render_tools_endpoint(request: Request) -> JSONResponse:
     """Render the tool list markdown for a phase."""
     sparql = _get_sparql(request)
-    status, payload = handle_render_tools(sparql, await request.json())
+    try:
+        status, payload = handle_render_tools(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -248,7 +258,10 @@ async def render_tools_endpoint(request: Request) -> JSONResponse:
 async def render_gates_endpoint(request: Request) -> JSONResponse:
     """Render the SHACL gate list markdown for a phase."""
     sparql = _get_sparql(request)
-    status, payload = handle_render_gates(sparql, await request.json())
+    try:
+        status, payload = handle_render_gates(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -256,7 +269,10 @@ async def render_gates_endpoint(request: Request) -> JSONResponse:
 async def render_input_contract_endpoint(request: Request) -> JSONResponse:
     """Render the input contract table markdown for a phase."""
     sparql = _get_sparql(request)
-    status, payload = handle_render_input_contract(sparql, await request.json())
+    try:
+        status, payload = handle_render_input_contract(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -264,7 +280,10 @@ async def render_input_contract_endpoint(request: Request) -> JSONResponse:
 async def render_output_contract_endpoint(request: Request) -> JSONResponse:
     """Render the output contract markdown for a phase."""
     sparql = _get_sparql(request)
-    status, payload = handle_render_output_contract(sparql, await request.json())
+    try:
+        status, payload = handle_render_output_contract(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -272,7 +291,10 @@ async def render_output_contract_endpoint(request: Request) -> JSONResponse:
 async def render_phase_prompt_endpoint(request: Request) -> JSONResponse:
     """Render the composed phase prompt markdown."""
     sparql = _get_sparql(request)
-    status, payload = handle_render_phase_prompt(sparql, await request.json())
+    try:
+        status, payload = handle_render_phase_prompt(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -280,7 +302,10 @@ async def render_phase_prompt_endpoint(request: Request) -> JSONResponse:
 async def list_pipeline_endpoint(request: Request) -> JSONResponse:
     """List phases in an agent family in topological order."""
     sparql = _get_sparql(request)
-    status, payload = handle_list_pipeline(sparql, await request.json())
+    try:
+        status, payload = handle_list_pipeline(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -288,7 +313,10 @@ async def list_pipeline_endpoint(request: Request) -> JSONResponse:
 async def next_phase_endpoint(request: Request) -> JSONResponse:
     """Return the next phase_id or terminate for the current phase."""
     sparql = _get_sparql(request)
-    status, payload = handle_next_phase(sparql, await request.json())
+    try:
+        status, payload = handle_next_phase(sparql, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 
@@ -296,7 +324,10 @@ async def next_phase_endpoint(request: Request) -> JSONResponse:
 async def record_phase_result_endpoint(request: Request) -> JSONResponse:
     """Persist a phase result using the 8-step ADR-130-7 sequence."""
     ontology = _get_ontology(request)
-    status, payload = handle_record_phase_result(ontology, await request.json())
+    try:
+        status, payload = handle_record_phase_result(ontology, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
 
 

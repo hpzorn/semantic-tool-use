@@ -13,6 +13,7 @@ from ontology_server.api.routes.phases import handle_render_tools
 from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
+    PipelineDataError,
     _build_tools_query,
     render_tools,
 )
@@ -86,13 +87,10 @@ class TestRenderTools:
         assert "## MCP Tools" in result
         assert "- " not in result
 
-    def test_sparql_failure_returns_empty_sections(
-        self, caplog: pytest.LogCaptureFixture,
-    ) -> None:
+    def test_sparql_failure_raises_pipeline_error(self) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
-            result = render_tools(sparql, "r3")
-        assert "## Tools" in result and "## MCP Tools" in result
+        with pytest.raises(PipelineDataError, match="backend down"):
+            render_tools(sparql, "r3")
 
 
 class TestHandleRenderTools:

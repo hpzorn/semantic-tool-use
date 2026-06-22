@@ -12,6 +12,7 @@ import pytest
 from ontology_server.api.routes.phases import handle_render_input_contract
 from ontology_server.mcp.phase_tools import (
     PHASES_GRAPH,
+    PipelineDataError,
     _build_input_contract_query,
     render_input_contract,
 )
@@ -70,12 +71,10 @@ class TestRenderInputContract:
         sparql = _RecordingSparql({"results": []})
         assert render_input_contract(sparql, "x99") == ""
 
-    def test_sparql_failure_returns_empty(
-        self, caplog: pytest.LogCaptureFixture,
-    ) -> None:
+    def test_sparql_failure_raises_pipeline_error(self) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
-            assert render_input_contract(sparql, "r3") == ""
+        with pytest.raises(PipelineDataError, match="backend down"):
+            render_input_contract(sparql, "r3")
 
 
 class TestHandleRenderInputContract:

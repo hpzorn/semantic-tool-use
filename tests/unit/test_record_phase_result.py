@@ -21,6 +21,7 @@ from ontology_server.api.routes.phases import handle_record_phase_result
 from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
+    PipelineDataError,
     RDF_TYPE,
     TRACE_NS,
     record_phase_result,
@@ -238,6 +239,15 @@ class TestRecordPhaseResult:
         )
         assert f"GRAPH <{PHASES_GRAPH}>" in query
         assert f"<{PHASE_NS}shaclGate>" in query
+
+    def test_gate_lookup_sparql_failure_raises_pipeline_error(self) -> None:
+        """Gate lookup failure must raise PipelineDataError, not return ok=True."""
+        class _FailingSparqlOntology(_RecordingOntology):
+            def sparql_query(self, query: str):
+                raise ConnectionError("SPARQL endpoint unreachable")
+
+        with pytest.raises(PipelineDataError, match="SPARQL endpoint unreachable"):
+            record_phase_result(_FailingSparqlOntology(), "d1", "130", "", {})
 
 
 # ---------------------------------------------------------------------------

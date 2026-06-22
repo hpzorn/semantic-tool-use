@@ -16,6 +16,7 @@ from ontology_server.api.routes.phases import handle_render_methodology
 from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
+    PipelineDataError,
     _build_methodology_query,
     render_methodology,
 )
@@ -92,11 +93,10 @@ class TestRenderMethodology:
         with pytest.raises(ValueError):
             render_methodology(_RecordingSparql({"results": []}), "")
 
-    def test_sparql_failure_returns_empty(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_sparql_failure_raises_pipeline_error(self) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
-            result = render_methodology(sparql, "r3")
-        assert result == ""
+        with pytest.raises(PipelineDataError, match="backend down"):
+            render_methodology(sparql, "r3")
 
 
 # ---------------------------------------------------------------------------

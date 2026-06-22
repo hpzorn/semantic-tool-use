@@ -14,6 +14,7 @@ from ontology_server.api.routes.phases import handle_list_pipeline
 from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
+    PipelineDataError,
     _build_list_pipeline_query,
     list_pipeline,
 )
@@ -85,14 +86,10 @@ class TestListPipeline:
         sparql = _RecordingSparql({"results": []})
         assert list_pipeline(sparql, "nonexistent-family") == []
 
-    def test_sparql_failure_returns_empty_list_with_warning(
-        self, caplog: pytest.LogCaptureFixture,
-    ) -> None:
+    def test_sparql_failure_raises_pipeline_error(self) -> None:
         sparql = _RecordingSparql(RuntimeError("boom"))
-        with caplog.at_level("WARNING"):
-            result = list_pipeline(sparql, "research")
-        assert result == []
-        assert any("pipeline list failed" in r.message for r in caplog.records)
+        with pytest.raises(PipelineDataError, match="boom"):
+            list_pipeline(sparql, "research")
 
     def test_skips_empty_phase_id_bindings(self) -> None:
         sparql = _RecordingSparql({"results": [

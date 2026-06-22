@@ -13,6 +13,7 @@ from ontology_server.api.routes.phases import handle_render_gates
 from ontology_server.mcp.phase_tools import (
     PHASE_NS,
     PHASES_GRAPH,
+    PipelineDataError,
     _build_gates_query,
     render_gates,
 )
@@ -88,13 +89,10 @@ class TestRenderGates:
         result = render_gates(sparql, "x99")
         assert result == ""
 
-    def test_sparql_failure_returns_empty(
-        self, caplog: pytest.LogCaptureFixture,
-    ) -> None:
+    def test_sparql_failure_raises_pipeline_error(self) -> None:
         sparql = _RecordingSparql(RuntimeError("backend down"))
-        with caplog.at_level("WARNING", logger="ontology_server.mcp.phase_tools"):
-            result = render_gates(sparql, "r3")
-        assert result == ""
+        with pytest.raises(PipelineDataError, match="backend down"):
+            render_gates(sparql, "r3")
 
 
 class TestHandleRenderGates:

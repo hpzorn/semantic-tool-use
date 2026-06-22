@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class PipelineDataError(RuntimeError):
+    """Raised when ontology data required for phase dispatch cannot be loaded."""
+
+
 # ---------------------------------------------------------------------------
 # Namespace constants  (imported from shared module — do NOT redefine here)
 # ---------------------------------------------------------------------------
@@ -158,12 +162,7 @@ def collect_upstream_facts(
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for upstream facts failed (idea=%s): %s",
-            idea_id,
-            exc,
-        )
-        return {}
+        raise PipelineDataError(f"collect_upstream_facts: {exc}") from exc
 
     bindings = result.get("results", [])
     grouped: dict[str, dict[str, Any]] = {}
@@ -229,12 +228,7 @@ def render_methodology(sparql: SparqlClient, phase_id: str) -> str:
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for phase methodology failed (phase=%s): %s",
-            phase_id,
-            exc,
-        )
-        return ""
+        raise PipelineDataError(f"render_methodology: {exc}") from exc
 
     bindings = result.get("results", [])
     if not bindings:
@@ -298,12 +292,7 @@ def render_tools(sparql: SparqlClient, phase_id: str) -> str:
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for phase tools failed (phase=%s): %s",
-            phase_id,
-            exc,
-        )
-        return _format_tools_markdown([])
+        raise PipelineDataError(f"render_tools: {exc}") from exc
 
     bindings = result.get("results", []) if isinstance(result, dict) else []
     values = [str(b.get("val", "")) for b in bindings]
@@ -356,12 +345,7 @@ def render_gates(sparql: SparqlClient, phase_id: str) -> str:
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for phase gates failed (phase=%s): %s",
-            phase_id,
-            exc,
-        )
-        return ""
+        raise PipelineDataError(f"render_gates: {exc}") from exc
 
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str]] = []
@@ -425,12 +409,7 @@ def render_input_contract(sparql: SparqlClient, phase_id: str) -> str:
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for phase input contract failed (phase=%s): %s",
-            phase_id,
-            exc,
-        )
-        return ""
+        raise PipelineDataError(f"render_input_contract: {exc}") from exc
 
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str, str]] = []
@@ -520,12 +499,7 @@ def render_output_contract(sparql: SparqlClient, phase_id: str) -> str:
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for phase output contract failed (phase=%s): %s",
-            phase_id,
-            exc,
-        )
-        return ""
+        raise PipelineDataError(f"render_output_contract: {exc}") from exc
 
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str, str]] = []
@@ -612,12 +586,7 @@ def list_pipeline(sparql: SparqlClient, agent_family: str) -> list[str]:
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for pipeline list failed (agent_family=%s): %s",
-            agent_family,
-            exc,
-        )
-        return []
+        raise PipelineDataError(f"list_pipeline: {exc}") from exc
 
     bindings = result.get("results", []) if isinstance(result, dict) else []
     pipeline: list[str] = []
@@ -668,13 +637,7 @@ def next_phase(
     try:
         result = sparql.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL query for next phase failed (current=%s, family=%s): %s",
-            current_id,
-            agent_family,
-            exc,
-        )
-        return {"next_id": TERMINATE}
+        raise PipelineDataError(f"next_phase: {exc}") from exc
 
     bindings = result.get("results", []) if isinstance(result, dict) else []
     if not bindings:
@@ -734,10 +697,7 @@ def _lookup_shacl_gate(ontology: OntologyClient, phase_id: str) -> str | None:
     try:
         result = ontology.sparql_query(query)
     except Exception as exc:
-        logger.warning(
-            "SPARQL lookup of shaclGate failed (phase=%s): %s", phase_id, exc,
-        )
-        return None
+        raise PipelineDataError(f"_lookup_shacl_gate: {exc}") from exc
     bindings = result.get("results", []) if isinstance(result, dict) else []
     if not bindings:
         return None
