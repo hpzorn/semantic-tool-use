@@ -18,11 +18,12 @@ PID_FILE="$DATA_DIR/ontology-server.pid"
 LOG_FILE="$DATA_DIR/ontology-server.log"
 
 # Configuration (override via environment)
+# ONTOLOGY_PATH loads the tulla/coding ontologies (code, isaqb, prd, phase) instead of visual-artifacts (VOA)
 HOST="${ONTOLOGY_HOST:-localhost}"
 PORT="${ONTOLOGY_PORT:-8100}"
 PERSIST_PATH="${ONTOLOGY_PERSIST:-$DATA_DIR/kg}"
 IDEAS_DIR="${IDEAS_DIR:-}"
-ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/visual-artifacts}"
+ONTOLOGY_PATH="${ONTOLOGY_PATH:-$HOME/tulla-omnigent/tulla/ontologies}"
 SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/ontology/shapes}"
 
 stop_server() {
