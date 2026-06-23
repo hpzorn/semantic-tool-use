@@ -195,12 +195,21 @@ def collect_upstream_facts(
             needed = PHASE_CONSUMED_FIELDS.get(consuming_phase_id)
         except ImportError:
             needed = None
-        if needed is not None:
-            grouped = {
+        if needed:
+            filtered = {
                 phase_id: {k: v for k, v in fields.items() if k in needed}
                 for phase_id, fields in grouped.items()
                 if any(k in needed for k in fields)
             }
+            if filtered:
+                grouped = filtered
+            else:
+                logger.warning(
+                    "consuming_phase_id=%r consumed-field set matched no stored "
+                    "fields for idea %s; returning unfiltered facts",
+                    consuming_phase_id,
+                    idea_id,
+                )
 
     return grouped
 
