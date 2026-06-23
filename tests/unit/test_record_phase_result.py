@@ -484,3 +484,99 @@ class TestShortFormNormalization:
         result_bare = collect_upstream_facts(bare_client, "7")
         result_canonical = collect_upstream_facts(canonical_client, "idea-7")
         assert result_bare == result_canonical
+
+
+# ---------------------------------------------------------------------------
+# consuming_phase_id filter fallback (real-bug fix)
+# ---------------------------------------------------------------------------
+
+
+def _fake_sparql_with_d1_data(idea_id: str = "idea-10") -> _CapturingSparqlClient:
+    """Return a client whose results simulate one completed d1 phase for idea_id."""
+    return _CapturingSparqlClient(
+        results={
+            "results": [
+                {
+                    "s": f"{PHASE_NS}{idea_id}-d1",
+                    "p": f"{PHASE_NS}preserves-northstar",
+                    "o": "We build things",
+                },
+                {
+                    "s": f"{PHASE_NS}{idea_id}-d1",
+                    "p": f"{PHASE_NS}preserves-summary",
+                    "o": "A summary",
+                },
+            ]
+        }
+    )
+
+
+class TestConsumedFieldFallback:
+    """When consuming_phase_id is set but its consumed-field set matches no
+    stored fields, the function must return the full unfiltered result rather
+    than silently erasing real upstream data.
+    """
+
+    def test_no_intersection_returns_unfiltered(self) -> None:
+        """consuming_phase_id whose PHASE_CONSUMED_FIELDS has no overlap with
+        stored fields falls back to the full grouped result.
+        """
+        from unittest.mock import patch
+
+        # p2 needs fields that d1 never produces — simulate zero intersection.
+        fake_consumed = {"p2": frozenset(["architecture_decision", "component_list"])}
+        client = _fake_sparql_with_d1_data()
+        with patch(
+            "ontology_server.mcp.phase_tools.PHASE_CONSUMED_FIELDS",
+            fake_consumed,
+            create=True,
+        ):
+            # Patch at the import site inside the function.
+            import ontology_server.phase_predicate_names as _ppn
+            original = getattr(_ppn, "PHASE_CONSUMED_FIELDS", {})
+            _ppn.PHASE_CONSUMED_FIELDS = fake_consumed  # type: ignore[attr-defined]
+            try:
+                result = collect_upstream_facts(client, "idea-10", consuming_phase_id="p2")
+            finally:
+                _ppn.PHASE_CONSUMED_FIELDS = original  # type: ignore[attr-defined]
+        # Must not be empty — the full d1 data should come back.
+        assert result != {}
+        assert "d1" in result
+
+    def test_intersection_present_still_filters(self) -> None:
+        """When the consumed-field set DOES intersect stored fields, only
+        those matching fields are returned (existing filter behaviour preserved).
+        """
+        import ontology_server.phase_predicate_names as _ppn
+
+        original = getattr(_ppn, "PHASE_CONSUMED_FIELDS", {})
+        # p1 needs "northstar" — that IS present in the fake d1 data.
+        fake_consumed = {"p1": frozenset(["northstar"])}
+        _ppn.PHASE_CONSUMED_FIELDS = fake_consumed  # type: ignore[attr-defined]
+        try:
+            client = _fake_sparql_with_d1_data()
+            result = collect_upstream_facts(client, "idea-10", consuming_phase_id="p1")
+        finally:
+            _ppn.PHASE_CONSUMED_FIELDS = original  # type: ignore[attr-defined]
+        assert result != {}
+        assert "d1" in result
+        # Only the "northstar" field survives; "summary" is excluded.
+        assert "northstar" in result["d1"]
+        assert "summary" not in result["d1"]
+
+    def test_none_consumed_fields_returns_all(self) -> None:
+        """When consuming_phase_id has no entry in PHASE_CONSUMED_FIELDS
+        (returns None), the full unfiltered result is returned unchanged.
+        """
+        import ontology_server.phase_predicate_names as _ppn
+
+        original = getattr(_ppn, "PHASE_CONSUMED_FIELDS", {})
+        # "unknown-phase" has no entry → needs is None → no filter applied.
+        _ppn.PHASE_CONSUMED_FIELDS = {}  # type: ignore[attr-defined]
+        try:
+            client = _fake_sparql_with_d1_data()
+            result = collect_upstream_facts(client, "idea-10", consuming_phase_id="unknown-phase")
+        finally:
+            _ppn.PHASE_CONSUMED_FIELDS = original  # type: ignore[attr-defined]
+        assert "d1" in result
+        assert set(result["d1"].keys()) == {"northstar", "summary"}
