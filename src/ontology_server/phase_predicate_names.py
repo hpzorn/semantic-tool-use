@@ -9,6 +9,7 @@ PHASE_PREDICATE_NAMES: dict[str, frozenset[str]] = {
     # Discovery track
     "d1": frozenset({
         "key_capabilities", "ecosystem_context", "reuse_opportunities",
+        "idea_verbatim_features",
         "summary", "lifecycle", "blocked_by", "blocks",
         "related_ideas", "existing_systems", "current_gaps",
         "prior_work_refs",
@@ -18,7 +19,7 @@ PHASE_PREDICATE_NAMES: dict[str, frozenset[str]] = {
         "persona_count", "primary_persona", "conflicting_needs",
     }),
     "d3": frozenset({
-        "quadrant", "strategic_constraints", "verdict",
+        "quadrant", "strategic_constraints", "verdict", "complexity_tier",
         "user_value_score", "business_value_score", "technical_value_score",
         "total_value_score", "max_score", "effort", "impact",
         "roi_verdict", "priority_recommendation", "confidence",
@@ -123,12 +124,12 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
     "d4": frozenset({
         "key_capabilities", "ecosystem_context", "existing_systems",
         "personas", "primary_persona", "non_negotiable_needs",
-        "quadrant", "verdict", "effort", "impact",
+        "quadrant", "verdict", "effort", "impact", "complexity_tier",
     }),
     "d5": frozenset({
         "quadrant", "verdict", "effort", "impact",
         "blockers", "root_blocker", "recommendation",
-        "personas",
+        "personas", "idea_verbatim_features",
     }),
     # R-track
     "r1": frozenset({
@@ -168,6 +169,8 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         "risks", "proceed", "confidence",
         # from D4
         "blockers", "root_blocker",
+        # from D1 — verbatim feature list as a secondary anti-drift check
+        "idea_verbatim_features",
     }),
     "p2": frozenset({
         # from P1
@@ -183,6 +186,8 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         "relevant_modules", "architecture_patterns",
         "integration_points", "tech_debt_hotspots",
         "codebase_summary",
+        # from D3 — scales architectural ceremony to idea complexity
+        "complexity_tier",
     }),
     "p4": frozenset({
         # from P1
