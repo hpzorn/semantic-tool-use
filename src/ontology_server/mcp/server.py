@@ -937,6 +937,42 @@ def _register_knowledge_graph_tools(
         return {"status": "stored", "fact_id": fact_id}
 
     @mcp.tool()
+    def store_facts_bulk(
+        facts: list[dict],
+        context: str | None = None,
+    ) -> dict[str, Any]:
+        """Store multiple facts in agent memory in a single call.
+
+        Each fact is a dict with keys:
+            subject    (str, required)
+            predicate  (str, required)
+            object     (str, required)
+            context    (str, optional — overrides the top-level context param)
+            confidence (float, optional, default 1.0)
+
+        The top-level `context` param is used for every fact that does not
+        supply its own context field.
+
+        Returns: { "stored": N, "errors": [...] }
+        """
+        stored = 0
+        errors: list[dict[str, Any]] = []
+        for i, f in enumerate(facts):
+            try:
+                fact = MemoryFact(
+                    subject=f["subject"],
+                    predicate=f["predicate"],
+                    object=f["object"],
+                    context=f.get("context") or context,
+                    confidence=float(f.get("confidence", 1.0)),
+                )
+                agent_memory.store_fact(fact)
+                stored += 1
+            except Exception as exc:
+                errors.append({"index": i, "fact": f, "error": str(exc)})
+        return {"stored": stored, "errors": errors}
+
+    @mcp.tool()
     def recall_facts(
         subject: str | None = None,
         predicate: str | None = None,
