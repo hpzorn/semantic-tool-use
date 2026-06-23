@@ -282,6 +282,82 @@ class TestAgentMemory:
         assert count == 2
         assert memory.count_facts() == 1
 
+    def test_store_facts_bulk_basic(self, memory):
+        """store_facts_bulk logic stores all facts and returns correct count."""
+        raw_facts = [
+            {"subject": "prd:req-9-1-1", "predicate": "rdf:type", "object": "prd:Requirement"},
+            {"subject": "prd:req-9-1-1", "predicate": "prd:title", "object": "Init DB schema"},
+            {"subject": "prd:req-9-1-1", "predicate": "prd:status", "object": "prd:Pending"},
+        ]
+        top_context = "prd-idea-9"
+        stored = 0
+        errors = []
+        for f in raw_facts:
+            try:
+                fact = MemoryFact(
+                    subject=f["subject"],
+                    predicate=f["predicate"],
+                    object=f["object"],
+                    context=f.get("context") or top_context,
+                    confidence=float(f.get("confidence", 1.0)),
+                )
+                memory.store_fact(fact)
+                stored += 1
+            except Exception as exc:
+                errors.append(str(exc))
+
+        assert stored == 3
+        assert errors == []
+        recalled = memory.recall(subject="prd:req-9-1-1", context="prd-idea-9")
+        assert len(recalled) == 3
+
+    def test_store_facts_bulk_per_fact_context_override(self, memory):
+        """Per-fact context overrides the top-level context."""
+        raw_facts = [
+            {"subject": "s1", "predicate": "p", "object": "o1"},
+            {"subject": "s2", "predicate": "p", "object": "o2", "context": "local-ctx"},
+        ]
+        top_context = "global-ctx"
+        for f in raw_facts:
+            fact = MemoryFact(
+                subject=f["subject"],
+                predicate=f["predicate"],
+                object=f["object"],
+                context=f.get("context") or top_context,
+                confidence=float(f.get("confidence", 1.0)),
+            )
+            memory.store_fact(fact)
+
+        assert len(memory.recall(context="global-ctx")) == 1
+        assert len(memory.recall(context="local-ctx")) == 1
+
+    def test_store_facts_bulk_error_collection(self, memory):
+        """Malformed facts are collected as errors; valid facts still stored."""
+        raw_facts = [
+            {"subject": "s1", "predicate": "p", "object": "o1"},
+            {"subject": "s2"},  # missing predicate and object — will raise KeyError
+            {"subject": "s3", "predicate": "p", "object": "o3"},
+        ]
+        stored = 0
+        errors = []
+        for i, f in enumerate(raw_facts):
+            try:
+                fact = MemoryFact(
+                    subject=f["subject"],
+                    predicate=f["predicate"],
+                    object=f["object"],
+                    context=None,
+                    confidence=float(f.get("confidence", 1.0)),
+                )
+                memory.store_fact(fact)
+                stored += 1
+            except Exception as exc:
+                errors.append({"index": i, "error": str(exc)})
+
+        assert stored == 2
+        assert len(errors) == 1
+        assert errors[0]["index"] == 1
+
     def test_memory_performance(self, memory):
         """SUCCESS CRITERIA: Operations <50ms."""
         # Store 100 facts
