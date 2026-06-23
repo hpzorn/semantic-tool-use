@@ -156,6 +156,8 @@ def collect_upstream_facts(
     """
     if not idea_id:
         return {}
+    if not idea_id.startswith("idea-"):
+        idea_id = f"idea-{idea_id}"
 
     query = _build_query(idea_id)
 
@@ -727,6 +729,8 @@ def record_phase_result(
         raise ValueError("phase_id is required")
     if not idea_id:
         raise ValueError("idea_id is required")
+    if not idea_id.startswith("idea-"):
+        idea_id = f"idea-{idea_id}"
 
     logger.info(
         "record_phase_result phase=%s idea=%s artifact=%s",
