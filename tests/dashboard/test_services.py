@@ -151,18 +151,18 @@ class TestGetPhaseFacts:
         """Sample SPO triples are grouped into {phase: {field: value}}."""
         kg = MagicMock()
         kg.query.return_value = _spo_bindings([
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}preserves-tools_found", "16"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}preserves-mcp_servers_found", "3"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}forRequirement", "idea50"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}producedBy", "d1"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}preserves-quadrant", "Major Project"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}preserves-total_value_score", "42"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}forRequirement", "idea50"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}producedBy", "d3"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}preserves-tools_found", "16"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}preserves-mcp_servers_found", "3"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}forRequirement", "idea-50"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}producedBy", "d1"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}preserves-quadrant", "Major Project"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}preserves-total_value_score", "42"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}forRequirement", "idea-50"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}producedBy", "d3"),
         ])
         svc = _make_service(kg)
 
-        result = svc.get_phase_facts("idea50")
+        result = svc.get_phase_facts("idea-50")
 
         assert result == {
             "d1": {"tools_found": 16, "mcp_servers_found": 3},
@@ -173,12 +173,12 @@ class TestGetPhaseFacts:
         """Numeric string values are coerced to ints by _try_coerce."""
         kg = MagicMock()
         kg.query.return_value = _spo_bindings([
-            (f"{PHASE_NS}idea7-d2", f"{PHASE_NS}preserves-persona_count", "5"),
-            (f"{PHASE_NS}idea7-d2", f"{PHASE_NS}forRequirement", "idea7"),
+            (f"{PHASE_NS}idea-7-d2", f"{PHASE_NS}preserves-persona_count", "5"),
+            (f"{PHASE_NS}idea-7-d2", f"{PHASE_NS}forRequirement", "idea-7"),
         ])
         svc = _make_service(kg)
 
-        result = svc.get_phase_facts("idea7")
+        result = svc.get_phase_facts("idea-7")
 
         assert result["d2"]["persona_count"] == 5
         assert isinstance(result["d2"]["persona_count"], int)
@@ -214,18 +214,30 @@ class TestGetPhaseFacts:
         sparql_arg = kg.query.call_args[0][0]
         assert "idea-42" in sparql_arg
 
+    def test_short_idea_id_normalized_to_long_form(self) -> None:
+        """get_phase_facts("12") normalizes idea_id to "idea-12" before querying."""
+        kg = MagicMock()
+        kg.query.return_value = _spo_bindings([])
+        svc = _make_service(kg)
+
+        svc.get_phase_facts("12")
+
+        sparql_arg = kg.query.call_args[0][0]
+        assert "idea-12" in sparql_arg
+        assert '"12"' not in sparql_arg
+
     def test_metadata_predicates_are_skipped(self) -> None:
         """Non-preserves predicates (forRequirement, producedBy, rdf:type) are excluded."""
         kg = MagicMock()
         kg.query.return_value = _spo_bindings([
-            (f"{PHASE_NS}idea50-d4", f"{PHASE_NS}preserves-gaps_found", "3"),
-            (f"{PHASE_NS}idea50-d4", f"{PHASE_NS}forRequirement", "idea50"),
-            (f"{PHASE_NS}idea50-d4", f"{PHASE_NS}producedBy", "d4"),
-            (f"{PHASE_NS}idea50-d4", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", f"{PHASE_NS}PhaseOutput"),
+            (f"{PHASE_NS}idea-50-d4", f"{PHASE_NS}preserves-gaps_found", "3"),
+            (f"{PHASE_NS}idea-50-d4", f"{PHASE_NS}forRequirement", "idea-50"),
+            (f"{PHASE_NS}idea-50-d4", f"{PHASE_NS}producedBy", "d4"),
+            (f"{PHASE_NS}idea-50-d4", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", f"{PHASE_NS}PhaseOutput"),
         ])
         svc = _make_service(kg)
 
-        result = svc.get_phase_facts("idea50")
+        result = svc.get_phase_facts("idea-50")
 
         assert result == {"d4": {"gaps_found": 3}}
 
@@ -249,7 +261,7 @@ class TestGetPhaseDetail:
             _po_bindings([
                 (f"{PHASE_NS}preserves-tools_found", "16"),
                 (f"{PHASE_NS}preserves-mcp_servers_found", "3"),
-                (f"{PHASE_NS}forRequirement", "idea50"),
+                (f"{PHASE_NS}forRequirement", "idea-50"),
                 (f"{PHASE_NS}producedBy", "d1"),
                 ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type", f"{PHASE_NS}PhaseOutput"),
             ]),
@@ -260,11 +272,11 @@ class TestGetPhaseDetail:
         ]
         svc = _make_service(kg)
 
-        result = svc.get_phase_detail("idea50", "d1")
+        result = svc.get_phase_detail("idea-50", "d1")
 
         assert result is not None
         assert result["phase_id"] == "d1"
-        assert result["idea_id"] == "idea50"
+        assert result["idea_id"] == "idea-50"
         assert result["intent_fields"] == {
             "tools_found": "16",
             "mcp_servers_found": "3",
@@ -284,8 +296,8 @@ class TestGetPhaseDetail:
             ]),
             # traverse_chain ancestor query — d2 and d1 are ancestors
             SimpleNamespace(bindings=[
-                {"ancestor": f"{PHASE_NS}idea50-d2"},
-                {"ancestor": f"{PHASE_NS}idea50-d1"},
+                {"ancestor": f"{PHASE_NS}idea-50-d2"},
+                {"ancestor": f"{PHASE_NS}idea-50-d1"},
             ]),
             # traverse_chain facts for starting subject (d3)
             SimpleNamespace(bindings=[]),
@@ -296,12 +308,12 @@ class TestGetPhaseDetail:
         ]
         svc = _make_service(kg)
 
-        result = svc.get_phase_detail("idea50", "d3")
+        result = svc.get_phase_detail("idea-50", "d3")
 
         assert result is not None
         assert result["trace_ancestors"] == [
-            f"{PHASE_NS}idea50-d2",
-            f"{PHASE_NS}idea50-d1",
+            f"{PHASE_NS}idea-50-d2",
+            f"{PHASE_NS}idea-50-d1",
         ]
 
     def test_returns_none_when_no_triples(self) -> None:
@@ -337,7 +349,7 @@ class TestGetPhaseDetail:
         ]
         svc = _make_service(kg)
 
-        result = svc.get_phase_detail("idea50", "d4")
+        result = svc.get_phase_detail("idea-50", "d4")
 
         assert result is not None
         assert result["trace_ancestors"] == []
@@ -349,7 +361,7 @@ class TestGetPhaseDetail:
         kg.query.side_effect = [
             _po_bindings([
                 (f"{PHASE_NS}preserves-persona_count", "5"),
-                (f"{PHASE_NS}forRequirement", "idea7"),
+                (f"{PHASE_NS}forRequirement", "idea-7"),
                 (f"{PHASE_NS}producedBy", "d2"),
             ]),
             SimpleNamespace(bindings=[]),
@@ -357,7 +369,7 @@ class TestGetPhaseDetail:
         ]
         svc = _make_service(kg)
 
-        result = svc.get_phase_detail("idea7", "d2")
+        result = svc.get_phase_detail("idea-7", "d2")
 
         assert result is not None
         assert list(result["intent_fields"].keys()) == ["persona_count"]
@@ -382,10 +394,10 @@ class TestResolveUri:
         kg.query.return_value = _type_bindings([f"{PHASE_NS}PhaseOutput"])
         svc = _make_service(kg)
 
-        route, params = svc.resolve_uri(f"{PHASE_NS}idea50-d1")
+        route, params = svc.resolve_uri(f"{PHASE_NS}idea-50-d1")
 
         assert route == "phase_detail"
-        assert params == {"idea_id": "idea50", "phase_id": "d1"}
+        assert params == {"idea_id": "idea-50", "phase_id": "d1"}
 
     def test_skos_concept_dispatch(self) -> None:
         """A URI with rdf:type skos:Concept maps to idea_detail with extracted id."""
@@ -486,15 +498,15 @@ class TestGetIterationFacts:
         """All five intent fields are extracted from iteration triples."""
         kg = MagicMock()
         kg.query.return_value = _iteration_bindings([
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-requirement_id", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-quality_focus", "isaqb:FunctionalCorrectness"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-passed", "true"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-feedback", "All tests pass"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-commit_hash", "abc1234"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-requirement_id", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-quality_focus", "isaqb:FunctionalCorrectness"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-passed", "true"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-feedback", "All tests pass"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-commit_hash", "abc1234"),
         ])
         svc = _make_service(kg)
 
-        result = svc.get_iteration_facts("idea50")
+        result = svc.get_iteration_facts("idea-50")
 
         assert len(result) == 1
         assert result[0] == {
@@ -509,14 +521,14 @@ class TestGetIterationFacts:
         """Multiple iterations are returned ordered by subject URI."""
         kg = MagicMock()
         kg.query.return_value = _iteration_bindings([
-            (f"{PHASE_NS}idea50-impl-2", f"{PHASE_NS}preserves-requirement_id", "req-50-1-2"),
-            (f"{PHASE_NS}idea50-impl-2", f"{PHASE_NS}preserves-passed", "false"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-requirement_id", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-passed", "true"),
+            (f"{PHASE_NS}idea-50-impl-2", f"{PHASE_NS}preserves-requirement_id", "req-50-1-2"),
+            (f"{PHASE_NS}idea-50-impl-2", f"{PHASE_NS}preserves-passed", "false"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-requirement_id", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-passed", "true"),
         ])
         svc = _make_service(kg)
 
-        result = svc.get_iteration_facts("idea50")
+        result = svc.get_iteration_facts("idea-50")
 
         assert len(result) == 2
         # impl-1 comes before impl-2 alphabetically
@@ -529,15 +541,15 @@ class TestGetIterationFacts:
         """Non-intent predicates (forRequirement, producedBy, etc.) are excluded."""
         kg = MagicMock()
         kg.query.return_value = _iteration_bindings([
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-requirement_id", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-passed", "true"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}forRequirement", "idea50"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}producedBy", "impl-1"),
-            (f"{PHASE_NS}idea50-impl-1", f"{PHASE_NS}preserves-unknown_field", "ignored"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-requirement_id", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-passed", "true"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}forRequirement", "idea-50"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}producedBy", "impl-1"),
+            (f"{PHASE_NS}idea-50-impl-1", f"{PHASE_NS}preserves-unknown_field", "ignored"),
         ])
         svc = _make_service(kg)
 
-        result = svc.get_iteration_facts("idea50")
+        result = svc.get_iteration_facts("idea-50")
 
         assert len(result) == 1
         assert set(result[0].keys()) == {"requirement_id", "passed"}
@@ -598,20 +610,20 @@ class TestGetRequirementPhaseHistory:
         # Three phase outputs linked to requirement "req-50-1-1"
         kg.query.return_value = _spo_bindings([
             # d1 output
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}producedBy", "d1"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}forRequirement", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}preserves-tools_found", "16"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}preserves-mcp_servers_found", "3"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}producedBy", "d1"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}forRequirement", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}preserves-tools_found", "16"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}preserves-mcp_servers_found", "3"),
             # d2 output
-            (f"{PHASE_NS}idea50-d2", f"{PHASE_NS}producedBy", "d2"),
-            (f"{PHASE_NS}idea50-d2", f"{PHASE_NS}forRequirement", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-d2", f"{PHASE_NS}preserves-persona_count", "5"),
-            (f"{PHASE_NS}idea50-d2", f"{PHASE_NS}preserves-timestamp", "2026-02-04T09:00:00"),
+            (f"{PHASE_NS}idea-50-d2", f"{PHASE_NS}producedBy", "d2"),
+            (f"{PHASE_NS}idea-50-d2", f"{PHASE_NS}forRequirement", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-d2", f"{PHASE_NS}preserves-persona_count", "5"),
+            (f"{PHASE_NS}idea-50-d2", f"{PHASE_NS}preserves-timestamp", "2026-02-04T09:00:00"),
             # d3 output
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}producedBy", "d3"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}forRequirement", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}preserves-quadrant", "Major Project"),
-            (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}preserves-total_value_score", "42"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}producedBy", "d3"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}forRequirement", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}preserves-quadrant", "Major Project"),
+            (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}preserves-total_value_score", "42"),
         ])
         svc = _make_service(kg)
 
@@ -649,10 +661,10 @@ class TestGetRequirementPhaseHistory:
         kg.query.side_effect = [
             # First query: forRequirement match — only d3
             _spo_bindings([
-                (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}producedBy", "d3"),
-                (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}forRequirement", "req-50-1-1"),
-                (f"{PHASE_NS}idea50-d3", f"{PHASE_NS}preserves-quadrant", "Major"),
-                (f"{PHASE_NS}idea50-d3", trace_pred, f"{PHASE_NS}idea50-d2"),
+                (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}producedBy", "d3"),
+                (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}forRequirement", "req-50-1-1"),
+                (f"{PHASE_NS}idea-50-d3", f"{PHASE_NS}preserves-quadrant", "Major"),
+                (f"{PHASE_NS}idea-50-d3", trace_pred, f"{PHASE_NS}idea-50-d2"),
             ]),
             # Second query: ancestor d2's triples
             _po_bindings([
@@ -706,10 +718,10 @@ class TestGetRequirementPhaseHistory:
         """Non-preserves predicates are excluded from intent_fields."""
         kg = MagicMock()
         kg.query.return_value = _spo_bindings([
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}producedBy", "d1"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}forRequirement", "req-50-1-1"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}preserves-tools_found", "16"),
-            (f"{PHASE_NS}idea50-d1", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", f"{PHASE_NS}PhaseOutput"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}producedBy", "d1"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}forRequirement", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}preserves-tools_found", "16"),
+            (f"{PHASE_NS}idea-50-d1", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", f"{PHASE_NS}PhaseOutput"),
         ])
         svc = _make_service(kg)
 
@@ -723,8 +735,8 @@ class TestGetRequirementPhaseHistory:
         """Every item in the result contains phase_id, produced_by, intent_fields, timestamp."""
         kg = MagicMock()
         kg.query.return_value = _spo_bindings([
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}producedBy", "d1"),
-            (f"{PHASE_NS}idea50-d1", f"{PHASE_NS}forRequirement", "req-50-1-1"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}producedBy", "d1"),
+            (f"{PHASE_NS}idea-50-d1", f"{PHASE_NS}forRequirement", "req-50-1-1"),
         ])
         svc = _make_service(kg)
 

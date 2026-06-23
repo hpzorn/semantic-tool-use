@@ -342,7 +342,7 @@ def _short(uri: str) -> str:
     return uri
 
 
-@router.get("/dashboard/phases/{phase_id}", response_class=HTMLResponse)
+@router.get("/phase-def/{phase_id}", response_class=HTMLResponse)
 async def phase_content_view(request: Request, phase_id: str) -> HTMLResponse:
     """Render the RDF state of a single phase as read-only HTML."""
     store = request.app.state.store

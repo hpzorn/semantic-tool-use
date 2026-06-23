@@ -55,6 +55,18 @@ def _make_client(kg_query_side_effects: list) -> TestClient:
     return TestClient(app, follow_redirects=False)
 
 
+class TestPhaseTrailShortId:
+    """Regression tests for GET /phases/{idea_id} with short (unnormalized) IDs."""
+
+    def test_short_idea_id_returns_200(self) -> None:
+        """GET /phases/12 must return 200 — short IDs are normalized to idea-12."""
+        client = _make_client([SimpleNamespace(bindings=[])])
+
+        response = client.get("/phases/12")
+
+        assert response.status_code == 200
+
+
 class TestResolveRouteRedirect:
     """Request /resolve/ with a known URI -> assert 302 redirect."""
 
