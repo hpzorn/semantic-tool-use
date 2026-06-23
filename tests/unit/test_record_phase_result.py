@@ -24,6 +24,7 @@ from ontology_server.mcp.phase_tools import (
     PipelineDataError,
     RDF_TYPE,
     TRACE_NS,
+    collect_upstream_facts,
     record_phase_result,
 )
 from tulla.ontology.phase_predicate_names import PHASE_PREDICATE_NAMES
@@ -113,7 +114,7 @@ class TestRecordPhaseResult:
         )
         assert out == {"ok": True, "violations": []}
 
-        subject = f"{PHASE_NS}130-d1"
+        subject = f"{PHASE_NS}idea-130-d1"
         preds = [t["predicate"] for t in ontology.triples]
         assert RDF_TYPE in preds
         assert f"{PHASE_NS}producedBy" in preds
@@ -143,7 +144,7 @@ class TestRecordPhaseResult:
         edges = [
             (t["predicate"], t["object"]) for t in ontology.triples
         ]
-        assert (f"{TRACE_NS}tracesTo", f"{PHASE_NS}130-r1") in edges
+        assert (f"{TRACE_NS}tracesTo", f"{PHASE_NS}idea-130-r1") in edges
 
     def test_predecessor_absent_does_not_add_traces_to(self) -> None:
         ontology = _RecordingOntology()
@@ -229,7 +230,7 @@ class TestRecordPhaseResult:
         ontology = _RecordingOntology()
         record_phase_result(ontology, "r5-retry", "130", "", {})
         for t in ontology.triples:
-            assert t["subject"] == f"{PHASE_NS}130-r5-retry"
+            assert t["subject"] == f"{PHASE_NS}idea-130-r5-retry"
 
     def test_shacl_gate_lookup_targets_phases_graph(self) -> None:
         ontology = _RecordingOntology(gate_shape=None)
@@ -317,7 +318,7 @@ class TestHandleRecordPhaseResult:
             },
         )
         edges = [(t["predicate"], t["object"]) for t in ontology.triples]
-        assert (f"{TRACE_NS}tracesTo", f"{PHASE_NS}130-r1") in edges
+        assert (f"{TRACE_NS}tracesTo", f"{PHASE_NS}idea-130-r1") in edges
 
 
 # ---------------------------------------------------------------------------
@@ -394,3 +395,92 @@ class TestOntologyPortRecordPhaseResult:
         port = _StubPort(_RecordingOntology())
         with pytest.raises(ValueError):
             port.record_phase_result("d1", "", "", {})
+
+
+# ---------------------------------------------------------------------------
+# Short-form idea_id normalization
+# ---------------------------------------------------------------------------
+
+
+class _CapturingSparqlClient:
+    """Minimal SparqlClient that records queries and returns canned results."""
+
+    def __init__(self, *, results: dict | None = None) -> None:
+        self.queries: list[str] = []
+        self._results = results if results is not None else {"results": []}
+
+    def sparql_query(self, query: str) -> dict:
+        self.queries.append(query)
+        return self._results
+
+
+class TestShortFormNormalization:
+    """Both collect_upstream_facts and record_phase_result must accept bare
+    numeric idea_ids (e.g. "10") and treat them identically to the canonical
+    prefixed form ("idea-10").
+    """
+
+    # --- record_phase_result ---
+
+    def test_record_bare_numeric_normalizes_subject(self) -> None:
+        ontology = _RecordingOntology()
+        record_phase_result(ontology, "d1", "10", "", {})
+        for t in ontology.triples:
+            assert t["subject"] == f"{PHASE_NS}idea-10-d1"
+
+    def test_record_canonical_form_unchanged(self) -> None:
+        ontology = _RecordingOntology()
+        record_phase_result(ontology, "d1", "idea-10", "", {})
+        for t in ontology.triples:
+            assert t["subject"] == f"{PHASE_NS}idea-10-d1"
+
+    def test_record_bare_and_canonical_produce_same_subject(self) -> None:
+        bare = _RecordingOntology()
+        canonical = _RecordingOntology()
+        record_phase_result(bare, "r1", "42", "", {})
+        record_phase_result(canonical, "r1", "idea-42", "", {})
+        assert [t["subject"] for t in bare.triples] == [
+            t["subject"] for t in canonical.triples
+        ]
+
+    def test_record_predecessor_uses_normalized_id(self) -> None:
+        ontology = _RecordingOntology()
+        record_phase_result(ontology, "r2", "5", "", {}, predecessor_phase_id="r1")
+        edges = [(t["predicate"], t["object"]) for t in ontology.triples]
+        assert (f"{TRACE_NS}tracesTo", f"{PHASE_NS}idea-5-r1") in edges
+
+    # --- collect_upstream_facts ---
+
+    def test_collect_bare_numeric_queries_with_prefixed_id(self) -> None:
+        client = _CapturingSparqlClient()
+        collect_upstream_facts(client, "10")
+        assert client.queries, "expected at least one SPARQL query"
+        assert '"idea-10"' in client.queries[0]
+        assert '"10"' not in client.queries[0]
+
+    def test_collect_canonical_form_queries_unchanged(self) -> None:
+        client = _CapturingSparqlClient()
+        collect_upstream_facts(client, "idea-10")
+        assert '"idea-10"' in client.queries[0]
+
+    def test_collect_bare_and_canonical_return_same_result(self) -> None:
+        phase_ns = PHASE_NS
+        fake_results = {
+            "results": [
+                {
+                    "s": f"{phase_ns}idea-7-d1",
+                    "p": f"{phase_ns}preserves-summary",
+                    "o": "hello",
+                },
+                {
+                    "s": f"{phase_ns}idea-7-d1",
+                    "p": f"{phase_ns}forRequirement",
+                    "o": "idea-7",
+                },
+            ]
+        }
+        bare_client = _CapturingSparqlClient(results=fake_results)
+        canonical_client = _CapturingSparqlClient(results=fake_results)
+        result_bare = collect_upstream_facts(bare_client, "7")
+        result_canonical = collect_upstream_facts(canonical_client, "idea-7")
+        assert result_bare == result_canonical
