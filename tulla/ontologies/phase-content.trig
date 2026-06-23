@@ -74,23 +74,25 @@ phase:Phase a rdfs:Class ;
 # -----------------------------------------------------------------------------
 
 phase:d1 a phase:Phase ;
-    rdfs:label "D1 – Tool & MCP Inventory" ;
+    rdfs:label "D1 – Context & Ecosystem Inventory" ;
     phase:phaseId "d1" ;
     phase:agentFamily "design" ;
     # No upstreamPhase: D1 is the entry point of the design pipeline.
-    phase:procedure """Audit what currently exists related to this idea — in the codebase, idea pool, and ecosystem.
+    phase:procedure """Audit what currently exists related to this idea — prior art, comparable solutions, related ideas, and (for ideas targeting an existing codebase) reusable components.
 
 1. Read the idea via mcp__ontology-server__get_idea using the idea identifier.
-2. Search for related work: use mcp__ontology-server__query_ideas to find connected ideas; use Glob and Grep to find related code/files in the repo.
-3. Catalog existing components: tools/systems that touch this domain, related ideas in the pool, prior work completed.
-4. Write findings to d1-inventory.md with these sections:
+2. Search for related work: use mcp__ontology-server__query_ideas to find connected ideas; if the idea targets an existing codebase, use Glob and Grep to find related code/files in it.
+3. Catalog what already exists: solutions/systems that address this domain, reusable components (for an existing codebase), related ideas in the pool, prior work completed.
+4. Capture the idea's features VERBATIM in the idea's own words — do NOT paraphrase, merge, or summarise. This list anchors the feature contract D5 must preserve.
+5. Write findings to d1-inventory.md with these sections:
    - The Idea (short summary)
+   - Verbatim Features (one bullet per feature/capability, in the idea's own words)
    - Related Ideas in Pool (table: ID | Title | Relationship)
-   - Existing Systems & Tools (table: Component | Location | Relevance)
+   - Existing Systems & Components (table: Component | Location | Relevance)
    - Prior Work
    - Current Gaps
    - Ecosystem Context
-5. Persist results via mcp__ontology-server__record_phase_result_tool.
+6. Persist results via mcp__ontology-server__record_phase_result_tool.
 
 Be thorough — good discovery starts with knowing what exists.""" ;
     phase:requiresTool "Read" ;
@@ -104,6 +106,7 @@ Be thorough — good discovery starts with knowing what exists.""" ;
     phase:emitsIntentField "key_capabilities" ;
     phase:emitsIntentField "ecosystem_context" ;
     phase:emitsIntentField "reuse_opportunities" ;
+    phase:emitsIntentField "idea_verbatim_features" ;
     phase:inputContract [
         phase:requiresField "idea_id" ;
         phase:fieldType "xsd:string" ;
@@ -170,9 +173,12 @@ Context: read the idea (get_idea), d1-inventory.md, and d2-personas.md.
    - Major Project (high effort, high impact)
    - Fill-in (low effort, low impact)
    - Thankless Task (high effort, low impact)
-4. Write to d3-value-mapping.md ending with a Value Summary:
+4. Derive complexity_tier (sets how much architectural ceremony D4/P3 apply):
+   Major Project -> "full"; Quick Win / Fill-in -> "minimal"; Thankless Task -> "standard";
+   tiebreak: a "minimal" mapping with High effort -> "standard".
+5. Write to d3-value-mapping.md ending with a Value Summary:
    total_value_score | Priority (P0-P3) | ROI verdict | Confidence
-5. Persist results via mcp__ontology-server__record_phase_result_tool.
+6. Persist results via mcp__ontology-server__record_phase_result_tool.
 
 Think like a product strategist. Be honest about value and effort.""" ;
     phase:requiresTool "Read" ;
@@ -183,6 +189,9 @@ Think like a product strategist. Be honest about value and effort.""" ;
     phase:emitsIntentField "quadrant" ;
     phase:emitsIntentField "strategic_constraints" ;
     phase:emitsIntentField "verdict" ;
+    phase:emitsIntentField "effort" ;
+    phase:emitsIntentField "impact" ;
+    phase:emitsIntentField "complexity_tier" ;
     phase:inputContract [
         phase:requiresField "personas" ;
         phase:fieldType "xsd:string" ;
@@ -202,6 +211,8 @@ phase:d4 a phase:Phase ;
     phase:procedure """Identify what's missing to move this idea forward and prioritize the gaps.
 
 Context: read all previous discovery phase outputs (d1-inventory.md, d2-personas.md, d3-value-mapping.md). Optionally query the ontology-server for iSAQB quality attributes, patterns, and risks.
+
+Scale rigor to complexity: read complexity_tier from D3 and right-size the quality-attribute gap sweep — minimal = the 1-2 attributes that apply, standard = 3-5, full = full coverage. Never drop the discipline, only set its depth. Default to standard when complexity_tier is absent.
 
 1. Identify all gaps between current state and desired state.
 2. Categorize each gap by type:
@@ -256,11 +267,11 @@ phase:d5 a phase:Phase ;
 Determine mode first: if r6-research-synthesis.md exists in the work directory, run DOWNSTREAM; otherwise run UPSTREAM.
 
 UPSTREAM mode (pre-research -- produce a Research Brief):
-1. Read all discovery phase outputs (d1-d4).
+1. Read all discovery phase outputs (d1-d4). Then RE-READ the original idea via mcp__ontology-server__get_idea: its verbatim text, reconciled with D1 idea_verbatim_features, is the authoritative source for Mandatory features — do NOT rely on the D1 ~100-word summary (it is lossy).
 2. Synthesise into d5-research-brief.md:
    - Idea northstar (what it is, for whom, success definition in 2-3 sentences)
    - Open research questions (from D4 knowledge gaps), ordered by business value
-   - Mandatory features -- listed verbatim from the idea text, must survive into planning
+   - Mandatory features -- listed verbatim from the get_idea text and D1 idea_verbatim_features, must survive into planning
    - Key constraints (technical, user, time)
 3. Set recommendation = "research" and mode = "upstream".
 
@@ -562,7 +573,7 @@ phase:p2 a phase:Phase ;
     phase:phaseId "p2" ;
     phase:agentFamily "planning" ;
     phase:upstreamPhase phase:p1 ;
-    phase:procedure """Deeply analyse existing code, skills, MCP servers, and integration patterns. Understand HOW things work, not just WHAT they do.
+    phase:procedure """Deeply analyse the existing code, components, and integration patterns relevant to the idea. Understand HOW things work, not just WHAT they do. For a greenfield idea, analyse the target platform/framework conventions instead.
 
 Context: read p1-discovery-context.md.
 
@@ -596,6 +607,8 @@ phase:p3 a phase:Phase ;
 
 Context: read p1-discovery-context.md and p2-codebase-analysis.md.
 If schema_context is provided, query the ontology-server for iSAQB quality attributes and architecture patterns.
+
+Scale rigor to complexity: read complexity_tier from D3 and right-size the DEPTH of ceremony — minimal = 1-2 quality attributes and 1-3 ADRs for load-bearing decisions only (no hexagonal layering for a trivial change); standard = 3-5 attributes and 4-7 ADRs; full = full coverage, complete ADR set, quality scenarios and tradeoff analysis. Never drop the disciplines (iSAQB model, ADRs, quality goals), only set how many and how deep. Default to standard when complexity_tier is absent.
 
 1. Query the ontology-server for relevant quality attributes, architecture patterns, and design principles.
 2. Define the target architecture:
