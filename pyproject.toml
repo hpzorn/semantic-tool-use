@@ -34,6 +34,9 @@ all = [
     "semantic-tool-use[search,llm,http]",
 ]
 
+[project.scripts]
+wikidata-server = "wikidata_server.__main__:main"
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]
@@ -49,7 +52,7 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ontology_server", "src/knowledge_graph"]
+packages = ["src/ontology_server", "src/knowledge_graph", "src/wikidata_server"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
