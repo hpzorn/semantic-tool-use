@@ -1057,4 +1057,36 @@ def register_phase_tools(
             predecessor_phase_id,
         )
 
-    logger.info("Registered 10 phase pipeline tools")
+    @mcp.tool()
+    def render_phase_spec(phase_id: str, section: str = "all") -> str:
+        """Return one section (or all) of a phase's specification as markdown.
+
+        Consolidates render_gates/input/output/methodology/tools/prompt behind a
+        single tool. Dispatches to the same underlying renderers, so output is
+        identical to the individual render_*_tool variants.
+
+        Args:
+            phase_id: Phase identifier (e.g. "r3").
+            section: One of "gates", "input", "output", "methodology", "tools",
+                "prompt", or "all" (default). "all" concatenates every section.
+        """
+        renderers = {
+            "gates": render_gates,
+            "input": render_input_contract,
+            "output": render_output_contract,
+            "methodology": render_methodology,
+            "tools": render_tools,
+            "prompt": render_phase_prompt,
+        }
+        sec = (section or "all").strip().lower()
+        if sec == "all":
+            parts = []
+            for name in ("methodology", "input", "output", "gates", "tools", "prompt"):
+                parts.append(renderers[name](sparql_client, phase_id))
+            return "\n\n".join(p for p in parts if p)
+        if sec not in renderers:
+            valid = ", ".join(sorted(renderers) + ["all"])
+            raise ValueError(f"unknown section {section!r}; expected one of: {valid}")
+        return renderers[sec](sparql_client, phase_id)
+
+    logger.info("Registered 11 phase pipeline tools (incl. render_phase_spec)")

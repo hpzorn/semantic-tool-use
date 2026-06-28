@@ -779,6 +779,7 @@ def _register_knowledge_graph_tools(
         idea_id: str,
         new_state: str,
         reason: str = "",
+        priority: int | None = None,
     ) -> dict[str, Any]:
         """Update an idea's lifecycle state with transition validation.
 
@@ -790,7 +791,11 @@ def _register_knowledge_graph_tools(
             idea_id: The idea ID
             new_state: Target lifecycle state
             reason: Reason for the transition
+            priority: Optional priority. When set with new_state="backlog",
+                consolidates move_to_backlog (lower = higher priority).
         """
+        if priority is not None and new_state == "backlog":
+            return lifecycle_mgr.move_to_backlog(idea_id, priority)
         return lifecycle_mgr.set_lifecycle(idea_id, new_state, reason)
 
     @mcp.tool()
@@ -977,7 +982,8 @@ def _register_knowledge_graph_tools(
         subject: str | None = None,
         predicate: str | None = None,
         context: str | None = None,
-        limit: int = 100
+        limit: int = 100,
+        since_hours: int | None = None,
     ) -> list[dict[str, Any]]:
         """Recall facts from agent memory.
 
@@ -986,7 +992,11 @@ def _register_knowledge_graph_tools(
             predicate: Filter by predicate
             context: Filter by context
             limit: Maximum results
+            since_hours: If set, return only facts from the last N hours
+                (consolidates recall_recent_facts).
         """
+        if since_hours is not None:
+            return agent_memory.recall_recent(hours=since_hours, limit=limit)
         return agent_memory.recall(
             subject=subject,
             predicate=predicate,
@@ -1032,6 +1042,95 @@ def _register_knowledge_graph_tools(
             "contexts": agent_memory.get_all_contexts(),
             "unique_subjects": agent_memory.get_subjects(),
         }
+
+    # =========================================================================
+    # Consolidated memory + stats tools (canonical names; see MIGRATION.md)
+    # =========================================================================
+
+    @mcp.tool()
+    def store_facts(
+        facts: list[dict],
+        context: str | None = None,
+    ) -> dict[str, Any]:
+        """Store one or more facts in agent memory (canonical, list-based).
+
+        Consolidates store_fact + store_facts_bulk. Each fact is a dict with
+        keys: subject, predicate, object (required), context, confidence
+        (optional). The top-level *context* applies to facts without their own.
+
+        Returns: { "stored": N, "errors": [...] }
+        """
+        stored = 0
+        errors: list[dict[str, Any]] = []
+        for i, f in enumerate(facts):
+            try:
+                fact = MemoryFact(
+                    subject=f["subject"],
+                    predicate=f["predicate"],
+                    object=f["object"],
+                    context=f.get("context") or context,
+                    confidence=float(f.get("confidence", 1.0)),
+                )
+                agent_memory.store_fact(fact)
+                stored += 1
+            except Exception as exc:
+                errors.append({"index": i, "fact": f, "error": str(exc)})
+        return {"stored": stored, "errors": errors}
+
+    @mcp.tool()
+    def forget_facts(
+        fact_id: str | None = None,
+        context: str | None = None,
+    ) -> dict[str, Any]:
+        """Forget facts by id XOR by context (canonical).
+
+        Consolidates forget_fact + forget_by_context. Provide exactly one of
+        *fact_id* or *context*.
+        """
+        if bool(fact_id) == bool(context):
+            return {"error": "provide exactly one of fact_id or context"}
+        if fact_id:
+            success = agent_memory.forget(fact_id)
+            return {"status": "forgotten" if success else "not_found", "fact_id": fact_id}
+        count = agent_memory.forget_by_context(context)  # type: ignore[arg-type]
+        return {"status": "forgotten", "count": count, "context": context}
+
+    @mcp.tool()
+    def get_stats(scope: str = "graph") -> dict[str, Any]:
+        """Get statistics for a given scope (canonical).
+
+        Consolidates get_graph_stats / get_memory_stats / get_ralph_status.
+
+        Args:
+            scope: One of "graph", "memory", "ralph".
+        """
+        sc = (scope or "graph").strip().lower()
+        if sc == "memory":
+            return {
+                "fact_count": agent_memory.count_facts(),
+                "contexts": agent_memory.get_all_contexts(),
+                "unique_subjects": agent_memory.get_subjects(),
+            }
+        if sc == "ralph":
+            return lifecycle_mgr.get_workflow_status()
+        if sc == "graph":
+            from knowledge_graph.core.lifecycle import IDEA_LIFECYCLES
+
+            base_stats = kg_store.get_stats() if kg_store is not None else {}
+            lifecycle_counts = {
+                state: ideas_store.count_ideas(lifecycle=state)
+                for state in IDEA_LIFECYCLES
+            }
+            return {
+                **base_stats,
+                "idea_count": ideas_store.count_ideas(),
+                "ideas_by_lifecycle": lifecycle_counts,
+                "tag_count": len(ideas_store.get_all_tags()),
+                "memory_fact_count": agent_memory.count_facts(),
+                "memory_contexts": agent_memory.get_all_contexts(),
+                "wikidata": wikidata_cache.get_stats(),
+            }
+        return {"error": f"unknown scope {scope!r}; expected graph|memory|ralph"}
 
     # =========================================================================
     # Wikidata Tools
