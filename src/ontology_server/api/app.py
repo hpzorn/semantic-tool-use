@@ -464,6 +464,46 @@ def create_app(
             except Exception as e:
                 return {"error": str(e)}
 
+        @app.post("/ideas/{idea_id}/update")
+        async def update_idea(idea_id: str, request: Request) -> dict[str, Any]:
+            """Update an idea's mutable fields (title/description/content/tags).
+
+            Mirrors the MCP update_idea tool and the python-tulla REST adapter
+            (POST /ideas/{id}/update). Lifecycle changes are NOT applied here:
+            if a "lifecycle" field is supplied it is routed through the
+            validated set_lifecycle transition (per MIGRATION.md), never set
+            silently on the idea record.
+            """
+            try:
+                body = await request.json()
+                idea = ideas_store.get_idea(idea_id)
+                if idea is None:
+                    return {"error": f"Idea not found: {idea_id}"}
+
+                changed: list[str] = []
+                for field in ("title", "description", "content", "tags"):
+                    if field in body and body[field] is not None:
+                        setattr(idea, field, body[field])
+                        changed.append(field)
+                if changed:
+                    ideas_store.update_idea(idea)
+
+                lifecycle_result: dict[str, Any] | None = None
+                new_lifecycle = body.get("lifecycle")
+                if new_lifecycle:
+                    lifecycle_result = lifecycle_mgr.set_lifecycle(
+                        idea_id, new_lifecycle, body.get("reason", "update_idea")
+                    )
+
+                return {
+                    "status": "updated",
+                    "id": idea_id,
+                    "updated_fields": changed,
+                    "lifecycle": lifecycle_result,
+                }
+            except Exception as e:
+                return {"error": str(e)}
+
         # -- Knowledge Graph SPARQL endpoint -------------------------------
 
         @app.post("/kg/sparql")
