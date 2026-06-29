@@ -348,21 +348,39 @@ clean-env run of each project venv.
 | §3a `/ideas/{id}/update` regression fix | ✅ done | semantic-tool-use (`02f6a4c`) | 281 pass (+3) |
 | P1 allow-list + prompt flip to canonical names | ✅ done | tulla-agent `feat/consolidated-tool-allowlists` (`43047d8`) | 19/19 YAML valid |
 | "Fold everything" onto shared core | ✅ satisfied at logic layer | all transports already delegate to knowledge_graph core + phase_tools; new tools reuse it | n/a |
+| **P3 removals (no deprecation window — no users)** | ✅ done | semantic-tool-use `feat/tool-consolidation` (`f0f2f8d`); tulla-agent (`e008a67`); tulla (`0aaf35d`) | server 287, tulla 1840, 19/19 YAML |
 
-### Intentionally deferred (per rollout design, not skipped)
-- **P3 removals**: old tools (`store_fact`, `store_facts_bulk`, `forget_fact`,
-  `forget_by_context`, `recall_recent_facts`, `move_to_backlog`,
-  `crystallize_seed`, `create_sub_idea`, `read_seed`, `export_idea_markdown`,
-  `get_*_stats`, `get_related_ideas`, `update_triple`, `get_classes/properties`,
-  6× `render_*_tool`, 4× ontology-server wikidata tools) remain registered as
-  P0/P2 duplicates. Remove after the deprecation window once external callers
-  migrate. Removal is what shrinks the surface to 34; today both names coexist.
-- **KEEP+ params `get_idea(format=)` and `query_ideas(wikidata=)`**: deferred to
-  the removal pass (not needed for the allow-list flip; old tools still serve).
-- **Adapter-surface dedup**: MCP closures and REST routes are thin parallel
-  adapters over the same core; collapsing them further is cosmetic cleanup.
-- **`capture_seed` consolidation**: documented mapping in place; the old tool
-  remains until P3 (no agent uses it).
+### P3 executed (no deprecation window — there are no users)
+All legacy duplicates removed outright; **ontology-server now exposes exactly 34
+tools** (verified by introspection), down from 63.
+
+Removed (27 server.py tools): `store_fact`, `store_facts_bulk`, `forget_fact`,
+`forget_by_context`, `recall_recent_facts`, `get_memory_stats`, `get_graph_stats`,
+`get_ralph_status`, `move_to_backlog`, `crystallize_seed`, `create_sub_idea`,
+`capture_seed`, `read_seed`, `list_seeds`, `export_idea_markdown`,
+`get_ideas_by_lifecycle`, `list_by_author`, `get_ideas_by_wikidata`,
+`get_related_ideas`, `update_triple`, `get_classes`, `get_properties`,
+`get_quality_summary`, and the 4 ontology-server wikidata tools
+(`lookup_wikidata`, `query_wikidata`, `search_wikidata_cache`,
+`get_wikidata_stats` — live only on the standalone wikidata-server now).
+Plus the 6 `render_*_tool` wrappers → `render_phase_spec(section=)`.
+
+KEEP+ params now carry the absorbed behaviour: `get_idea(format=json|markdown)`,
+`query_ideas(wikidata=)` (and its `sparql` mode dropped — use `sparql_query`),
+`validate_ontology_quality(summary=)`, `set_lifecycle(priority=)`. Underlying
+`render_*(sparql, phase_id)` functions and the `/phase/render-*` REST routes are
+retained (python-tulla consumes them over REST; `render_phase_spec` dispatches to
+them). Dead `seed_store` local removed.
+
+Downstream updates: tulla-agent allow-lists already on canonical names (P1);
+`tulla-orchestrate` SKILL.md prose flipped to consolidated names; python-tulla
+sub-agent tool grants/prompts repointed (`capture_seed`→`create_idea`,
+`get_related_ideas`→`get_idea_dependencies`). CEL DENY guards for the now-removed
+`update_triple` left as harmless defence-in-depth.
+
+REST routes and DashboardService were **not** touched — python-tulla's contract
+(`/facts` single-object POST, `DELETE /facts/{fact_id}`, `/ideas/*`, `/phase/*`,
+`/kg/*`, `/validate`) is intact; MCP-tool removal is independent of those.
 
 ### Regression-checklist (§3c) outcome
 All green: REST `/facts` POST still single-object; `DELETE /facts/{fact_id}`
