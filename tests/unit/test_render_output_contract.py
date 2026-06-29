@@ -73,6 +73,27 @@ class TestRenderOutputContract:
         for name in ("result_summary", "evidence_links", "confidence", "caveats"):
             assert f"- {name}" in result
 
+    def test_null_intent_bindings_render_intent_block_not_none_rows(self) -> None:
+        """Live SPARQL returns explicit JSON null for unbound SELECT vars.
+
+        Regression: ``str(binding.get("field", ""))`` coerced null -> "None"
+        (truthy), so intent-only UNION rows were misclassified as field rows,
+        producing a bogus ``| None | None | None |`` table and dropping the
+        Emits Intent Fields block entirely.
+        """
+        sparql = _RecordingSparql({"results": [
+            {"field": None, "type": None, "desc": None, "intent": "rq_answers"},
+            {"field": None, "type": None, "desc": None, "intent": "research_questions"},
+            {"field": None, "type": None, "desc": None, "intent": "remaining_unknowns"},
+        ]})
+
+        result = render_output_contract(sparql, "r3")
+
+        assert "| None |" not in result
+        assert "## Emits Intent Fields" in result
+        for name in ("rq_answers", "research_questions", "remaining_unknowns"):
+            assert f"- {name}" in result
+
     def test_intent_fields_preserve_pydantic_order(self) -> None:
         sparql = _RecordingSparql(_r3_bindings())
         result = render_output_contract(sparql, "r3")

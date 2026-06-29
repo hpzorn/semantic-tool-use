@@ -425,9 +425,9 @@ def render_input_contract(sparql: SparqlClient, phase_id: str) -> str:
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str, str]] = []
     for binding in bindings:
-        field = str(binding.get("field", ""))
-        ftype = str(binding.get("type", ""))
-        fdesc = str(binding.get("desc", ""))
+        field = str(binding.get("field") or "")
+        ftype = str(binding.get("type") or "")
+        fdesc = str(binding.get("desc") or "")
         rows.append((field, ftype, fdesc))
     return _format_input_contract_markdown(rows)
 
@@ -516,14 +516,14 @@ def render_output_contract(sparql: SparqlClient, phase_id: str) -> str:
     rows: list[tuple[str, str, str]] = []
     intent_fields: list[str] = []
     for binding in bindings:
-        field = str(binding.get("field", ""))
-        intent = str(binding.get("intent", ""))
+        field = str(binding.get("field") or "")
+        intent = str(binding.get("intent") or "")
         if field:
             rows.append(
                 (
                     field,
-                    str(binding.get("type", "")),
-                    str(binding.get("desc", "")),
+                    str(binding.get("type") or ""),
+                    str(binding.get("desc") or ""),
                 )
             )
         elif intent:
