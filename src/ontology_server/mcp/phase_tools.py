@@ -954,60 +954,6 @@ def register_phase_tools(
         return collect_upstream_facts(sparql_client, idea_id, consuming_phase_id)
 
     @mcp.tool()
-    def render_methodology_tool(phase_id: str) -> str:
-        """Return the markdown procedure body for a phase.
-
-        Args:
-            phase_id: Phase identifier (e.g. "r3").
-        """
-        return render_methodology(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_tools_tool(phase_id: str) -> str:
-        """Return the markdown two-section tool list for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_tools(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_gates_tool(phase_id: str) -> str:
-        """Return the markdown SHACL gate list for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_gates(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_input_contract_tool(phase_id: str) -> str:
-        """Return the markdown input contract table for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_input_contract(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_output_contract_tool(phase_id: str) -> str:
-        """Return the markdown output contract for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_output_contract(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_phase_prompt_tool(phase_id: str) -> str:
-        """Return the composed initial-seed prompt body for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_phase_prompt(sparql_client, phase_id)
-
-    @mcp.tool()
     def list_pipeline_tool(agent_family: str) -> list[str]:
         """Return the topologically ordered phase_id list for an agent family.
 
@@ -1089,4 +1035,4 @@ def register_phase_tools(
             raise ValueError(f"unknown section {section!r}; expected one of: {valid}")
         return renderers[sec](sparql_client, phase_id)
 
-    logger.info("Registered 11 phase pipeline tools (incl. render_phase_spec)")
+    logger.info("Registered 5 phase pipeline tools (incl. render_phase_spec)")
