@@ -120,8 +120,8 @@ else
     echo "  SSE:  http://$HOST:$PORT/sse"
     echo "  Ontology paths:"
     echo "    $ONTOLOGY_PATH"
-    if [ -d "$TULLA_ONTOLOGY_PATH" ]; then
-        echo "    $TULLA_ONTOLOGY_PATH"
+    if [ -n "$VAO_ONTOLOGY_PATH" ] && [ -d "$VAO_ONTOLOGY_PATH" ]; then
+        echo "    $VAO_ONTOLOGY_PATH (opt-in)"
     fi
     echo ""
     python -m ontology_server "${SERVER_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
