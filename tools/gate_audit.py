@@ -42,6 +42,80 @@ STATE_SKIPPED = "skipped"
 STATE_MISSING_CLAIMED = "missing-claimed"
 STATE_NOT_PERSISTED = "not-persisted"
 
+# Frozen SchemaVer 1-0-0 hop-state enum (ADR-003), same rename ban. Legacy
+# leniency is load-bearing: a persisted node that predates the coverage
+# gates (predicates absent) is NOT-EVALUATED, never an open/failed hop.
+HOP_CLOSED = "CLOSED"
+HOP_OPEN = "OPEN"
+HOP_NOT_EVALUATED = "NOT-EVALUATED"
+HOP_MISSING_NODE = "MISSING-NODE"
+
+# Overall coverage verdict values (R5 exp1 / R6 RQ2): PASS iff every hop is
+# CLOSED; any OPEN hop is FAIL; otherwise a missing node beats legacy
+# leniency (INCOMPLETE over NOT-EVALUATED).
+COVERAGE_PASS = "PASS"
+COVERAGE_FAIL = "FAIL"
+COVERAGE_INCOMPLETE = "INCOMPLETE"
+COVERAGE_NOT_EVALUATED = "NOT-EVALUATED"
+
+# The ONLY hardcoded gate sentinel values (ADR-002): provably not derivable
+# at runtime (R5 EXP3 -- SHACL shapes load into a non-queryable validation
+# layer). They mirror, and must stay equal to, the sh:hasValue "[]" lines
+# of the P1/P4 gate shapes and the sh:in ("pass" "fail") member of the P6
+# shape in tulla/ontologies/phase-content.trig; T3.2/T3.3 add marker
+# comments there and a sync test parsing the trig against these constants.
+# Compared against the RAW literal (the gates compare the raw literal too).
+UNCOVERED_EMPTY_SENTINEL = "[]"
+COVERAGE_GATE_PASS_SENTINEL = "pass"
+
+# Per-hop join semantics of the coverage chain (R6 RQ2, fixed contract like
+# COVERAGE_CHAIN -- which field plays which role is a design fact, not a
+# spec datum; the graph only declares field *presence* via emitsIntentField).
+# Field roles per hop:
+#   join_source_field/key: upstream list naming what must be covered
+#     (key None = entries are plain strings, else the dict key holding the id)
+#   join_map_field/key:    downstream coverage map the join lands in
+#   uncovered_field:       downstream list literal that must equal "[]"
+#   gate_field:            downstream literal that must equal "pass" (P6 only;
+#     the P6 shape deliberately admits "fail" so the pipeline can record it)
+# A hop's coverage predicates = its non-None join_map/uncovered/gate fields;
+# any of them absent on a persisted downstream node => NOT-EVALUATED.
+COVERAGE_HOP_JOINS = (
+    {
+        "hop": "d5->p1",
+        "upstream": "d5",
+        "downstream": "p1",
+        "join_source_field": "mandatory_features",
+        "join_source_key": None,
+        "join_map_field": "mandatory_feature_coverage",
+        "join_map_key": "mandatory_feature",
+        "uncovered_field": "uncovered_mandatory_features",
+        "gate_field": None,
+    },
+    {
+        "hop": "p1->p4",
+        "upstream": "p1",
+        "downstream": "p4",
+        "join_source_field": "feature_scope",
+        "join_source_key": "feature_id",
+        "join_map_field": "feature_coverage",
+        "join_map_key": "feature_id",
+        "uncovered_field": "uncovered_features",
+        "gate_field": None,
+    },
+    {
+        "hop": "p4->p6",
+        "upstream": "p4",
+        "downstream": "p6",
+        "join_source_field": None,
+        "join_source_key": None,
+        "join_map_field": None,
+        "join_map_key": None,
+        "uncovered_field": "uncovered_features",
+        "gate_field": "coverage_gate",
+    },
+)
+
 # ADR-130-7 rollback semantics: a failed SHACL gate rolls back to zero
 # triples and writes no tombstone, so an absent phase is provably
 # graph-identical to one that never ran. Every not-persisted row MUST carry
@@ -328,6 +402,272 @@ def fetch_d5_mode(base_url: str, idea_id: str) -> str | None:
     return None
 
 
+def fetch_coverage_fields(
+    base_url: str, idea_id: str, spec: dict
+) -> dict[str, dict[str, str] | None]:
+    """Fetch the coverage-chain field literals for *idea_id*'s hop nodes.
+
+    One compact SELECT (URL-length ceiling, ADR-001) over the four
+    COVERAGE_CHAIN nodes, taking every ``phase:preserves-*`` literal via an
+    OPTIONAL + STRSTARTS filter, then narrowed client-side to the
+    runtime-derived field names in ``spec["coverage_fields"]`` (ADR-002:
+    the graph's phase:emitsIntentField declarations decide which fields the
+    audit may read -- never a hardcoded fetch list).
+
+    Returns ``{hop_id: {field_name: raw_literal} | None}`` for every hop in
+    COVERAGE_CHAIN: None means the hop node is not persisted at all, while
+    an empty/partial dict means the node exists but lacks (some) coverage
+    predicates -- the distinction NOT-EVALUATED hinges on. Literals are kept
+    RAW (not JSON-parsed): the gates compare raw literals, so hop evaluation
+    does too for the sentinel checks.
+    """
+    idea_id = _normalize_idea_id(idea_id)
+    values = " ".join(f'"{hop}"' for hop in COVERAGE_CHAIN)
+    prefix = f"{PHASE_NS}preserves-"
+    query = (
+        f"SELECT ?phaseId ?p ?o WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f"    VALUES ?phaseId {{ {values} }}\n"
+        f'    ?node <{PHASE_NS}forRequirement> "{_escape_literal(idea_id)}" ;\n'
+        f"          <{PHASE_NS}producedBy> ?phaseId .\n"
+        f"    OPTIONAL {{\n"
+        f"      ?node ?p ?o .\n"
+        f'      FILTER(STRSTARTS(STR(?p), "{prefix}"))\n'
+        f"    }}\n"
+        f"  }}\n"
+        f"}}"
+    )
+    coverage: dict[str, dict[str, str] | None] = {
+        hop: None for hop in COVERAGE_CHAIN
+    }
+    derived = spec["coverage_fields"]
+    for row in _sparql(base_url, query).get("results", []):
+        hop = str(row.get("phaseId", ""))
+        if hop not in coverage:
+            continue
+        if coverage[hop] is None:  # node exists (row present, even unbound ?p)
+            coverage[hop] = {}
+        pred = row.get("p")
+        if not pred or not str(pred).startswith(prefix):
+            continue
+        field = str(pred)[len(prefix):]
+        if field in derived.get(hop, []):
+            coverage[hop][field] = str(row.get("o", ""))
+    return coverage
+
+
+def _json_or(raw: str | None, default):
+    """json.loads *raw*, falling back to *default* on absent/invalid input."""
+    try:
+        return json.loads(raw)  # type: ignore[arg-type]
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
+def _covered_keys(coverage_map, entry_key: str) -> set:
+    """Extract the set of covered identifiers from a parsed coverage map.
+
+    Accepts both serializations observed on live post-gate data (the exact
+    _literalise output was R6 RQ2's open item; the gates only enforce
+    minCount, so agents legitimately emit either):
+
+    - dict  ``{feature: ...}``            -> its keys (R5 exp1 fixture form)
+    - list  ``[{entry_key: feature, ...}]`` -> each entry's *entry_key* value
+      (live idea-15 form); bare-string entries count as covered ids too.
+
+    Anything else yields the empty set (nothing is covered).
+    """
+    if isinstance(coverage_map, dict):
+        return set(coverage_map.keys())
+    if isinstance(coverage_map, list):
+        keys = {e.get(entry_key) for e in coverage_map if isinstance(e, dict)}
+        keys.discard(None)
+        keys.update(e for e in coverage_map if isinstance(e, str))
+        return keys
+    return set()
+
+
+def evaluate_hop(
+    hop_spec: dict,
+    upstream_fields: dict[str, str] | None,
+    downstream_fields: dict[str, str] | None,
+) -> dict:
+    """Evaluate one coverage-chain hop into the frozen v1 hop-state enum.
+
+    Pure function over already-fetched literals -- no I/O (ADR-003: T3.1
+    drives this without a live server). *hop_spec* is a COVERAGE_HOP_JOINS
+    entry; *upstream_fields*/*downstream_fields* are fetch_coverage_fields()
+    values (None = node not persisted).
+
+    R6 RQ2 closed-link conditions, in evaluation order:
+
+    - MISSING-NODE:  downstream node not persisted.
+    - NOT-EVALUATED: node persisted but any required coverage predicate
+      absent (pre-gate legacy run) -- leniency, NEVER a failure.
+    - OPEN: uncovered-list raw literal != "[]"; or (P6) coverage_gate raw
+      literal != "pass" (explicit value check -- the shape admits "fail");
+      or the client-side JSON join finds an upstream feature that is no key
+      of the downstream coverage map (per-instance SHACL structurally
+      cannot enforce this cross-node condition).
+    - CLOSED: everything above holds; an absent upstream node/field joins
+      vacuously (empty requirement set) -- the downstream node carries the
+      hop's evidence.
+
+    Returns (stable shape for T3.1/T4.1)::
+
+        {
+          "hop", "upstream", "downstream",   # from hop_spec
+          "state":    frozen v1 hop state,
+          "checks":   [{"check", "ok", "detail"}, ...] itemized R6-RQ2
+                      checks; ok is None when never reached/not applicable,
+          "unjoined": sorted upstream features absent from the coverage map,
+        }
+    """
+    checks: list[dict] = []
+    unjoined: list = []
+
+    def _done(state: str) -> dict:
+        return {
+            "hop": hop_spec["hop"],
+            "upstream": hop_spec["upstream"],
+            "downstream": hop_spec["downstream"],
+            "state": state,
+            "checks": checks,
+            "unjoined": unjoined,
+        }
+
+    def _check(check: str, ok: bool | None, detail: str = "") -> None:
+        checks.append({"check": check, "ok": ok, "detail": detail})
+
+    required = [
+        field
+        for field in (
+            hop_spec["join_map_field"],
+            hop_spec["uncovered_field"],
+            hop_spec["gate_field"],
+        )
+        if field
+    ]
+
+    # (a) downstream node persisted
+    node_ok = downstream_fields is not None
+    _check(
+        "downstream-node-persisted",
+        node_ok,
+        f"{hop_spec['downstream']} {'persisted' if node_ok else 'not persisted'}",
+    )
+    if not node_ok:
+        for name in ("coverage-predicates-present", "uncovered-list-empty"):
+            _check(name, None, "not reached")
+        return _done(HOP_MISSING_NODE)
+    assert downstream_fields is not None  # narrowed by node_ok
+
+    # (b) coverage predicates present (absent => pre-gate legacy node)
+    missing = [f for f in required if f not in downstream_fields]
+    _check(
+        "coverage-predicates-present",
+        not missing,
+        "all present" if not missing else "absent: " + ", ".join(missing),
+    )
+    if missing:
+        _check("uncovered-list-empty", None, "not reached")
+        return _done(HOP_NOT_EVALUATED)
+
+    # (c) uncovered-list raw literal equals the "[]" sentinel
+    uncovered_raw = downstream_fields[hop_spec["uncovered_field"]]
+    uncovered_ok = uncovered_raw == UNCOVERED_EMPTY_SENTINEL
+    _check(
+        "uncovered-list-empty",
+        uncovered_ok,
+        f'{hop_spec["uncovered_field"]} == "{UNCOVERED_EMPTY_SENTINEL}"'
+        if uncovered_ok
+        else f"{hop_spec['uncovered_field']} = {uncovered_raw!r}",
+    )
+    open_hop = not uncovered_ok
+
+    # (d) P6-only explicit gate value check
+    if hop_spec["gate_field"]:
+        gate_raw = downstream_fields[hop_spec["gate_field"]]
+        gate_ok = gate_raw == COVERAGE_GATE_PASS_SENTINEL
+        _check(
+            "coverage-gate-pass",
+            gate_ok,
+            f"{hop_spec['gate_field']} = {gate_raw!r}",
+        )
+        open_hop = open_hop or not gate_ok
+
+    # (e) client-side JSON join: every upstream feature must appear as a
+    # key of the downstream coverage map. Upstream leniency is deliberate
+    # (R5 exp1): a missing upstream node/field joins vacuously.
+    if hop_spec["join_map_field"]:
+        source = _json_or(
+            (upstream_fields or {}).get(hop_spec["join_source_field"]), []
+        )
+        if not isinstance(source, list):
+            source = []
+        if hop_spec["join_source_key"] is None:
+            wanted = {e for e in source if isinstance(e, str)}
+        else:
+            wanted = {
+                e.get(hop_spec["join_source_key"])
+                for e in source
+                if isinstance(e, dict)
+            }
+        covered = _covered_keys(
+            _json_or(downstream_fields[hop_spec["join_map_field"]], None),
+            hop_spec["join_map_key"],
+        )
+        unjoined.extend(
+            sorted(str(w) for w in wanted if w not in covered)
+        )
+        join_ok = not unjoined
+        _check(
+            "join-upstream-covered",
+            join_ok,
+            f"{len(wanted) - len(unjoined)}/{len(wanted)} upstream features "
+            f"joined into {hop_spec['join_map_field']}",
+        )
+        open_hop = open_hop or not join_ok
+
+    return _done(HOP_OPEN if open_hop else HOP_CLOSED)
+
+
+def evaluate_coverage_chain(
+    coverage: dict[str, dict[str, str] | None],
+) -> list[dict]:
+    """Evaluate every COVERAGE_HOP_JOINS hop over fetched coverage fields.
+
+    Pure convenience wrapper around evaluate_hop(); *coverage* is
+    fetch_coverage_fields()'s result. Returns one evaluate_hop() row per
+    hop, in chain order.
+    """
+    return [
+        evaluate_hop(
+            hop_spec,
+            coverage.get(hop_spec["upstream"]),
+            coverage.get(hop_spec["downstream"]),
+        )
+        for hop_spec in COVERAGE_HOP_JOINS
+    ]
+
+
+def coverage_overall(hops: list[dict]) -> str:
+    """Fold per-hop states into the overall coverage verdict (R6 RQ2).
+
+    PASS iff every hop is CLOSED. Any OPEN hop is a hard FAIL; otherwise a
+    missing node makes the chain INCOMPLETE, and legacy predicate-absent
+    hops leave it NOT-EVALUATED (never FAIL -- R5 exp1 precedence order).
+    """
+    states = [hop["state"] for hop in hops]
+    if any(state == HOP_OPEN for state in states):
+        return COVERAGE_FAIL
+    if any(state == HOP_MISSING_NODE for state in states):
+        return COVERAGE_INCOMPLETE
+    if any(state == HOP_NOT_EVALUATED for state in states):
+        return COVERAGE_NOT_EVALUATED
+    return COVERAGE_PASS
+
+
 def _trace_target_phase_id(
     target_uri: str, idea_id: str, known_phase_ids: set[str]
 ) -> str | None:
@@ -487,6 +827,39 @@ def _print_gate_report(idea_id: str, rows: list[dict]) -> None:
         print(f"* {AMBIGUITY_NOTE}")
 
 
+def _print_coverage_report(idea_id: str, hops: list[dict], verdict: str) -> None:
+    """Render the coverage-chain hop evaluations as a human-readable table.
+
+    Minimal T2.3 rendering (T4.1 folds this into the unified report object):
+    one line per hop with its frozen v1 state and the itemized R6-RQ2 check
+    results, then the overall verdict line -- COVERAGE: PASS appears only
+    when every hop is CLOSED (coverage_overall guarantees it).
+    """
+    idea_id = _normalize_idea_id(idea_id)
+    print(f"\nCOVERAGE CHAIN ({idea_id}):")
+    table = []
+    for hop in hops:
+        evaluated = [c for c in hop["checks"] if c["ok"] is not None]
+        detail = "; ".join(
+            f"{c['check']}={'ok' if c['ok'] else 'FAILED (' + c['detail'] + ')'}"
+            for c in evaluated
+        )
+        if hop["unjoined"]:
+            detail += f"; unjoined: {', '.join(hop['unjoined'])}"
+        table.append((hop["hop"], hop["state"], detail))
+
+    header = ("HOP", "STATE", "CHECKS")
+    widths = [
+        max(len(header[col]), *(len(line[col]) for line in table))
+        for col in range(len(header) - 1)
+    ]
+    print("  ".join(h.ljust(w) for h, w in zip(header, widths)) + f"  {header[-1]}")
+    for line in table:
+        cells = [cell.ljust(w) for cell, w in zip(line, widths)]
+        print("  ".join(cells) + f"  {line[-1]}")
+    print(f"COVERAGE: {verdict}")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gate_audit.py",
@@ -537,6 +910,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         listing = fetch_phase_listing(args.server, args.idea, spec)
         d5_mode = fetch_d5_mode(args.server, args.idea)
+        coverage = fetch_coverage_fields(args.server, args.idea, spec)
     except (SparqlError, OSError) as exc:
         print(f"gate_audit: {exc}", file=sys.stderr)
         return 2
@@ -544,13 +918,16 @@ def main(argv: list[str] | None = None) -> int:
     phases = classify_phases(spec, listing, args.idea, d5_mode)
     _print_gate_report(args.idea, phases)
 
-    # Partial implementation (through task T2.2): the coverage chain and
-    # the JSON report land in subsequent tasks (T2.3+).
-    print(
-        "gate_audit: coverage / --json not implemented yet",
-        file=sys.stderr,
-    )
-    return 2
+    hops = evaluate_coverage_chain(coverage)
+    _print_coverage_report(args.idea, hops, coverage_overall(hops))
+
+    # Partial implementation (through task T2.3): the --json report lands
+    # in T4.2, and the exit code mirrors the verdict only from T4.3 (after
+    # T3.1 validates the hop logic -- until then it is not verdict-affecting).
+    if args.json:
+        print("gate_audit: --json not implemented yet", file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
