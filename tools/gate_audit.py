@@ -187,6 +187,111 @@ def derive_spec(base_url: str) -> dict:
     }
 
 
+def _escape_literal(value: str) -> str:
+    """Escape *value* for embedding inside a SPARQL ``"..."`` literal.
+
+    Mirror of phase_tools._sparql_escape_literal (not imported, ADR-001):
+    guards against quote/backslash/newline injection through idea ids.
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
+
+def _normalize_idea_id(idea: str) -> str:
+    """Match the server's normalization: bare ids get an ``idea-`` prefix."""
+    return idea if idea.startswith("idea-") else f"idea-{idea}"
+
+
+def fetch_phase_listing(base_url: str, idea_id: str, spec: dict) -> list[dict]:
+    """List every persisted phase result for *idea_id*, in pipeline order.
+
+    One compact SELECT (URL-length ceiling, ADR-001) mirroring the
+    ``?s phase:forRequirement "<idea>"`` shape of phase_tools._build_query,
+    narrowed to the two predicates this listing needs.
+
+    Rows are ordered strictly by the runtime-derived pipeline order in
+    ``spec["pipeline"]`` (ADR-002) -- never a hardcoded sequence. Persisted
+    phases whose producedBy id is absent from the derived pipeline sort
+    after all known phases (by phase id) with ``pipeline_index: None``,
+    so unexpected graph contents surface instead of vanishing.
+
+    Returns a list of dicts (data, not prints -- ADR-003)::
+
+        {
+          "phase_id":       phase:producedBy literal (e.g. "d1"),
+          "result_uri":     the PhaseOutput subject URI,
+          "traces_to":      sorted trace:tracesTo predecessor URIs ([] if root),
+          "pipeline_index": position in spec["pipeline"], or None if unknown,
+        }
+    """
+    idea_id = _normalize_idea_id(idea_id)
+    query = (
+        f"SELECT ?result ?phaseId ?pred WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f'    ?result <{PHASE_NS}forRequirement> "{_escape_literal(idea_id)}" ;\n'
+        f"            <{PHASE_NS}producedBy> ?phaseId .\n"
+        f"    OPTIONAL {{ ?result <{TRACE_NS}tracesTo> ?pred . }}\n"
+        f"  }}\n"
+        f"}}"
+    )
+
+    # Group the (result, phaseId, pred) bindings by subject: OPTIONAL yields
+    # one row per predecessor edge, and a keyed dict keeps a (defensively
+    # possible) duplicate producedBy from fanning out into extra rows.
+    grouped: dict[tuple[str, str], set[str]] = {}
+    for row in _sparql(base_url, query).get("results", []):
+        result_uri = str(row.get("result", ""))
+        phase_id = str(row.get("phaseId", ""))
+        if not result_uri or not phase_id:
+            continue
+        preds = grouped.setdefault((result_uri, phase_id), set())
+        pred = row.get("pred")
+        if pred:
+            preds.add(str(pred))
+
+    order = {p["phase_id"]: i for i, p in enumerate(spec["pipeline"])}
+    unknown = len(order)  # unknown phases sort after every known one
+    rows = [
+        {
+            "phase_id": phase_id,
+            "result_uri": result_uri,
+            "traces_to": sorted(preds),
+            "pipeline_index": order.get(phase_id),
+        }
+        for (result_uri, phase_id), preds in grouped.items()
+    ]
+    rows.sort(
+        key=lambda r: (
+            r["pipeline_index"] if r["pipeline_index"] is not None else unknown,
+            r["phase_id"],
+            r["result_uri"],
+        )
+    )
+    return rows
+
+
+def _print_phase_listing(idea_id: str, rows: list[dict]) -> None:
+    """Render the phase-listing rows as a human-readable table."""
+    idea_id = _normalize_idea_id(idea_id)
+    print(f"PHASES ({idea_id}): {len(rows)} persisted")
+    if not rows:
+        return
+    widths = (
+        max(len("PHASE"), *(len(r["phase_id"]) for r in rows)),
+        max(len("RESULT"), *(len(r["result_uri"]) for r in rows)),
+    )
+    print(f"{'PHASE':<{widths[0]}}  {'RESULT':<{widths[1]}}  TRACES-TO")
+    for row in rows:
+        traces = ", ".join(row["traces_to"]) or "-"
+        print(
+            f"{row['phase_id']:<{widths[0]}}  "
+            f"{row['result_uri']:<{widths[1]}}  {traces}"
+        )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gate_audit.py",
@@ -234,13 +339,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"gate_audit: {exc}", file=sys.stderr)
         return 2
 
-    # Skeleton (through task T1.2): classification and report rendering land
-    # in subsequent tasks (T1.3+).
+    try:
+        phases = fetch_phase_listing(args.server, args.idea, spec)
+    except (SparqlError, OSError) as exc:
+        print(f"gate_audit: {exc}", file=sys.stderr)
+        return 2
+
+    _print_phase_listing(args.idea, phases)
+
+    # Partial implementation (through task T2.1): gate-status classification,
+    # coverage chain, and the JSON report land in subsequent tasks (T2.2+).
     print(
-        "gate_audit: spec derived ({} phases, {} gate shapes); "
-        "audit logic not implemented yet".format(
-            len(spec["pipeline"]), len(spec["gate_uris"])
-        ),
+        "gate_audit: gate status / coverage / --json not implemented yet",
         file=sys.stderr,
     )
     return 2
