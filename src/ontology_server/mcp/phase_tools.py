@@ -342,7 +342,8 @@ def _format_gates_markdown(rows: list[tuple[str, str]]) -> str:
     lines: list[str] = []
     for shape_uri in sorted(seen.keys()):
         abbr = _abbreviate_shape_uri(shape_uri)
-        lines.append(f"SHACL Gate: {abbr} — {seen[shape_uri]}")
+        label_part = f" — {seen[shape_uri]}" if seen[shape_uri] else ""
+        lines.append(f"SHACL Gate: {abbr}{label_part}")
     return "\n".join(lines)
 
 
@@ -361,8 +362,8 @@ def render_gates(sparql: SparqlClient, phase_id: str) -> str:
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str]] = []
     for binding in bindings:
-        shape_uri = str(binding.get("shape", ""))
-        label = str(binding.get("label", ""))
+        shape_uri = binding.get("shape") or ""
+        label = binding.get("label") or ""
         rows.append((shape_uri, label))
     return _format_gates_markdown(rows)
 
@@ -425,9 +426,9 @@ def render_input_contract(sparql: SparqlClient, phase_id: str) -> str:
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str, str]] = []
     for binding in bindings:
-        field = str(binding.get("field", ""))
-        ftype = str(binding.get("type", ""))
-        fdesc = str(binding.get("desc", ""))
+        field = binding.get("field") or ""
+        ftype = binding.get("type") or ""
+        fdesc = binding.get("desc") or ""
         rows.append((field, ftype, fdesc))
     return _format_input_contract_markdown(rows)
 
@@ -516,14 +517,14 @@ def render_output_contract(sparql: SparqlClient, phase_id: str) -> str:
     rows: list[tuple[str, str, str]] = []
     intent_fields: list[str] = []
     for binding in bindings:
-        field = str(binding.get("field", ""))
-        intent = str(binding.get("intent", ""))
+        field = binding.get("field") or ""
+        intent = binding.get("intent") or ""
         if field:
             rows.append(
                 (
                     field,
-                    str(binding.get("type", "")),
-                    str(binding.get("desc", "")),
+                    binding.get("type") or "",
+                    binding.get("desc") or "",
                 )
             )
         elif intent:
@@ -561,7 +562,11 @@ def render_phase_prompt(sparql: SparqlClient, phase_id: str) -> str:
     sections: list[str] = []
     for header, renderer_name in PHASE_PROMPT_SECTIONS:
         body = renderers[renderer_name](sparql, phase_id)
-        sections.append(f"## {header}\n\n{body}")
+        if renderer_name == "render_tools":
+            # render_tools already includes its own ## Tools / ## MCP Tools headers
+            sections.append(body)
+        else:
+            sections.append(f"## {header}\n\n{body}")
     return "\n\n".join(sections)
 
 
@@ -602,7 +607,7 @@ def list_pipeline(sparql: SparqlClient, agent_family: str) -> list[str]:
     bindings = result.get("results", []) if isinstance(result, dict) else []
     pipeline: list[str] = []
     for binding in bindings:
-        phase_id = str(binding.get("phaseId", ""))
+        phase_id = binding.get("phaseId") or ""
         if phase_id:
             pipeline.append(phase_id)
     return pipeline
@@ -655,13 +660,13 @@ def next_phase(
         return {"next_id": TERMINATE}
 
     if len(bindings) == 1:
-        next_id = str(bindings[0].get("phaseId", ""))
+        next_id = bindings[0].get("phaseId") or ""
         return {"next_id": next_id or TERMINATE}
 
     for binding in bindings:
-        branch = str(binding.get("verdict", ""))
+        branch = binding.get("verdict") or ""
         if branch == verdict:
-            next_id = str(binding.get("phaseId", ""))
+            next_id = binding.get("phaseId") or ""
             if next_id:
                 return {"next_id": next_id}
 

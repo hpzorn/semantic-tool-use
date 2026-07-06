@@ -23,7 +23,8 @@ HOST="${ONTOLOGY_HOST:-localhost}"
 PORT="${ONTOLOGY_PORT:-8100}"
 PERSIST_PATH="${ONTOLOGY_PERSIST:-$DATA_DIR/kg}"
 IDEAS_DIR="${IDEAS_DIR:-}"
-ONTOLOGY_PATH="${ONTOLOGY_PATH:-$HOME/tulla-omnigent/tulla/ontologies}"
+ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/visual-artifacts}"
+TULLA_ONTOLOGY_PATH="${TULLA_ONTOLOGY_PATH:-$(dirname "$SCRIPT_DIR")/tulla/ontologies}"
 SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/ontology/shapes}"
 
 stop_server() {
@@ -79,6 +80,11 @@ SERVER_ARGS=(
     --log-level INFO
 )
 
+# Add tulla ontology path if directory exists (skip if already the primary path)
+if [ -d "$TULLA_ONTOLOGY_PATH" ] && [ "$TULLA_ONTOLOGY_PATH" != "$ONTOLOGY_PATH" ]; then
+    SERVER_ARGS+=(--ontology-path "$TULLA_ONTOLOGY_PATH")
+fi
+
 # Add ideas dir if configured and exists
 if [ -n "$IDEAS_DIR" ] && [ -d "$IDEAS_DIR" ]; then
     SERVER_ARGS+=(--ideas-dir "$IDEAS_DIR")
@@ -91,10 +97,29 @@ if [ "${1:-}" = "--background" ]; then
     echo "  URL:  http://$HOST:$PORT"
     echo "  Logs: tail -f $LOG_FILE"
     echo "  Stop: $0 --stop"
+
+    # Seed phase definitions (idempotent — safe to run every start)
+    SEED_SCRIPT="$SCRIPT_DIR/tools/seed-phase-content.py"
+    if [ -f "$SEED_SCRIPT" ]; then
+        echo "Seeding phase definitions..."
+        # Wait for server to be ready (up to 10 seconds)
+        for i in $(seq 1 10); do
+            if curl -sf "http://$HOST:$PORT/health" > /dev/null 2>&1; then
+                break
+            fi
+            sleep 1
+        done
+        python "$SEED_SCRIPT" --url "http://$HOST:$PORT" && echo "Phase seed complete." || echo "Phase seed failed (server may not be ready yet; run manually: python tools/seed-phase-content.py)"
+    fi
 else
     echo "Starting Ontology Server..."
     echo "  HTTP: http://$HOST:$PORT"
     echo "  SSE:  http://$HOST:$PORT/sse"
+    echo "  Ontology paths:"
+    echo "    $ONTOLOGY_PATH"
+    if [ -d "$TULLA_ONTOLOGY_PATH" ]; then
+        echo "    $TULLA_ONTOLOGY_PATH"
+    fi
     echo ""
     python -m ontology_server "${SERVER_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
 fi
