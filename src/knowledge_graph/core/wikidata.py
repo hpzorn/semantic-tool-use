@@ -37,6 +37,15 @@ def _get_ssl_context() -> ssl.SSLContext:
 
 logger = logging.getLogger(__name__)
 
+
+def _sparql_escape_literal(value: str) -> str:
+    """Escape a string for safe embedding as a SPARQL plain-literal value."""
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
 # Namespace shortcuts
 RDF = NAMESPACES["rdf"]
 RDFS = NAMESPACES["rdfs"]
@@ -409,7 +418,7 @@ class WikidataCache:
         Returns:
             List of matching entities
         """
-        term = term.lower().replace('"', '\\"')
+        term = _sparql_escape_literal(term.lower())
 
         query = f"""
         PREFIX rdfs: <{RDFS}>
