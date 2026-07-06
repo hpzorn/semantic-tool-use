@@ -72,13 +72,13 @@ class TestRenderGates:
         assert any("phase:R3OutputShape — primary" in line for line in lines)
         assert any("phase:AuxShape — secondary" in line for line in lines)
 
-    def test_missing_label_renders_empty_label_segment(self) -> None:
+    def test_missing_label_omits_label_segment(self) -> None:
         sparql = _RecordingSparql({"results": [
             {"shape": f"{PHASE_NS}R3OutputShape"},
         ]})
 
         result = render_gates(sparql, "r3")
-        assert result == "SHACL Gate: phase:R3OutputShape — "
+        assert result == "SHACL Gate: phase:R3OutputShape"
 
     def test_missing_phase_id_raises(self) -> None:
         with pytest.raises(ValueError):
