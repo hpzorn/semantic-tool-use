@@ -180,6 +180,17 @@ LIMITATIONS = (
     },
 )
 
+# Exit-code contract (ADR-003, surfaced in --help): a pure function of
+# verdicts.overall in the ONE report object, identical in table and --json
+# modes. Only COVERAGE_PASS is passing (T3.1-validated semantics) -- FAIL,
+# INCOMPLETE and NOT-EVALUATED all exit 1; abort paths (spec not loaded,
+# transport/SPARQL errors) keep exit 2.
+_EXIT_CODE_HELP = (
+    "Exit codes: 0 iff the overall coverage verdict is PASS; 1 when it is "
+    "FAIL, INCOMPLETE or NOT-EVALUATED (identical in table and --json "
+    "modes); 2 on abort (spec not loaded, transport or SPARQL errors)."
+)
+
 _PORT_CAVEAT = (
     "Note on ports: this tool defaults to http://localhost:8100 (the port "
     "Tulla deployments conventionally expose the ontology server on), but "
@@ -1026,6 +1037,22 @@ def render_json(report: dict) -> str:
     return json.dumps({"schema_version": SCHEMA_VERSION, **report}, indent=2)
 
 
+def exit_code(report: dict) -> int:
+    """Map the report's verdicts.overall to the process exit code (ADR-003).
+
+    Pure function of build_report()'s result, exactly like the two
+    renderers: exit code, table verdict line and JSON verdicts.overall all
+    derive from the same object, so they structurally cannot disagree.
+
+    verdicts.overall has four states (T3.1-validated semantics) and only
+    PASS is passing: 0 iff PASS; 1 for FAIL, INCOMPLETE and NOT-EVALUATED.
+    Abort paths never reach this function -- main() returns 2 for those
+    before a report exists. memory_coverage_links sits outside "verdicts"
+    and is never read here (ADR-003: structurally unable to affect this).
+    """
+    return 0 if report["verdicts"]["overall"] == COVERAGE_PASS else 1
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gate_audit.py",
@@ -1034,7 +1061,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "phases in pipeline order with gate status and trace edges, plus "
             "the D5->P1->P4->P6 feature-coverage chain verdict."
         ),
-        epilog=_PORT_CAVEAT,
+        epilog=f"{_EXIT_CODE_HELP}\n\n{_PORT_CAVEAT}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -1091,11 +1118,7 @@ def main(argv: list[str] | None = None) -> int:
     hops = evaluate_coverage_chain(coverage)
     report = build_report(args.idea, spec, phases, hops, memory_links)
     print(render_json(report) if args.json else render_table(report))
-
-    # Partial implementation (through task T4.2): the exit code mirrors
-    # report["verdicts"]["overall"] only from T4.3 -- until then the
-    # verdict is not exit-code-affecting in either output mode.
-    return 0
+    return exit_code(report)
 
 
 if __name__ == "__main__":

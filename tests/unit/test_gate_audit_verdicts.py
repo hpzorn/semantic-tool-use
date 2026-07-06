@@ -965,3 +965,124 @@ def test_render_json_does_not_mutate_the_report():
     before = copy.deepcopy(report)
     gate_audit.render_json(report)
     assert report == before
+
+
+# ---------------------------------------------------------------------------
+# Exit code mirrors verdicts.overall (T4.3, ADR-003)
+# ---------------------------------------------------------------------------
+# main() is exercised end-to-end with the fetch layer monkeypatched to the
+# recorded fixture (the T2.4 pattern) -- no I/O, no live server, and never a
+# write anywhere. Both output modes run each case: exit code 0 iff the
+# overall verdict is PASS (only PASS is passing per the T3.1-validated
+# semantics), 1 otherwise, and the zero-gate abort keeps exit 2.
+
+MODE_ARGS = pytest.mark.parametrize(
+    "mode_args", [[], ["--json"]], ids=["table", "json"]
+)
+
+
+def _patch_fetches(monkeypatch, coverage) -> None:
+    """Point main()'s entire fetch layer at the recorded fixture bindings."""
+    monkeypatch.setattr(gate_audit, "derive_spec", lambda base_url: SPEC)
+    monkeypatch.setattr(
+        gate_audit, "fetch_phase_listing", lambda *args: LISTING
+    )
+    monkeypatch.setattr(gate_audit, "fetch_d5_mode", lambda *args: D5_MODE)
+    monkeypatch.setattr(
+        gate_audit, "fetch_coverage_fields", lambda *args: coverage
+    )
+    monkeypatch.setattr(
+        gate_audit, "fetch_memory_coverage_links", lambda *args: MEMORY_LINKS
+    )
+
+
+def _open_hop_coverage() -> dict:
+    """The recorded fixture with the p4->p6 hop opened (coverage_gate fail)."""
+    coverage = copy.deepcopy(COVERAGE)
+    coverage["p6"]["coverage_gate"] = "fail"
+    return coverage
+
+
+@pytest.mark.parametrize(
+    ("overall", "expected"),
+    [
+        (gate_audit.COVERAGE_PASS, 0),
+        (gate_audit.COVERAGE_FAIL, 1),
+        (gate_audit.COVERAGE_INCOMPLETE, 1),
+        (gate_audit.COVERAGE_NOT_EVALUATED, 1),
+    ],
+)
+def test_exit_code_pure_mapping_only_pass_is_passing(overall, expected):
+    """exit_code is a pure function of verdicts.overall: 0 iff PASS."""
+    assert gate_audit.exit_code({"verdicts": {"overall": overall}}) == expected
+
+
+@MODE_ARGS
+def test_exit_code_zero_on_passing_fixture_both_modes(
+    monkeypatch, capsys, mode_args
+):
+    _patch_fetches(monkeypatch, COVERAGE)
+    assert gate_audit.main([IDEA, *mode_args]) == 0
+    out = capsys.readouterr().out
+    if mode_args:
+        assert json.loads(out)["verdicts"]["overall"] == "PASS"
+    else:
+        assert "COVERAGE: PASS" in out.splitlines()
+
+
+@MODE_ARGS
+def test_exit_code_nonzero_on_open_hop_both_modes(
+    monkeypatch, capsys, mode_args
+):
+    """An OPEN hop folds to FAIL: nonzero (and distinct from abort's 2)."""
+    _patch_fetches(monkeypatch, _open_hop_coverage())
+    code = gate_audit.main([IDEA, *mode_args])
+    assert code == 1
+    out = capsys.readouterr().out
+    if mode_args:
+        assert json.loads(out)["verdicts"]["overall"] == "FAIL"
+    else:
+        assert "COVERAGE: FAIL" in out.splitlines()
+
+
+@MODE_ARGS
+def test_exit_code_agrees_with_rendered_verdict_both_modes(
+    monkeypatch, capsys, mode_args
+):
+    """Reliability P0: the printed verdict and the exit code derive from
+    the same report object, so they can never disagree -- in either mode,
+    passing and failing alike."""
+    for coverage, expected_code, verdict in (
+        (COVERAGE, 0, "PASS"),
+        (_open_hop_coverage(), 1, "FAIL"),
+    ):
+        _patch_fetches(monkeypatch, coverage)
+        assert gate_audit.main([IDEA, *mode_args]) == expected_code
+        out = capsys.readouterr().out
+        rendered = (
+            json.loads(out)["verdicts"]["overall"]
+            if mode_args
+            else next(
+                line.removeprefix("COVERAGE: ")
+                for line in out.splitlines()
+                if line.startswith("COVERAGE: ")
+            )
+        )
+        assert rendered == verdict
+
+
+@MODE_ARGS
+def test_zero_gate_abort_stays_exit_2_both_modes(
+    monkeypatch, capsys, mode_args
+):
+    """The 'spec not loaded' hard abort (ADR-002) keeps its nonzero exit 2
+    in both output modes -- T4.3 must not break the existing error path."""
+
+    def _abort(base_url):
+        raise gate_audit.SpecNotLoadedError("spec not loaded")
+
+    monkeypatch.setattr(gate_audit, "derive_spec", _abort)
+    assert gate_audit.main([IDEA, *mode_args]) == 2
+    captured = capsys.readouterr()
+    assert "spec not loaded" in captured.err
+    assert captured.out == ""
