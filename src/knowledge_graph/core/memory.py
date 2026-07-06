@@ -14,6 +14,7 @@ Stores facts as reified statements with metadata:
 All data is stored in the named graph <http://semantic-tool-use.org/graphs/memory>.
 """
 
+import re
 import time
 import logging
 from datetime import datetime, timezone
@@ -39,6 +40,15 @@ def _sparql_escape_literal(value: str) -> str:
 RDF = NAMESPACES["rdf"]
 XSD = NAMESPACES["xsd"]
 MEMORY = NAMESPACES["memory"]
+PROV = NAMESPACES["prov"]
+IDEAS = NAMESPACES["ideas"]
+AGENTS = NAMESPACES["agents"]
+
+# The per-idea naming convention the pipeline has always used for contexts
+# ("lesson-idea-9", "prd-idea-9", "arch-idea-9", "p4-tasks-idea-9", ...).
+# Structural scoping materializes it as real graph edges so scoping is no
+# longer a string convention (Workstream D1).
+_CONTEXT_RE = re.compile(r"^(?P<kind>.+?)-(?P<idea>idea-\d+)$")
 
 
 @dataclass
@@ -51,6 +61,7 @@ class MemoryFact:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     confidence: float = 1.0
     fact_id: str | None = None
+    agent: str | None = None  # storing agent name -> prov:wasAttributedTo
 
     def __post_init__(self):
         if self.fact_id is None:
@@ -82,6 +93,10 @@ class AgentMemory:
         self._store = store
         self._graph = GRAPH_MEMORY
         self._init_schema()
+        try:
+            self.materialize_scoping()
+        except Exception:
+            logger.exception("structural-scoping backfill failed (non-fatal)")
 
     def _init_schema(self) -> None:
         """Initialize the memory schema if not present."""
@@ -200,9 +215,78 @@ class AgentMemory:
                 graph=self._graph
             )
 
+        # Structural scoping (Workstream D1): materialize the per-idea context
+        # convention as REAL edges + PROV provenance, so scoping is graph
+        # structure, not a string convention.
+        self._add_structural_scoping(uri, fact.context)
+        self._store.add_triple(
+            uri,
+            f"{PROV}generatedAtTime",
+            fact.timestamp.isoformat(),
+            datatype=f"{XSD}dateTime",
+            graph=self._graph,
+        )
+        if fact.agent:
+            self._store.add_triple(
+                uri,
+                f"{PROV}wasAttributedTo",
+                f"{AGENTS}{fact.agent}",
+                graph=self._graph,
+            )
+
         self._store.flush()
         logger.debug(f"Stored fact: {fact.fact_id}")
         return fact.fact_id
+
+    def _add_structural_scoping(self, fact_uri: str, context: str | None) -> bool:
+        """Add memory:aboutIdea / memory:contextKind edges derived from the
+        per-idea context convention. Returns True if edges were added."""
+        if not context:
+            return False
+        m = _CONTEXT_RE.match(context)
+        if not m:
+            return False
+        self._store.add_triple(
+            fact_uri,
+            f"{MEMORY}aboutIdea",
+            f"{IDEAS}{m.group('idea')}",
+            graph=self._graph,
+        )
+        self._store.add_triple(
+            fact_uri,
+            f"{MEMORY}contextKind",
+            m.group("kind"),
+            is_literal=True,
+            graph=self._graph,
+        )
+        return True
+
+    def materialize_scoping(self) -> int:
+        """Backfill structural scoping for legacy facts (idempotent).
+
+        Facts stored before Workstream D1 carry only the context string;
+        this derives memory:aboutIdea / memory:contextKind for them so
+        cross-idea queries see the whole brain, not just new facts.
+        """
+        query = f"""
+        PREFIX memory: <{MEMORY}>
+        PREFIX rdf: <{RDF}>
+        SELECT ?fact ?context WHERE {{
+            GRAPH <{self._graph}> {{
+                ?fact rdf:type memory:Fact ;
+                      memory:context ?context .
+                FILTER NOT EXISTS {{ ?fact memory:aboutIdea ?any }}
+            }}
+        }}
+        """
+        migrated = 0
+        for row in self._store.query(query):
+            if self._add_structural_scoping(row["fact"], row.get("context")):
+                migrated += 1
+        if migrated:
+            self._store.flush()
+            logger.info("Materialized structural scoping for %d legacy facts", migrated)
+        return migrated
 
     def recall(
         self,
@@ -272,6 +356,92 @@ class AgentMemory:
             }
             for r in results
         ]
+
+    def recall_lessons(
+        self,
+        files: list[str] | None = None,
+        terms: list[str] | None = None,
+        exclude_idea: str | None = None,
+        idea: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Recall implementation lessons ACROSS ideas (Workstream D2).
+
+        Lessons are memory facts with contextKind "lesson" (any idea). A
+        lesson is *relevant* when its text — or a companion
+        ``lesson:touchesFile`` fact sharing its memory:subject — mentions any
+        of the given file basenames or terms. With no filters, returns the
+        most recent lessons brain-wide.
+
+        Args:
+            files: file paths the current work touches (matched by basename)
+            terms: free-text relevance terms (patterns, quality attributes)
+            exclude_idea: idea id whose own lessons to skip (e.g. "idea-15")
+            idea: restrict to ONE idea (mutually exclusive with exclude_idea)
+            limit: max lessons returned, most recent first
+        """
+        needles: list[str] = []
+        for f in files or []:
+            base = f.rsplit("/", 1)[-1].strip().lower()
+            if base:
+                needles.append(base)
+        needles += [t.strip().lower() for t in (terms or []) if t.strip()]
+
+        filters: list[str] = ['FILTER(?predicate != "lesson:touchesFile")']
+        if exclude_idea:
+            eid = exclude_idea if exclude_idea.startswith("idea-") else f"idea-{exclude_idea}"
+            filters.append(f"FILTER(!BOUND(?idea) || ?idea != <{IDEAS}{eid}>)")
+        if idea:
+            iid = idea if idea.startswith("idea-") else f"idea-{idea}"
+            filters.append(f"FILTER(?idea = <{IDEAS}{iid}>)")
+        if needles:
+            esc = [_sparql_escape_literal(n) for n in needles]
+            text_match = " || ".join(f'CONTAINS(LCASE(?object), "{n}")' for n in esc)
+            file_match = " || ".join(f'CONTAINS(LCASE(?tfile), "{n}")' for n in esc)
+            filters.append(
+                f"FILTER( ({text_match}) || EXISTS {{\n"
+                f'                ?tf memory:predicate "lesson:touchesFile" ;\n'
+                f"                    memory:subject ?lsubj ;\n"
+                f"                    memory:object ?tfile .\n"
+                f"                FILTER({file_match})\n"
+                f"            }} )"
+            )
+
+        filter_clause = "\n                ".join(filters)
+        query = f"""
+        PREFIX memory: <{MEMORY}>
+        PREFIX rdf: <{RDF}>
+        PREFIX prov: <{PROV}>
+
+        SELECT ?fact ?lsubj ?object ?timestamp ?idea ?agent
+        WHERE {{
+            GRAPH <{self._graph}> {{
+                ?fact rdf:type memory:Fact ;
+                      memory:contextKind "lesson" ;
+                      memory:subject ?lsubj ;
+                      memory:predicate ?predicate ;
+                      memory:object ?object ;
+                      memory:timestamp ?timestamp .
+                OPTIONAL {{ ?fact memory:aboutIdea ?idea }}
+                OPTIONAL {{ ?fact prov:wasAttributedTo ?agent }}
+                {filter_clause}
+            }}
+        }}
+        ORDER BY DESC(?timestamp)
+        LIMIT {int(limit)}
+        """
+        results = self._store.query(query)
+        out = []
+        for r in results:
+            idea_uri = r.get("idea") or ""
+            out.append({
+                "lesson": r.get("object"),
+                "idea": idea_uri.rsplit("/", 1)[-1] if idea_uri else None,
+                "subject": r.get("lsubj"),
+                "timestamp": r.get("timestamp"),
+                "agent": (r.get("agent") or "").rsplit("/", 1)[-1] or None,
+            })
+        return out
 
     def recall_recent(self, hours: int = 24, limit: int = 100) -> list[dict[str, Any]]:
         """

@@ -762,12 +762,16 @@ def _register_knowledge_graph_tools(
     def store_facts(
         facts: list[dict],
         context: str | None = None,
+        agent: str | None = None,
     ) -> dict[str, Any]:
         """Store one or more facts in agent memory (canonical, list-based).
 
         Consolidates store_fact + store_facts_bulk. Each fact is a dict with
         keys: subject, predicate, object (required), context, confidence
         (optional). The top-level *context* applies to facts without their own.
+        Pass *agent* (e.g. "I1_coding") to record provenance
+        (prov:wasAttributedTo); per-idea contexts additionally get structural
+        memory:aboutIdea edges automatically.
 
         Returns: { "stored": N, "errors": [...] }
         """
@@ -781,12 +785,41 @@ def _register_knowledge_graph_tools(
                     object=f["object"],
                     context=f.get("context") or context,
                     confidence=float(f.get("confidence", 1.0)),
+                    agent=f.get("agent") or agent,
                 )
                 agent_memory.store_fact(fact)
                 stored += 1
             except Exception as exc:
                 errors.append({"index": i, "fact": f, "error": str(exc)})
         return {"stored": stored, "errors": errors}
+
+    @mcp.tool()
+    def recall_lessons(
+        files: list[str] | None = None,
+        terms: list[str] | None = None,
+        exclude_idea: str | None = None,
+        idea: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Recall implementation lessons ACROSS ideas (cross-idea learning).
+
+        Returns lessons any prior idea's implementation recorded, most recent
+        first: [{lesson, idea, subject, timestamp, agent}]. A lesson is
+        relevant when its text — or its lesson:touchesFile companion facts —
+        mention any of the given file basenames or terms; with no filters the
+        most recent lessons brain-wide are returned.
+
+        Args:
+            files: file paths the current work touches (matched by basename)
+            terms: extra relevance terms (patterns, quality attributes)
+            exclude_idea: skip this idea's own lessons (e.g. "idea-15")
+            idea: restrict to one idea instead (mutually exclusive)
+            limit: maximum lessons returned
+        """
+        return agent_memory.recall_lessons(
+            files=files, terms=terms,
+            exclude_idea=exclude_idea, idea=idea, limit=limit,
+        )
 
     @mcp.tool()
     def forget_facts(

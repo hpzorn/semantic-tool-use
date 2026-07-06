@@ -44,6 +44,9 @@ NAMESPACES = {
     # Phase pipeline ontology
     "phase": "http://tulla.dev/phase#",
     "trace": "http://tulla.dev/trace#",
+    # W3C provenance (structural memory scoping)
+    "prov": "http://www.w3.org/ns/prov#",
+    "agents": "http://semantic-tool-use.org/agents/",
     # Project governance (idea 69)
     "prd": "http://tulla.dev/prd#",
     "isaqb": "http://tulla.dev/isaqb#",
