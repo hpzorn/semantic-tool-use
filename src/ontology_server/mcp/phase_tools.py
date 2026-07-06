@@ -426,9 +426,9 @@ def render_input_contract(sparql: SparqlClient, phase_id: str) -> str:
     bindings = result.get("results", []) if isinstance(result, dict) else []
     rows: list[tuple[str, str, str]] = []
     for binding in bindings:
-        field = binding.get("field") or ""
-        ftype = binding.get("type") or ""
-        fdesc = binding.get("desc") or ""
+        field = str(binding.get("field") or "")
+        ftype = str(binding.get("type") or "")
+        fdesc = str(binding.get("desc") or "")
         rows.append((field, ftype, fdesc))
     return _format_input_contract_markdown(rows)
 
@@ -517,14 +517,14 @@ def render_output_contract(sparql: SparqlClient, phase_id: str) -> str:
     rows: list[tuple[str, str, str]] = []
     intent_fields: list[str] = []
     for binding in bindings:
-        field = binding.get("field") or ""
-        intent = binding.get("intent") or ""
+        field = str(binding.get("field") or "")
+        intent = str(binding.get("intent") or "")
         if field:
             rows.append(
                 (
                     field,
-                    binding.get("type") or "",
-                    binding.get("desc") or "",
+                    str(binding.get("type") or ""),
+                    str(binding.get("desc") or ""),
                 )
             )
         elif intent:
@@ -959,60 +959,6 @@ def register_phase_tools(
         return collect_upstream_facts(sparql_client, idea_id, consuming_phase_id)
 
     @mcp.tool()
-    def render_methodology_tool(phase_id: str) -> str:
-        """Return the markdown procedure body for a phase.
-
-        Args:
-            phase_id: Phase identifier (e.g. "r3").
-        """
-        return render_methodology(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_tools_tool(phase_id: str) -> str:
-        """Return the markdown two-section tool list for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_tools(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_gates_tool(phase_id: str) -> str:
-        """Return the markdown SHACL gate list for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_gates(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_input_contract_tool(phase_id: str) -> str:
-        """Return the markdown input contract table for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_input_contract(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_output_contract_tool(phase_id: str) -> str:
-        """Return the markdown output contract for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_output_contract(sparql_client, phase_id)
-
-    @mcp.tool()
-    def render_phase_prompt_tool(phase_id: str) -> str:
-        """Return the composed initial-seed prompt body for a phase.
-
-        Args:
-            phase_id: Phase identifier.
-        """
-        return render_phase_prompt(sparql_client, phase_id)
-
-    @mcp.tool()
     def list_pipeline_tool(agent_family: str) -> list[str]:
         """Return the topologically ordered phase_id list for an agent family.
 
@@ -1062,4 +1008,36 @@ def register_phase_tools(
             predecessor_phase_id,
         )
 
-    logger.info("Registered 10 phase pipeline tools")
+    @mcp.tool()
+    def render_phase_spec(phase_id: str, section: str = "all") -> str:
+        """Return one section (or all) of a phase's specification as markdown.
+
+        Consolidates render_gates/input/output/methodology/tools/prompt behind a
+        single tool. Dispatches to the same underlying renderers, so output is
+        identical to the individual render_*_tool variants.
+
+        Args:
+            phase_id: Phase identifier (e.g. "r3").
+            section: One of "gates", "input", "output", "methodology", "tools",
+                "prompt", or "all" (default). "all" concatenates every section.
+        """
+        renderers = {
+            "gates": render_gates,
+            "input": render_input_contract,
+            "output": render_output_contract,
+            "methodology": render_methodology,
+            "tools": render_tools,
+            "prompt": render_phase_prompt,
+        }
+        sec = (section or "all").strip().lower()
+        if sec == "all":
+            parts = []
+            for name in ("methodology", "input", "output", "gates", "tools", "prompt"):
+                parts.append(renderers[name](sparql_client, phase_id))
+            return "\n\n".join(p for p in parts if p)
+        if sec not in renderers:
+            valid = ", ".join(sorted(renderers) + ["all"])
+            raise ValueError(f"unknown section {section!r}; expected one of: {valid}")
+        return renderers[sec](sparql_client, phase_id)
+
+    logger.info("Registered 5 phase pipeline tools (incl. render_phase_spec)")

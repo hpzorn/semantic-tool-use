@@ -543,6 +543,8 @@ class DashboardService:
         Queries the KG for ``phase:producedBy`` values linked to *idea_id*
         and computes completion percentage against :data:`KNOWN_PHASES`.
         """
+        if not idea_id.startswith("idea-"):
+            idea_id = f"idea-{idea_id}"
         try:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
@@ -588,6 +590,8 @@ class DashboardService:
         Groups ``phase:preserves-*`` triples into
         ``{phase_id: {field: coerced_value}}``.
         """
+        if not idea_id.startswith("idea-"):
+            idea_id = f"idea-{idea_id}"
         try:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
@@ -603,6 +607,8 @@ class DashboardService:
             logger.exception("get_phase_facts failed for %s", idea_id)
             return {}
 
+        subject_prefix = f"{PHASE_NS}{idea_id}-"
+
         grouped: dict[str, dict[str, Any]] = {}
         for binding in result.bindings:
             pred = binding.get("p", "")
@@ -612,11 +618,9 @@ class DashboardService:
             field_name = pred[len(_PRESERVES_PREFIX):]
             subj = binding.get("s", "")
 
-            after_ns = subj[len(PHASE_NS):] if subj.startswith(PHASE_NS) else ""
-            dash_idx = after_ns.find("-")
-            if dash_idx == -1:
+            if not subj.startswith(subject_prefix):
                 continue
-            phase_id = after_ns[dash_idx + 1:]
+            phase_id = subj[len(subject_prefix):]
 
             value = _try_coerce(binding.get("o", ""))
 
@@ -630,6 +634,8 @@ class DashboardService:
         self, idea_id: str, phase_id: str,
     ) -> dict[str, Any] | None:
         """Return intent fields, metadata, and trace ancestors for one phase."""
+        if not idea_id.startswith("idea-"):
+            idea_id = f"idea-{idea_id}"
         subject = f"{PHASE_NS}{idea_id}-{phase_id}"
 
         try:
@@ -765,6 +771,8 @@ class DashboardService:
         Queries for ``impl-*`` phase outputs and extracts the five known
         iteration intent fields.
         """
+        if not idea_id.startswith("idea-"):
+            idea_id = f"idea-{idea_id}"
         try:
             sparql = (
                 f"PREFIX phase: <{PHASE_NS}>\n"
