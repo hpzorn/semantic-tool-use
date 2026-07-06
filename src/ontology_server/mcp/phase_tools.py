@@ -804,6 +804,18 @@ def record_phase_result(
         ontology.add_triple(subject, f"{TRACE_NS}tracesTo", pred_uri)
 
     # (8) Optional SHACL validation + rollback.
+    # ONTOLOGY_DISABLE_GATES exists for controlled ablation experiments
+    # (SDLC-bench arm b: same fleet, gates off — a single-variable change).
+    # NEVER set it in normal operation; it is logged loudly per call.
+    import os
+    if os.environ.get("ONTOLOGY_DISABLE_GATES", "").lower() in ("1", "true", "yes"):
+        logger.warning(
+            "ONTOLOGY_DISABLE_GATES is set — SHACL gate SKIPPED for %s "
+            "(ablation mode; do not use in production)",
+            subject,
+        )
+        return {"ok": True, "violations": [], "gate_skipped": True}
+
     shape_uri = _lookup_shacl_gate(ontology, phase_id)
     if shape_uri is None:
         return {"ok": True, "violations": []}

@@ -266,3 +266,21 @@ class TestSeeding:
             f"ASK {{ GRAPH <{GRAPH_PHASES}> {{ "
             f"<{PHASE_NS}idea-1-d1> ?p ?o . }} }}"
         )
+
+
+class TestGatesDisableFlag:
+    """ONTOLOGY_DISABLE_GATES is the ablation switch (SDLC-bench arm b)."""
+
+    def test_disable_flag_skips_validation(self, kg_store, monkeypatch) -> None:
+        monkeypatch.setenv("ONTOLOGY_DISABLE_GATES", "1")
+        client = KGOntologyClient(kg_store, SHACLValidator())
+        out = record_phase_result(client, "p1", "909", "", {})  # empty = nonconforming
+        assert out["ok"] is True
+        assert out.get("gate_skipped") is True
+        assert _residual_triples(kg_store, "idea-909", "p1") > 0  # persisted unvalidated
+
+    def test_flag_unset_still_enforces(self, kg_store, monkeypatch) -> None:
+        monkeypatch.delenv("ONTOLOGY_DISABLE_GATES", raising=False)
+        client = KGOntologyClient(kg_store, SHACLValidator())
+        out = record_phase_result(client, "p1", "910", "", {})
+        assert out["ok"] is False
