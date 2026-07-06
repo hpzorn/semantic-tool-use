@@ -8,6 +8,9 @@ table or stable machine-readable JSON (--json).
 
 Single-file, stdlib-only, strictly read-only (SPARQL SELECTs only).
 All graph access goes through the single _sparql() helper below (ADR-001).
+Every query targets the phases graph except one: the informational
+memory_coverage_links COUNT over the memory named graph (ADR-001), which
+is structurally excluded from all verdicts and the exit code (ADR-003).
 Deliberately imports nothing from src/ (query shapes are mirrored, not
 imported) so the audit stays independent of server-internal modules.
 """
@@ -27,6 +30,14 @@ PHASE_NS = "http://tulla.dev/phase#"
 TRACE_NS = "http://tulla.dev/trace#"
 PRD_NS = "http://tulla.dev/prd#"
 PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
+
+# Memory named graph (ADR-001): read by exactly ONE query, the informational
+# memory_coverage_links COUNT. The memory store reifies facts -- each fact is
+# a node carrying subject/predicate/object (plus context/timestamp/confidence)
+# literals under MEMORY_NS -- so counting prd:coversFeature facts needs the
+# reification vocabulary, not a direct prd:coversFeature triple pattern.
+MEMORY_GRAPH = "http://semantic-tool-use.org/graphs/memory"
+MEMORY_NS = "http://semantic-tool-use.org/memory/"
 
 DEFAULT_SERVER = "http://localhost:8100"
 
@@ -454,6 +465,45 @@ def fetch_coverage_fields(
         if field in derived.get(hop, []):
             coverage[hop][field] = str(row.get("o", ""))
     return coverage
+
+
+def fetch_memory_coverage_links(base_url: str, idea_id: str) -> int:
+    """COUNT the memory graph's prd:coversFeature facts for *idea_id*.
+
+    The CLI's ONLY query outside the phases graph (ADR-001): one compact
+    COUNT SELECT (ADR-002) over the memory named graph, whose facts are
+    reified (fact nodes carrying subject/predicate/object literals, see
+    MEMORY_NS). A fact counts when its predicate literal is
+    prd:coversFeature (CURIE or PRD_NS-expanded form) and its subject
+    literal belongs to this idea's requirement/task subjects
+    (``prd:req-<n>-...`` / ``task:idea-<n>-...``).
+
+    INFORMATIONAL ONLY (ADR-003): the count is supplementary context for
+    the coverage report. It is structurally excluded from every verdict --
+    it must never be passed into evaluate_hop/evaluate_coverage_chain/
+    coverage_overall or into main()'s exit-code computation; the JSON
+    report (T4.2) surfaces it as memory_coverage_links outside verdicts.
+    """
+    idea_id = _normalize_idea_id(idea_id)
+    idea = _escape_literal(idea_id)
+    bare = _escape_literal(idea_id[len("idea-"):])
+    query = (
+        f"SELECT (COUNT(?fact) AS ?links) WHERE {{\n"
+        f"  GRAPH <{MEMORY_GRAPH}> {{\n"
+        f"    ?fact <{MEMORY_NS}predicate> ?pred ;\n"
+        f"          <{MEMORY_NS}subject> ?subj .\n"
+        f'    FILTER(?pred IN ("prd:coversFeature", "{PRD_NS}coversFeature"))\n'
+        f'    FILTER(STRSTARTS(STR(?subj), "task:{idea}-")\n'
+        f'        || STRSTARTS(STR(?subj), "prd:req-{bare}-"))\n'
+        f"  }}\n"
+        f"}}"
+    )
+    for row in _sparql(base_url, query).get("results", []):
+        try:
+            return int(row.get("links", 0))
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
 
 def _json_or(raw: str | None, default):
@@ -911,6 +961,7 @@ def main(argv: list[str] | None = None) -> int:
         listing = fetch_phase_listing(args.server, args.idea, spec)
         d5_mode = fetch_d5_mode(args.server, args.idea)
         coverage = fetch_coverage_fields(args.server, args.idea, spec)
+        memory_links = fetch_memory_coverage_links(args.server, args.idea)
     except (SparqlError, OSError) as exc:
         print(f"gate_audit: {exc}", file=sys.stderr)
         return 2
@@ -920,6 +971,16 @@ def main(argv: list[str] | None = None) -> int:
 
     hops = evaluate_coverage_chain(coverage)
     _print_coverage_report(args.idea, hops, coverage_overall(hops))
+
+    # memory_coverage_links is informational only (ADR-003): it flows from
+    # fetch_memory_coverage_links() straight into this print and nowhere
+    # else -- structurally excluded from every verdict function above and
+    # from this function's return value, so no count value can change the
+    # coverage verdict or the exit code.
+    print(
+        f"memory_coverage_links: {memory_links} "
+        f"(informational only; excluded from coverage verdict and exit code)"
+    )
 
     # Partial implementation (through task T2.3): the --json report lands
     # in T4.2, and the exit code mirrors the verdict only from T4.3 (after
