@@ -46,6 +46,12 @@ DEFAULT_SERVER = "http://localhost:8100"
 # phase ids may be hardcoded. Which fields each hop emits is still derived.
 COVERAGE_CHAIN = ("d5", "p1", "p4", "p6")
 
+# Frozen SchemaVer MODEL 1 version stamp (ADR-003): every --json report
+# carries it. Evolution within MODEL 1 is additive-only -- new keys may
+# appear, but existing keys and enum values may never be renamed or removed
+# (any breaking change means MODEL 2-0-0).
+SCHEMA_VERSION = "1-0-0"
+
 # Frozen SchemaVer 1-0-0 phase-state enum (ADR-003): these literals may
 # never be renamed, only additively extended (breaking rename = MODEL 2-0-0).
 STATE_PERSISTED = "persisted"
@@ -998,6 +1004,28 @@ def render_table(report: dict) -> str:
     return "\n".join(lines)
 
 
+def render_json(report: dict) -> str:
+    """Render the --json mode as a pure function of the report object.
+
+    Reads NOTHING but build_report()'s result, exactly like render_table
+    (ADR-003: both surfaces render from the ONE report object, so table and
+    JSON verdicts structurally cannot disagree -- nothing is recomputed
+    here, least of all verdicts). The payload is the report object itself
+    stamped with the frozen SchemaVer version as its first key:
+
+    - schema_version:        SCHEMA_VERSION ("1-0-0"),
+    - idea / spec / phases / verdicts{hops, overall} /
+      memory_coverage_links / limitations: verbatim from build_report().
+
+    Contract (pinned by the 1-0-0 shape check in the test suite): phase
+    states and hop states use only the frozen v1 enum literals; every hop
+    carries its itemized checks; limitations is always the populated
+    three-entry set; memory_coverage_links sits outside verdicts and never
+    affects verdicts.overall. Evolution is additive-only within MODEL 1.
+    """
+    return json.dumps({"schema_version": SCHEMA_VERSION, **report}, indent=2)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gate_audit.py",
@@ -1062,15 +1090,11 @@ def main(argv: list[str] | None = None) -> int:
     phases = classify_phases(spec, listing, args.idea, d5_mode)
     hops = evaluate_coverage_chain(coverage)
     report = build_report(args.idea, spec, phases, hops, memory_links)
-    print(render_table(report))
+    print(render_json(report) if args.json else render_table(report))
 
-    # Partial implementation (through task T4.1): the --json rendering of
-    # this same report object lands in T4.2, and the exit code mirrors
+    # Partial implementation (through task T4.2): the exit code mirrors
     # report["verdicts"]["overall"] only from T4.3 -- until then the
-    # verdict is not exit-code-affecting.
-    if args.json:
-        print("gate_audit: --json not implemented yet", file=sys.stderr)
-        return 2
+    # verdict is not exit-code-affecting in either output mode.
     return 0
 
 

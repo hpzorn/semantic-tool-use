@@ -830,3 +830,138 @@ def test_frozen_v1_enum_values():
     assert gate_audit.HOP_OPEN == "OPEN"
     assert gate_audit.HOP_NOT_EVALUATED == "NOT-EVALUATED"
     assert gate_audit.HOP_MISSING_NODE == "MISSING-NODE"
+
+
+# ---------------------------------------------------------------------------
+# --json contract: frozen SchemaVer 1-0-0 shape check (T4.2, ADR-003)
+# ---------------------------------------------------------------------------
+# Pins schema_version, key structure, enum values, itemized checks, the
+# always-populated limitations array, and the memory_coverage_links
+# exclusion from verdicts. Evolution within MODEL 1 is additive-only: a new
+# key extends the pinned sets below (1-N-0); renaming/removing any pinned
+# key or enum literal is a breaking change (MODEL 2-0-0), not allowed here.
+
+MEMORY_LINKS = 32  # live idea-15 count at fixture-capture time
+
+
+def _report(memory_links: int = MEMORY_LINKS) -> dict:
+    return gate_audit.build_report(
+        IDEA,
+        SPEC,
+        _classify(),
+        gate_audit.evaluate_coverage_chain(COVERAGE),
+        memory_links,
+    )
+
+
+def _json_payload(memory_links: int = MEMORY_LINKS) -> dict:
+    return json.loads(gate_audit.render_json(_report(memory_links)))
+
+
+def test_json_parses_and_pins_schema_version():
+    payload = _json_payload()
+    assert payload["schema_version"] == "1-0-0"
+    assert gate_audit.SCHEMA_VERSION == "1-0-0"
+
+
+def test_json_frozen_top_level_key_structure():
+    payload = _json_payload()
+    assert set(payload) == {
+        "schema_version",
+        "idea",
+        "spec",
+        "phases",
+        "verdicts",
+        "memory_coverage_links",
+        "limitations",
+    }
+    assert set(payload["verdicts"]) == {"hops", "overall"}
+    assert payload["idea"] == IDEA
+
+
+def test_json_phase_rows_frozen_shape_and_enum_values():
+    payload = _json_payload()
+    phase_states = {
+        gate_audit.STATE_PERSISTED,
+        gate_audit.STATE_SKIPPED,
+        gate_audit.STATE_MISSING_CLAIMED,
+        gate_audit.STATE_NOT_PERSISTED,
+    }
+    assert len(payload["phases"]) == 23
+    for row in payload["phases"]:
+        assert set(row) == {
+            "phase_id",
+            "family",
+            "pipeline_index",
+            "state",
+            "gate_shape",
+            "results",
+            "note",
+        }
+        assert row["state"] in phase_states
+
+
+def test_json_hops_frozen_shape_itemized_checks_and_enum_values():
+    payload = _json_payload()
+    hop_states = {
+        gate_audit.HOP_CLOSED,
+        gate_audit.HOP_OPEN,
+        gate_audit.HOP_NOT_EVALUATED,
+        gate_audit.HOP_MISSING_NODE,
+    }
+    hops = payload["verdicts"]["hops"]
+    assert [h["hop"] for h in hops] == ["d5->p1", "p1->p4", "p4->p6"]
+    for hop in hops:
+        assert set(hop) == {
+            "hop",
+            "upstream",
+            "downstream",
+            "state",
+            "checks",
+            "unjoined",
+        }
+        assert hop["state"] in hop_states
+        assert hop["checks"]  # per-hop itemized checks, never empty
+        for check in hop["checks"]:
+            assert set(check) == {"check", "ok", "detail"}
+    assert payload["verdicts"]["overall"] == gate_audit.COVERAGE_PASS
+
+
+def test_json_limitations_always_populated():
+    payload = _json_payload()
+    assert [lim["id"] for lim in payload["limitations"]] == [
+        "not-persisted-ambiguity",
+        "retry-counts-transcript-only",
+        "memory-links-informational",
+    ]
+    for lim in payload["limitations"]:
+        assert set(lim) == {"id", "text"}
+        assert lim["text"]
+
+
+@pytest.mark.parametrize("links", [0, MEMORY_LINKS, 10_000])
+def test_json_memory_links_outside_verdicts_never_verdict_affecting(links):
+    payload = _json_payload(links)
+    assert payload["memory_coverage_links"] == links
+    assert "memory_coverage_links" not in payload["verdicts"]
+    assert payload["verdicts"]["overall"] == gate_audit.COVERAGE_PASS
+
+
+def test_table_and_json_verdicts_identical():
+    """Reliability P0 (ADR-003): both surfaces render the SAME report
+    object, so the overall verdict line and every hop state must agree."""
+    report = _report()
+    payload = json.loads(gate_audit.render_json(report))
+    table = gate_audit.render_table(report)
+    assert f"COVERAGE: {payload['verdicts']['overall']}" in table.splitlines()
+    assert [
+        (h["hop"], h["state"]) for h in payload["verdicts"]["hops"]
+    ] == [(h["hop"], h["state"]) for h in report["verdicts"]["hops"]]
+
+
+def test_render_json_does_not_mutate_the_report():
+    """render_json must stay a pure function of build_report()'s object."""
+    report = _report()
+    before = copy.deepcopy(report)
+    gate_audit.render_json(report)
+    assert report == before
