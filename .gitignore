@@ -45,3 +45,8 @@ archive/
 
 # Claude Code
 .claude/
+
+# Agent/session state (polly, pi, git worktrees)
+.pi/
+.polly/
+.worktrees/
