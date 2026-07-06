@@ -16,6 +16,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _sparql_escape_literal(value: str) -> str:
+    """Escape a string for safe embedding as a SPARQL plain-literal value."""
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    return value
+
+
 def create_mcp_server(
     settings: Settings,
     store: OntologyStore,
@@ -335,11 +344,12 @@ def create_mcp_server(
         Returns:
             List of matching resources with their URIs, labels, and types.
         """
+        safe_term = _sparql_escape_literal(term)
         filters = []
         if search_labels:
-            filters.append(f'FILTER(CONTAINS(LCASE(STR(?label)), LCASE("{term}")))')
+            filters.append(f'FILTER(CONTAINS(LCASE(STR(?label)), LCASE("{safe_term}")))')
         if search_comments:
-            filters.append(f'FILTER(CONTAINS(LCASE(STR(?comment)), LCASE("{term}")))')
+            filters.append(f'FILTER(CONTAINS(LCASE(STR(?comment)), LCASE("{safe_term}")))')
 
         if not filters:
             return [{"error": "Must search in labels or comments"}]
@@ -348,7 +358,7 @@ def create_mcp_server(
         SELECT DISTINCT ?resource ?label ?type WHERE {{
             ?resource ?p ?text .
             VALUES ?p {{ rdfs:label rdfs:comment }}
-            FILTER(CONTAINS(LCASE(STR(?text)), LCASE("{term}")))
+            FILTER(CONTAINS(LCASE(STR(?text)), LCASE("{safe_term}")))
             OPTIONAL {{ ?resource rdfs:label ?label }}
             OPTIONAL {{ ?resource a ?type }}
         }}
