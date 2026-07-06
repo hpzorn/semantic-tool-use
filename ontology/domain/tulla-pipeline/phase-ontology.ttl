@@ -1,0 +1,193 @@
+@prefix phase: <http://tulla.dev/phase#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix trace: <http://tulla.dev/trace#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+phase:PhaseOutput a rdfs:Class ;
+    rdfs:label "Phase Output" ;
+    rdfs:comment "An output produced by a pipeline phase." .
+
+phase:forRequirement a rdf:Property ;
+    rdfs:label "for requirement" ;
+    rdfs:comment "Links a phase output to the idea or requirement it addresses." ;
+    rdfs:domain phase:PhaseOutput .
+
+phase:preserves a rdf:Property ;
+    rdfs:label "preserves" ;
+    rdfs:comment "Generic superproperty for intent-preserving fields." ;
+    rdfs:domain phase:PhaseOutput .
+
+phase:producedBy a rdf:Property ;
+    rdfs:label "produced by" ;
+    rdfs:comment "Links a phase output to the phase that produced it." ;
+    rdfs:domain phase:PhaseOutput .
+
+trace:tracesTo a rdf:Property ;
+    rdfs:label "traces to" ;
+    rdfs:comment "Links a phase output to its predecessor phase output." ;
+    rdfs:domain phase:PhaseOutput ;
+    rdfs:range phase:PhaseOutput .
+
+phase:D1OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-key_capabilities ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-ecosystem_context ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"d1\" . }" ] .
+
+phase:D2OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-personas ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-primary_persona_jtbd ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"d2\" . }" ] .
+
+phase:D3OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-quadrant ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-verdict ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"d3\" . }" ] .
+
+phase:D4OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-blockers ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-root_blocker ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"d4\" . }" ] .
+
+phase:D5OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-mode ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-recommendation ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"d5\" . }" ] .
+
+phase:LWTraceOutputShape a sh:NodeShape ;
+    sh:property [ sh:minCount 1 ;
+            sh:path phase:preserves-change_summary ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-timestamp ],
+        [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-change_type ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-affected_files ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-conformance_assertion ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-commit_ref ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"lw-trace\" . }" ] .
+
+phase:P3OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-total_dependencies ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-circular_dependencies ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"p3\" . }" ] .
+
+phase:R1OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-questions_refined ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-research_questions ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"r1\" . }" ] .
+
+phase:R2OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-sources_identified ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-source_map ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"r2\" . }" ] .
+
+phase:R3OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-research_questions ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-rq_answers ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"r3\" . }" ] .
+
+phase:R4OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-papers_reviewed ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-key_findings ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"r4\" . }" ] .
+
+phase:R5OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-experiments_run ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-experiments_passed ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"r5\" . }" ] .
+
+phase:R6OutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-findings_count ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-recommendation ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> \"r6\" . }" ] .
+
+phase:EpOutputShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path phase:producedBy ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-ideas_generated ],
+        [ sh:minCount 1 ;
+            sh:path phase:preserves-mode ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:select "SELECT ?this WHERE { ?this <http://tulla.dev/phase#producedBy> ?pb . FILTER(STRSTARTS(?pb, \"ep-\")) }" ] .

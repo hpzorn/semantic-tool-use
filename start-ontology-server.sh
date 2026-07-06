@@ -18,13 +18,16 @@ PID_FILE="$DATA_DIR/ontology-server.pid"
 LOG_FILE="$DATA_DIR/ontology-server.log"
 
 # Configuration (override via environment)
-# ONTOLOGY_PATH loads the tulla/coding ontologies (code, isaqb, prd, phase) instead of visual-artifacts (VOA)
 HOST="${ONTOLOGY_HOST:-localhost}"
 PORT="${ONTOLOGY_PORT:-8100}"
 PERSIST_PATH="${ONTOLOGY_PERSIST:-$DATA_DIR/kg}"
 IDEAS_DIR="${IDEAS_DIR:-}"
-ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/visual-artifacts}"
-TULLA_ONTOLOGY_PATH="${TULLA_ONTOLOGY_PATH:-$(dirname "$SCRIPT_DIR")/tulla/ontologies}"
+# Primary ONTOLOGY_PATH loads ONLY the code/pipeline ontologies (isaqb, prd,
+# phase, code) — now shipped in-repo. Non-code ontologies (visual-artifacts)
+# are deliberately NOT loaded by default (keep the server clean); opt in via
+# VAO_ONTOLOGY_PATH=$SCRIPT_DIR/ontology/domain/visual-artifacts
+ONTOLOGY_PATH="${ONTOLOGY_PATH:-$SCRIPT_DIR/ontology/domain/tulla-pipeline}"
+VAO_ONTOLOGY_PATH="${VAO_ONTOLOGY_PATH:-}"
 SHAPES_PATH="${SHAPES_PATH:-$SCRIPT_DIR/ontology/shapes}"
 
 stop_server() {
@@ -80,9 +83,9 @@ SERVER_ARGS=(
     --log-level INFO
 )
 
-# Add tulla ontology path if directory exists (skip if already the primary path)
-if [ -d "$TULLA_ONTOLOGY_PATH" ] && [ "$TULLA_ONTOLOGY_PATH" != "$ONTOLOGY_PATH" ]; then
-    SERVER_ARGS+=(--ontology-path "$TULLA_ONTOLOGY_PATH")
+# Optionally add the visual-artifacts (non-code) ontologies — opt-in only
+if [ -n "$VAO_ONTOLOGY_PATH" ] && [ -d "$VAO_ONTOLOGY_PATH" ]; then
+    SERVER_ARGS+=(--ontology-path "$VAO_ONTOLOGY_PATH")
 fi
 
 # Add ideas dir if configured and exists

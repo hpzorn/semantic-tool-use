@@ -1,0 +1,159 @@
+@prefix code: <http://tulla.dev/code#> .
+@prefix trace: <http://tulla.dev/trace#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+# =============================================================================
+# Minimal Code Ontology for Implementation Traceability
+# =============================================================================
+#
+# Based on RQ2 research findings:
+# - 6 component types (vs 21 in CodeOntology)
+# - 5 relationships (vs 19 in CodeOntology)
+# - 71% complexity reduction while covering 100% of trace scenarios
+#
+# This ontology is populated by Tulla during code generation
+# via Python AST analysis.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Ontology Metadata
+# -----------------------------------------------------------------------------
+
+<http://tulla.dev/code> a owl:Ontology ;
+    rdfs:label "Code Ontology" ;
+    rdfs:comment "Minimal code architecture ontology for traceability" ;
+    owl:versionInfo "1.0.0" .
+
+# -----------------------------------------------------------------------------
+# Component Types (6 total)
+# -----------------------------------------------------------------------------
+
+code:File a rdfs:Class, owl:Class ;
+    rdfs:label "File" ;
+    rdfs:comment "A source code file (e.g., .py)" .
+
+code:Module a rdfs:Class, owl:Class ;
+    rdfs:label "Module" ;
+    rdfs:comment "A logical module or package (Python package)" .
+
+code:Class a rdfs:Class, owl:Class ;
+    rdfs:label "Class" ;
+    rdfs:comment "A class definition" .
+
+code:Function a rdfs:Class, owl:Class ;
+    rdfs:label "Function" ;
+    rdfs:comment "A function or method definition" .
+
+code:Variable a rdfs:Class, owl:Class ;
+    rdfs:label "Variable" ;
+    rdfs:comment "A module-level variable, constant, or class property" .
+
+code:Test a rdfs:Class, owl:Class ;
+    rdfs:label "Test" ;
+    rdfs:comment "A test case or test function (pytest, unittest)" .
+
+# -----------------------------------------------------------------------------
+# Structural Relationships (5 total)
+# -----------------------------------------------------------------------------
+
+code:contains a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "contains" ;
+    rdfs:comment "Parent contains child (File→Class→Function hierarchy)" ;
+    rdfs:domain code:File, code:Module, code:Class ;
+    rdfs:range code:Class, code:Function, code:Variable, code:Test .
+
+code:imports a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "imports" ;
+    rdfs:comment "Source imports/depends on target module" ;
+    rdfs:domain code:File, code:Module ;
+    rdfs:range code:File, code:Module .
+
+code:calls a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "calls" ;
+    rdfs:comment "Source function calls target function" ;
+    rdfs:domain code:Function, code:Test ;
+    rdfs:range code:Function .
+
+code:extends a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "extends" ;
+    rdfs:comment "Class extends/inherits from another class" ;
+    rdfs:domain code:Class ;
+    rdfs:range code:Class .
+
+code:tests a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "tests" ;
+    rdfs:comment "Test exercises the target component" ;
+    rdfs:domain code:Test ;
+    rdfs:range code:Function, code:Class .
+
+# -----------------------------------------------------------------------------
+# Metadata Properties
+# -----------------------------------------------------------------------------
+
+code:name a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "name" ;
+    rdfs:comment "Name of the component (function name, class name, etc.)" ;
+    rdfs:domain code:File, code:Module, code:Class, code:Function, code:Variable, code:Test ;
+    rdfs:range xsd:string .
+
+code:filePath a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "file path" ;
+    rdfs:comment "Absolute or project-relative file path" ;
+    rdfs:domain code:File ;
+    rdfs:range xsd:string .
+
+code:lineStart a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "line start" ;
+    rdfs:comment "Starting line number in source file" ;
+    rdfs:domain code:Class, code:Function, code:Variable, code:Test ;
+    rdfs:range xsd:integer .
+
+code:lineEnd a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "line end" ;
+    rdfs:comment "Ending line number in source file" ;
+    rdfs:domain code:Class, code:Function, code:Variable, code:Test ;
+    rdfs:range xsd:integer .
+
+code:qualifiedName a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "qualified name" ;
+    rdfs:comment "Fully qualified name (e.g., module.Class.method)" ;
+    rdfs:domain code:Class, code:Function, code:Variable, code:Test ;
+    rdfs:range xsd:string .
+
+code:docstring a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "docstring" ;
+    rdfs:comment "Documentation string for the component" ;
+    rdfs:domain code:Class, code:Function ;
+    rdfs:range xsd:string .
+
+code:signature a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "signature" ;
+    rdfs:comment "Function signature (parameters and return type)" ;
+    rdfs:domain code:Function ;
+    rdfs:range xsd:string .
+
+# -----------------------------------------------------------------------------
+# Lifecycle Properties
+# -----------------------------------------------------------------------------
+
+code:createdAt a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "created at" ;
+    rdfs:comment "Timestamp when component was first analyzed" ;
+    rdfs:domain owl:Thing ;
+    rdfs:range xsd:dateTime .
+
+code:modifiedAt a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "modified at" ;
+    rdfs:comment "Timestamp when component was last modified" ;
+    rdfs:domain owl:Thing ;
+    rdfs:range xsd:dateTime .
+
+code:hash a rdf:Property, owl:DatatypeProperty ;
+    rdfs:label "hash" ;
+    rdfs:comment "Content hash for change detection" ;
+    rdfs:domain code:File, code:Function, code:Class ;
+    rdfs:range xsd:string .

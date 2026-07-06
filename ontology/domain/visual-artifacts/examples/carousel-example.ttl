@@ -1,5 +1,6 @@
 @prefix vao: <http://semantic-tool-use.org/ontology/visual-artifacts#> .
 @prefix social: <http://semantic-tool-use.org/ontology/visual-artifacts/social#> .
+@prefix pres: <http://semantic-tool-use.org/ontology/visual-artifacts/presentation#> .
 @prefix ex: <http://example.org/carousel/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .

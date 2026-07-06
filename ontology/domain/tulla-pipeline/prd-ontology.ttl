@@ -1,0 +1,381 @@
+@prefix code: <http://tulla.dev/code#> .
+@prefix isaqb: <http://tulla.dev/isaqb#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix prd: <http://tulla.dev/prd#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix trace: <http://tulla.dev/trace#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+prd:AcceptanceCriteria a rdfs:Class,
+        owl:Class ;
+    rdfs:label "Acceptance Criteria" ;
+    rdfs:comment "A specific success condition for requirement verification" .
+
+prd:Project a rdfs:Class,
+        owl:Class ;
+    rdfs:label "Project" ;
+    rdfs:comment "A project grouping requirements, ADRs, quality goals, and constraints" .
+
+prd:Requirement a rdfs:Class,
+        owl:Class ;
+    rdfs:label "Requirement" ;
+    rdfs:comment "A single implementable requirement or task from the PRD" .
+
+<http://tulla.dev/prd> a owl:Ontology ;
+    rdfs:label "PRD Ontology" ;
+    rdfs:comment "Requirements ontology for Tulla" ;
+    owl:versionInfo "1.0.0" .
+
+prd:ProjectShape a sh:NodeShape ;
+    sh:targetClass prd:Project ;
+    sh:property [ sh:path rdfs:label ;
+            sh:minCount 1 ;
+            sh:datatype xsd:string ;
+            sh:severity sh:Violation ;
+            sh:message "Project must have a label" ],
+        [ sh:path prd:projectId ;
+            sh:minCount 1 ;
+            sh:maxCount 1 ;
+            sh:datatype xsd:string ;
+            sh:severity sh:Violation ;
+            sh:message "Project must have exactly one projectId" ],
+        [ sh:path prd:hasADR ;
+            sh:minCount 1 ;
+            sh:severity sh:Warning ;
+            sh:message "Project should have at least one ADR" ],
+        [ sh:path prd:hasQualityGoal ;
+            sh:minCount 1 ;
+            sh:severity sh:Warning ;
+            sh:message "Project should have at least one quality goal" ] .
+
+prd:hasCrossCuttingConcern a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "has cross-cutting concern" ;
+    rdfs:comment "Cross-cutting concern applicable across the project (P2+ stub)" ;
+    rdfs:domain prd:Project ;
+    rdfs:range xsd:string .
+
+prd:hasADR a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "has ADR" ;
+    rdfs:comment "Links a project to an architecture decision record" ;
+    rdfs:domain prd:Project ;
+    rdfs:range isaqb:ArchitectureDecision .
+
+prd:hasConstraint a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "has constraint" ;
+    rdfs:comment "Links a project to an architectural constraint" ;
+    rdfs:domain prd:Project ;
+    rdfs:range isaqb:Constraint .
+
+prd:hasQualityGoal a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "has quality goal" ;
+    rdfs:comment "Links a project to a quality goal" ;
+    rdfs:domain prd:Project ;
+    rdfs:range isaqb:QualityGoal .
+
+prd:projectADR a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "project ADR" ;
+    rdfs:comment "Links a requirement to a project-level ADR (used by P6)" .
+
+prd:projectId a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "project ID" ;
+    rdfs:comment "Unique identifier for the project" ;
+    rdfs:domain prd:Project ;
+    rdfs:range xsd:string .
+
+prd:promotedFrom a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "promoted from" ;
+    rdfs:comment "Links to the source entity this was promoted from (idea-to-epic linking)" .
+
+prd:Blocked a prd:Status ;
+    rdfs:label "Blocked" ;
+    rdfs:comment "Requirement cannot proceed due to unmet dependencies or issues" .
+
+prd:FullyImplementedShape a sh:NodeShape ;
+    sh:property [ sh:message "Complete requirement must have at least one implementing component" ;
+            sh:minCount 1 ;
+            sh:path [ sh:inversePath trace:implements ] ],
+        [ sh:hasValue prd:Complete ;
+            sh:message "Status must be Complete" ;
+            sh:path prd:status ] ;
+    sh:targetClass prd:Requirement .
+
+prd:InProgress a prd:Status ;
+    rdfs:label "In Progress" ;
+    rdfs:comment "Requirement is currently being implemented" .
+
+prd:ReadyRequirementShape a sh:NodeShape ;
+    sh:sparql [ sh:message "Requirement has unsatisfied dependencies" ;
+            sh:prefixes prd: ;
+            sh:select """
+            SELECT $this
+            WHERE {
+                $this prd:dependsOn ?dep .
+                ?dep prd:status ?status .
+                FILTER(?status != prd:Complete)
+            }
+        """ ] ;
+    sh:targetClass prd:Requirement .
+
+prd:RequirementShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:message "Requirement must have exactly one title" ;
+            sh:minCount 1 ;
+            sh:path prd:title ],
+        [ sh:datatype xsd:string ;
+            sh:message "Requirement must have a description" ;
+            sh:minCount 1 ;
+            sh:path prd:description ],
+        [ sh:maxCount 1 ;
+            sh:message "Requirement must have exactly one status" ;
+            sh:minCount 1 ;
+            sh:path prd:status ] ;
+    sh:targetClass prd:Requirement .
+
+prd:action a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "action" ;
+    rdfs:comment "What to do with the target files: 'create' for new files, 'modify' for editing existing files in their native language. When action is 'modify', the implementation agent MUST read the file first and edit it in place using the file's own language (bash for .sh, markdown for .md, Typst for .typ, etc.). When action is 'create', use Python unless specified otherwise." ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:blocks a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "blocks" ;
+    rdfs:comment "This requirement blocks another from starting" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range prd:Requirement ;
+    owl:inverseOf prd:dependsOn .
+
+prd:coversFeature a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "covers feature" ;
+    rdfs:comment "Feature id from the P1 feature_scope contract (e.g. 'F1') that this requirement or task advances. Written by P4 (per task) and P6 (per requirement); the mechanical feature-coverage gate verifies every feature_scope id is covered by at least one requirement before implementation may start." ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:criteriaMet a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "criteria met" ;
+    rdfs:comment "Whether this criterion has been satisfied" ;
+    rdfs:domain prd:AcceptanceCriteria ;
+    rdfs:range xsd:boolean .
+
+prd:criteriaText a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "criteria text" ;
+    rdfs:comment "Text description of the acceptance criterion" ;
+    rdfs:domain prd:AcceptanceCriteria ;
+    rdfs:range xsd:string .
+
+prd:files a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "files" ;
+    rdfs:comment "File paths to create or modify for this requirement" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:hasCriteria a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "has criteria" ;
+    rdfs:comment "Links requirement to its acceptance criteria" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range prd:AcceptanceCriteria .
+
+prd:ideaId a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "idea ID" ;
+    rdfs:comment "Reference to the source idea in idea-pool" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:phase a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "phase" ;
+    rdfs:comment "Implementation phase number (1, 2, 3, ...)" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:integer .
+
+prd:priority a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "priority" ;
+    rdfs:comment "Implementation priority level" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range prd:Priority .
+
+prd:req-51-1-2 a prd:Requirement ;
+    prd:action "verify" ;
+    prd:dependsOn prd:req-51-1-1 ;
+    prd:phase "1" ;
+    prd:priority prd:P0 ;
+    prd:status prd:Pending ;
+    prd:taskId "1.2" ;
+    prd:title "Verify MCP SSE Auth Coverage" .
+
+prd:req-51-4-1 a prd:Requirement ;
+    prd:action "verify" ;
+    prd:dependsOn prd:req-51-3-1,
+        prd:req-51-3-2 ;
+    prd:phase "4" ;
+    prd:priority prd:P2 ;
+    prd:status prd:Pending ;
+    prd:taskId "4.1" ;
+    prd:title "Verify Audit Log Output" .
+
+prd:taskId a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "task ID" ;
+    rdfs:comment "Original task identifier from planning (e.g., '1.1', '2.3')" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:verification a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "verification" ;
+    rdfs:comment "How to verify the requirement is complete" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:verificationVerdict a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "verification verdict" ;
+    rdfs:comment "Structured PASS/FAIL+reason verdict from the verifier" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+trace:createdAt a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "created at" ;
+    rdfs:comment "Timestamp when trace link was created" ;
+    rdfs:domain owl:Thing ;
+    rdfs:range xsd:dateTime .
+
+trace:createdBy a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "created by" ;
+    rdfs:comment "Agent/process that created the trace link" ;
+    rdfs:domain owl:Thing ;
+    rdfs:range xsd:string .
+
+trace:verifies a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "verifies" ;
+    rdfs:comment "Test verifies this requirement" ;
+    rdfs:domain code:Test ;
+    rdfs:range prd:Requirement .
+
+prd:Complete a prd:Status ;
+    rdfs:label "Complete" ;
+    rdfs:comment "Requirement has been implemented and verified" .
+
+prd:P2 a prd:Priority ;
+    rdfs:label "P2 - Nice to Have" ;
+    rdfs:comment "Can be deferred if time is limited" .
+
+prd:dependsOn a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "depends on" ;
+    rdfs:comment "This requirement depends on another being complete first" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range prd:Requirement .
+
+prd:description a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "description" ;
+    rdfs:comment "Full description of what needs to be implemented" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+prd:req-51-3-1 a prd:Requirement ;
+    prd:action "execute" ;
+    prd:dependsOn prd:req-51-1-1,
+        prd:req-51-2-1,
+        prd:req-51-2-2 ;
+    prd:files "work/idea-51-research/experiments/verify_success_criteria.py" ;
+    prd:phase "3" ;
+    prd:priority prd:P1 ;
+    prd:status prd:Pending ;
+    prd:taskId "3.1" ;
+    prd:title "Adapt and Run Verification Script" .
+
+prd:req-51-3-2 a prd:Requirement ;
+    prd:action "execute" ;
+    prd:dependsOn prd:req-51-2-1,
+        prd:req-51-2-2 ;
+    prd:phase "3" ;
+    prd:priority prd:P1 ;
+    prd:status prd:Pending ;
+    prd:taskId "3.2" ;
+    prd:title "Manual Pipeline Test" .
+
+prd:title a rdf:Property,
+        owl:DatatypeProperty ;
+    rdfs:label "title" ;
+    rdfs:comment "Short name/title for the requirement" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range xsd:string .
+
+trace:implements a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "implements" ;
+    rdfs:comment "Code component implements this requirement" ;
+    rdfs:domain code:Class,
+        code:Function ;
+    rdfs:range prd:Requirement .
+
+prd:P1 a prd:Priority ;
+    rdfs:label "P1 - Important" ;
+    rdfs:comment "Should be implemented after P0 items" .
+
+prd:req-51-2-2 a prd:Requirement ;
+    prd:action "execute" ;
+    prd:dependsOn prd:req-51-1-1,
+        prd:req-51-2-1 ;
+    prd:phase "2" ;
+    prd:priority prd:P0 ;
+    prd:status prd:Pending ;
+    prd:taskId "2.2" ;
+    prd:title "Restart Ontology Server" .
+
+prd:status a rdf:Property,
+        owl:ObjectProperty ;
+    rdfs:label "status" ;
+    rdfs:comment "Current implementation status" ;
+    rdfs:domain prd:Requirement ;
+    rdfs:range prd:Status .
+
+prd:req-51-1-1 a prd:Requirement ;
+    prd:action "modify" ;
+    prd:files "src/ontology_server/api/app.py" ;
+    prd:phase "1" ;
+    prd:priority prd:P0 ;
+    prd:status prd:Pending ;
+    prd:taskId "1.1" ;
+    prd:title "Add Bearer Auth Middleware to FastAPI App" .
+
+prd:req-51-2-1 a prd:Requirement ;
+    prd:action "execute" ;
+    prd:files "~/.claude.json, ~/.zshrc, ~/.ontology-server-key" ;
+    prd:phase "2" ;
+    prd:priority prd:P0 ;
+    prd:status prd:Pending ;
+    prd:taskId "2.1" ;
+    prd:title "Run setup_auth.py --apply" .
+
+prd:P0 a prd:Priority ;
+    rdfs:label "P0 - Critical" ;
+    rdfs:comment "Must be implemented first (critical path)" .
+
+prd:Pending a prd:Status ;
+    rdfs:label "Pending" ;
+    rdfs:comment "Requirement has not been started" .
+

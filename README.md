@@ -204,11 +204,18 @@ The server exposes:
 
 ### Load Tulla's ontologies
 
+The Tulla pipeline ontologies (iSAQB quality model, PRD, phase, code) ship
+**in this repository** under `ontology/domain/tulla-pipeline/` — no external
+checkout is needed:
+
 ```bash
 python -m ontology_server --http --enable-abox \
-    --ontology-path ./ontology/domain/visual-artifacts \
-    --ontology-path /path/to/tulla/ontologies  # isaqb, phase, prd, code ontologies
+    --ontology-path ./ontology/domain/tulla-pipeline  # isaqb, phase, prd, code ontologies
 ```
+
+Non-code ontologies (visual-artifacts) are deliberately not loaded by default;
+add `--ontology-path ./ontology/domain/visual-artifacts` (or set
+`VAO_ONTOLOGY_PATH` for `start-ontology-server.sh`) to opt in.
 
 ## MCP Tools
 
