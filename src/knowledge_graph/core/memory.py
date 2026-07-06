@@ -246,6 +246,10 @@ class AgentMemory:
         m = _CONTEXT_RE.match(context)
         if not m:
             return False
+        # The fleet convention doubles the prefix ("lesson-idea-" + "idea-15"
+        # = "lesson-idea-idea-15"), which parses as kind "lesson-idea".
+        # Normalize so kind-scoped queries ("lesson") see every variant.
+        kind = m.group("kind").removesuffix("-idea")
         self._store.add_triple(
             fact_uri,
             f"{MEMORY}aboutIdea",
@@ -255,7 +259,7 @@ class AgentMemory:
         self._store.add_triple(
             fact_uri,
             f"{MEMORY}contextKind",
-            m.group("kind"),
+            kind,
             is_literal=True,
             graph=self._graph,
         )
@@ -283,6 +287,22 @@ class AgentMemory:
         for row in self._store.query(query):
             if self._add_structural_scoping(row["fact"], row.get("context")):
                 migrated += 1
+
+        # Normalize kinds written before the doubled-prefix fix
+        # ("lesson-idea" -> "lesson").
+        self._store.update(f"""
+        PREFIX memory: <{MEMORY}>
+        DELETE {{ GRAPH <{self._graph}> {{ ?f memory:contextKind ?k }} }}
+        INSERT {{ GRAPH <{self._graph}> {{ ?f memory:contextKind ?nk }} }}
+        WHERE {{
+            GRAPH <{self._graph}> {{
+                ?f memory:contextKind ?k .
+                FILTER(STRENDS(?k, "-idea"))
+                BIND(SUBSTR(?k, 1, STRLEN(?k) - 5) AS ?nk)
+            }}
+        }}
+        """)
+
         if migrated:
             self._store.flush()
             logger.info("Materialized structural scoping for %d legacy facts", migrated)

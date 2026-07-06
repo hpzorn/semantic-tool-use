@@ -146,3 +146,33 @@ class TestCrossIdeaLessons:
     def test_agent_provenance_returned(self, brain) -> None:
         out = brain.recall_lessons(idea="idea-7")
         assert out[0]["agent"] == "I1_coding"
+
+
+class TestDoubledPrefixNormalization:
+    """The fleet convention produces contexts like "lesson-idea-idea-15";
+    the kind must normalize to "lesson" or kind-scoped recall misses them."""
+
+    def test_doubled_prefix_normalizes_on_store(self, store, memory) -> None:
+        fid = memory.store_fact(MemoryFact(
+            subject="lesson:idea-15-T1.1", predicate="lesson:text",
+            object="doubled prefix lesson", context="lesson-idea-idea-15",
+        ))
+        fact = f"<{MEMORY}fact/{fid}>"
+        assert _ask(store, f'{fact} <{MEMORY}contextKind> "lesson" .')
+        assert _ask(store, f"{fact} <{MEMORY}aboutIdea> <{IDEAS}idea-15> .")
+        assert memory.recall_lessons(idea="idea-15")
+
+    def test_backfill_normalizes_bad_kinds(self, store) -> None:
+        memory = AgentMemory(store)
+        legacy = f"{MEMORY}fact/badkind1"
+        store.add_triple(legacy, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                         f"{MEMORY}Fact", graph=GRAPH_MEMORY)
+        for prop, val in (("subject", "lesson:idea-15"), ("predicate", "lesson:text"),
+                          ("object", "old doubled lesson"), ("contextKind", "lesson-idea")):
+            store.add_triple(legacy, f"{MEMORY}{prop}", val, is_literal=True,
+                             graph=GRAPH_MEMORY)
+        store.add_triple(legacy, f"{MEMORY}aboutIdea", f"{IDEAS}idea-15",
+                         graph=GRAPH_MEMORY)
+        memory.materialize_scoping()
+        assert _ask(store, f'<{legacy}> <{MEMORY}contextKind> "lesson" .')
+        assert not _ask(store, f'<{legacy}> <{MEMORY}contextKind> "lesson-idea" .')
