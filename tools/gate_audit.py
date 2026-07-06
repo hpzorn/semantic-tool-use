@@ -30,6 +30,11 @@ PHASES_GRAPH = "http://semantic-tool-use.org/graphs/phases"
 
 DEFAULT_SERVER = "http://localhost:8100"
 
+# Hop-join semantics of the feature-coverage chain (ADR-002): the chain
+# D5 -> P1 -> P4 -> P6 is a fixed contract, not graph data, so the hop
+# phase ids may be hardcoded. Which fields each hop emits is still derived.
+COVERAGE_CHAIN = ("d5", "p1", "p4", "p6")
+
 _PORT_CAVEAT = (
     "Note on ports: this tool defaults to http://localhost:8100 (the port "
     "Tulla deployments conventionally expose the ontology server on), but "
@@ -37,6 +42,16 @@ _PORT_CAVEAT = (
     "(src/ontology_server/config.py). If nothing answers on 8100, retry "
     "with --server http://localhost:8420 or set ONTOLOGY_API_URL."
 )
+
+
+class SpecNotLoadedError(RuntimeError):
+    """Raised when runtime spec derivation finds no gate declarations.
+
+    Zero gates means the phases graph is empty or we are pointed at the
+    wrong graph/server; the ONLY correct response is a hard abort (ADR-002).
+    Falling back to a hardcoded phase/gate list would let the audit report
+    verdicts against a stale spec.
+    """
 
 
 class SparqlError(RuntimeError):
@@ -74,6 +89,104 @@ def _sparql(base_url: str, query: str) -> dict:
     return body
 
 
+def derive_spec(base_url: str) -> dict:
+    """Derive the pipeline spec from the live phases graph in 3 SELECTs.
+
+    Nothing about the pipeline besides namespaces, the graph URI, and the
+    coverage hop ids is hardcoded (ADR-002); adding a phase or gate shape to
+    the graph is picked up here with zero CLI code changes (quality goal
+    Modifiability P1, <=4 sub-second SELECTs).
+
+    Returns::
+
+        {
+          "pipeline":        [{"phase_id", "family", "depth"}, ...],
+          "gates_by_phase":  {phase_id: [gate_uri, ...]},
+          "gate_uris":       sorted list of distinct gate shape URIs,
+          "coverage_fields": {hop_id: [field_name, ...]} for COVERAGE_CHAIN,
+        }
+
+    Raises SpecNotLoadedError when gate derivation returns zero gates
+    (empty/wrong graph) -- never falls back to a stale hardcoded list.
+    """
+    # (a) Pipeline order: transitive upstreamPhase+ depth per family,
+    # mirroring list_pipeline's query shape (src/ontology_server/mcp/
+    # phase_tools.py) but covering every family in one SELECT. Within a
+    # family, (depth, phaseId) ordering is exactly list_pipeline's.
+    order_query = (
+        f"SELECT ?phaseId ?family (COUNT(?ancestor) AS ?depth) WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f"    ?phase <{PHASE_NS}agentFamily> ?family ;\n"
+        f"           <{PHASE_NS}phaseId> ?phaseId .\n"
+        f"    OPTIONAL {{\n"
+        f"      ?phase <{PHASE_NS}upstreamPhase>+ ?ancestor .\n"
+        f"      ?ancestor <{PHASE_NS}agentFamily> ?family .\n"
+        f"    }}\n"
+        f"  }}\n"
+        f"}}\n"
+        f"GROUP BY ?phaseId ?family\n"
+        f"ORDER BY ?family ?depth ?phaseId"
+    )
+    pipeline = [
+        {
+            "phase_id": str(row.get("phaseId", "")),
+            "family": str(row.get("family", "")),
+            "depth": int(row.get("depth", 0)),
+        }
+        for row in _sparql(base_url, order_query).get("results", [])
+        if row.get("phaseId")
+    ]
+
+    # (b) Declared gate shape URIs: SELECT DISTINCT on phase:shaclGate over
+    # the whole graph -- deliberately NOT collapsed through the pipeline
+    # query, so gates on phases outside any audited family still count.
+    gates_query = (
+        f"SELECT DISTINCT ?phaseId ?gate WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f"    ?phase <{PHASE_NS}shaclGate> ?gate ;\n"
+        f"           <{PHASE_NS}phaseId> ?phaseId .\n"
+        f"  }}\n"
+        f"}}"
+    )
+    gates_by_phase: dict[str, list[str]] = {}
+    gate_uris: set[str] = set()
+    for row in _sparql(base_url, gates_query).get("results", []):
+        phase_id, gate = str(row.get("phaseId", "")), str(row.get("gate", ""))
+        if phase_id and gate:
+            gates_by_phase.setdefault(phase_id, []).append(gate)
+            gate_uris.add(gate)
+
+    if not gate_uris:
+        # Hard abort (ADR-002): an empty gate set can only mean the spec
+        # graph is missing/wrong. Never proceed, never fall back.
+        raise SpecNotLoadedError("spec not loaded")
+
+    # (c) Coverage field names emitted by the D5->P1->P4->P6 hops.
+    values = " ".join(f'"{hop}"' for hop in COVERAGE_CHAIN)
+    fields_query = (
+        f"SELECT ?phaseId ?field WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f"    VALUES ?phaseId {{ {values} }}\n"
+        f"    ?phase <{PHASE_NS}phaseId> ?phaseId ;\n"
+        f"           <{PHASE_NS}emitsIntentField> ?field .\n"
+        f"  }}\n"
+        f"}}\n"
+        f"ORDER BY ?phaseId ?field"
+    )
+    coverage_fields: dict[str, list[str]] = {hop: [] for hop in COVERAGE_CHAIN}
+    for row in _sparql(base_url, fields_query).get("results", []):
+        phase_id, field = str(row.get("phaseId", "")), str(row.get("field", ""))
+        if phase_id in coverage_fields and field:
+            coverage_fields[phase_id].append(field)
+
+    return {
+        "pipeline": pipeline,
+        "gates_by_phase": {p: sorted(g) for p, g in gates_by_phase.items()},
+        "gate_uris": sorted(gate_uris),
+        "coverage_fields": coverage_fields,
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gate_audit.py",
@@ -108,10 +221,28 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    parser.parse_args(argv)
-    # Skeleton (task T1.1): spec derivation, classification, and report
-    # rendering land in subsequent tasks (T1.2+).
-    print("gate_audit: audit logic not implemented yet (skeleton)", file=sys.stderr)
+    args = parser.parse_args(argv)
+
+    try:
+        spec = derive_spec(args.server)
+    except SpecNotLoadedError as exc:
+        print(exc, file=sys.stderr)  # "spec not loaded" -- ADR-003: nonzero
+        return 2
+    except (SparqlError, OSError) as exc:
+        # Covers urllib HTTPError/URLError (OSError subclasses) and the
+        # endpoint's HTTP-200 {"error"} bodies: fail loudly, no fallback.
+        print(f"gate_audit: {exc}", file=sys.stderr)
+        return 2
+
+    # Skeleton (through task T1.2): classification and report rendering land
+    # in subsequent tasks (T1.3+).
+    print(
+        "gate_audit: spec derived ({} phases, {} gate shapes); "
+        "audit logic not implemented yet".format(
+            len(spec["pipeline"]), len(spec["gate_uris"])
+        ),
+        file=sys.stderr,
+    )
     return 2
 
 
