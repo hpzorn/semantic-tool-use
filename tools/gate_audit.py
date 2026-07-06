@@ -148,6 +148,32 @@ D5_MODE_SKIPPED_FAMILIES = {
     "implement": ("research", "planning"),
 }
 
+# The always-populated limitations set (ADR-003): every report carries all
+# three entries regardless of idea state -- the audit names what it cannot
+# see instead of silently overclaiming. Frozen ids (SchemaVer additive-only,
+# like the state enums); the first entry is the footnote the "*" on every
+# not-persisted phase row points at.
+LIMITATIONS = (
+    {
+        "id": "not-persisted-ambiguity",
+        "text": f"not-persisted (*): {AMBIGUITY_NOTE}",
+    },
+    {
+        "id": "retry-counts-transcript-only",
+        "text": (
+            "gate retry counts exist only in agent transcripts, not in the "
+            "graph; this read-only audit cannot report them"
+        ),
+    },
+    {
+        "id": "memory-links-informational",
+        "text": (
+            "memory prd:coversFeature link counts are informational only; "
+            "structurally excluded from the coverage verdict and exit code"
+        ),
+    },
+)
+
 _PORT_CAVEAT = (
     "Note on ports: this tool defaults to http://localhost:8100 (the port "
     "Tulla deployments conventionally expose the ontology server on), but "
@@ -839,56 +865,113 @@ def classify_phases(
     return rows
 
 
-def _print_gate_report(idea_id: str, rows: list[dict]) -> None:
-    """Render the classification rows as a human-readable table.
+def build_report(
+    idea_id: str,
+    spec: dict,
+    phases: list[dict],
+    hops: list[dict],
+    memory_links: int,
+) -> dict:
+    """Assemble the ONE internal report object (ADR-003).
 
-    One line per derived-pipeline phase with its frozen v1 state and the
-    runtime-derived gate shape URI (persisted = that gate passed, ADR-130-7).
-    not-persisted states are starred; the star expands to the full
-    ambiguity note (carried on every such row) in a single footnote.
+    Pure function over already-computed values -- no I/O. Every output
+    surface renders from this object alone: the human tables (render_table,
+    this task), the --json report (T4.2), and the exit code (T4.3), so the
+    surfaces structurally cannot disagree.
+
+    ``verdicts.overall`` is folded HERE from the hop rows via the
+    T3.1-validated coverage_overall -- callers never pass a verdict in, so
+    no surface can carry a verdict inconsistent with the hop states.
+    ``memory_coverage_links`` sits outside ``verdicts`` (ADR-003:
+    informational only, never verdict-affecting); ``limitations`` is the
+    always-populated three-entry set.
+
+    Returns::
+
+        {
+          "idea":                  normalized idea id,
+          "spec":                  derive_spec() result,
+          "phases":                classify_phases() rows, pipeline order,
+          "verdicts": {
+            "hops":                evaluate_coverage_chain() rows,
+            "overall":             coverage_overall() fold of those rows,
+          },
+          "memory_coverage_links": informational COUNT (outside verdicts),
+          "limitations":           [{"id", "text"}, ...] == LIMITATIONS,
+        }
     """
-    idea_id = _normalize_idea_id(idea_id)
-    persisted = sum(1 for r in rows if r["state"] == STATE_PERSISTED)
-    print(f"PHASES ({idea_id}): {persisted} persisted, {len(rows)} total")
-    if not rows:
-        return
+    return {
+        "idea": _normalize_idea_id(idea_id),
+        "spec": spec,
+        "phases": phases,
+        "verdicts": {"hops": hops, "overall": coverage_overall(hops)},
+        "memory_coverage_links": memory_links,
+        "limitations": [dict(limitation) for limitation in LIMITATIONS],
+    }
 
-    table = []
-    for row in rows:
-        state = row["state"]
-        if row["note"] is not None:
-            state += "*"
-        gate = row["gate_shape"] or "-"
-        results = row["results"]
-        result = ", ".join(r["result_uri"] for r in results) or "-"
-        traces = ", ".join(t for r in results for t in r["traces_to"]) or "-"
-        table.append((row["phase_id"], row["family"] or "-", state, gate, result, traces))
 
-    header = ("PHASE", "FAMILY", "STATE", "GATE", "RESULT", "TRACES-TO")
+def _format_table(header: tuple, rows: list[tuple]) -> list[str]:
+    """Column-align *rows* under *header* (two-space gutter, ragged last col)."""
     widths = [
-        max(len(header[col]), *(len(line[col]) for line in table))
+        max([len(header[col])] + [len(row[col]) for row in rows])
         for col in range(len(header) - 1)
     ]
-    print("  ".join(h.ljust(w) for h, w in zip(header, widths)) + f"  {header[-1]}")
-    for line in table:
-        cells = [cell.ljust(w) for cell, w in zip(line, widths)]
-        print("  ".join(cells) + f"  {line[-1]}")
-    if any(row["note"] is not None for row in rows):
-        print(f"* {AMBIGUITY_NOTE}")
+    lines = [
+        "  ".join(h.ljust(w) for h, w in zip(header, widths)) + f"  {header[-1]}"
+    ]
+    for row in rows:
+        cells = [cell.ljust(w) for cell, w in zip(row, widths)]
+        lines.append("  ".join(cells) + f"  {row[-1]}")
+    return lines
 
 
-def _print_coverage_report(idea_id: str, hops: list[dict], verdict: str) -> None:
-    """Render the coverage-chain hop evaluations as a human-readable table.
+def render_table(report: dict) -> str:
+    """Render the human table mode as a pure function of the report object.
 
-    Minimal T2.3 rendering (T4.1 folds this into the unified report object):
-    one line per hop with its frozen v1 state and the itemized R6-RQ2 check
-    results, then the overall verdict line -- COVERAGE: PASS appears only
-    when every hop is CLOSED (coverage_overall guarantees it).
+    Reads NOTHING but build_report()'s result (ADR-003: the report object is
+    the single source every surface renders from). Emits, in order:
+
+    - the pipeline-ordered phase/gate table: one line per derived-pipeline
+      phase with producedBy id, family, frozen v1 state (not-persisted rows
+      starred, pointing at limitation [1]), runtime-derived gate shape URI
+      (persisted = that gate passed, ADR-130-7), result URI, tracesTo edges;
+    - the coverage-chain hop table with the itemized R6-RQ2 check results;
+    - the overall verdict line -- COVERAGE: PASS appears only when every
+      hop is CLOSED (coverage_overall, folded inside build_report);
+    - the informational memory_coverage_links line (outside all verdicts);
+    - the always-populated limitation footnotes.
     """
-    idea_id = _normalize_idea_id(idea_id)
-    print(f"\nCOVERAGE CHAIN ({idea_id}):")
-    table = []
-    for hop in hops:
+    lines: list[str] = []
+
+    phases = report["phases"]
+    persisted = sum(1 for r in phases if r["state"] == STATE_PERSISTED)
+    lines.append(
+        f"PHASES ({report['idea']}): {persisted} persisted, {len(phases)} total"
+    )
+    if phases:
+        table = []
+        for row in phases:
+            state = row["state"]
+            if row["note"] is not None:
+                state += "*"
+            results = row["results"]
+            table.append(
+                (
+                    row["phase_id"],
+                    row["family"] or "-",
+                    state,
+                    row["gate_shape"] or "-",
+                    ", ".join(r["result_uri"] for r in results) or "-",
+                    ", ".join(t for r in results for t in r["traces_to"]) or "-",
+                )
+            )
+        header = ("PHASE", "FAMILY", "STATE", "GATE", "RESULT", "TRACES-TO")
+        lines.extend(_format_table(header, table))
+
+    lines.append("")
+    lines.append(f"COVERAGE CHAIN ({report['idea']}):")
+    hop_table = []
+    for hop in report["verdicts"]["hops"]:
         evaluated = [c for c in hop["checks"] if c["ok"] is not None]
         detail = "; ".join(
             f"{c['check']}={'ok' if c['ok'] else 'FAILED (' + c['detail'] + ')'}"
@@ -896,18 +979,23 @@ def _print_coverage_report(idea_id: str, hops: list[dict], verdict: str) -> None
         )
         if hop["unjoined"]:
             detail += f"; unjoined: {', '.join(hop['unjoined'])}"
-        table.append((hop["hop"], hop["state"], detail))
+        hop_table.append((hop["hop"], hop["state"], detail))
+    lines.extend(_format_table(("HOP", "STATE", "CHECKS"), hop_table))
+    lines.append(f"COVERAGE: {report['verdicts']['overall']}")
 
-    header = ("HOP", "STATE", "CHECKS")
-    widths = [
-        max(len(header[col]), *(len(line[col]) for line in table))
-        for col in range(len(header) - 1)
-    ]
-    print("  ".join(h.ljust(w) for h, w in zip(header, widths)) + f"  {header[-1]}")
-    for line in table:
-        cells = [cell.ljust(w) for cell, w in zip(line, widths)]
-        print("  ".join(cells) + f"  {line[-1]}")
-    print(f"COVERAGE: {verdict}")
+    lines.append("")
+    lines.append(
+        f"memory_coverage_links: {report['memory_coverage_links']} "
+        f"(informational only; excluded from coverage verdict and exit code)"
+    )
+
+    lines.append("")
+    lines.append("LIMITATIONS:")
+    lines.extend(
+        f"  [{i}] {limitation['text']}"
+        for i, limitation in enumerate(report["limitations"], start=1)
+    )
+    return "\n".join(lines)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -966,25 +1054,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"gate_audit: {exc}", file=sys.stderr)
         return 2
 
+    # Everything below is pure: classify, evaluate, fold into the ONE report
+    # object, render. memory_coverage_links enters the report outside
+    # "verdicts" (ADR-003: informational only) -- it is never passed into a
+    # verdict function or this function's return value, so no count value
+    # can change the coverage verdict or the exit code.
     phases = classify_phases(spec, listing, args.idea, d5_mode)
-    _print_gate_report(args.idea, phases)
-
     hops = evaluate_coverage_chain(coverage)
-    _print_coverage_report(args.idea, hops, coverage_overall(hops))
+    report = build_report(args.idea, spec, phases, hops, memory_links)
+    print(render_table(report))
 
-    # memory_coverage_links is informational only (ADR-003): it flows from
-    # fetch_memory_coverage_links() straight into this print and nowhere
-    # else -- structurally excluded from every verdict function above and
-    # from this function's return value, so no count value can change the
-    # coverage verdict or the exit code.
-    print(
-        f"memory_coverage_links: {memory_links} "
-        f"(informational only; excluded from coverage verdict and exit code)"
-    )
-
-    # Partial implementation (through task T2.3): the --json report lands
-    # in T4.2, and the exit code mirrors the verdict only from T4.3 (after
-    # T3.1 validates the hop logic -- until then it is not verdict-affecting).
+    # Partial implementation (through task T4.1): the --json rendering of
+    # this same report object lands in T4.2, and the exit code mirrors
+    # report["verdicts"]["overall"] only from T4.3 -- until then the
+    # verdict is not exit-code-affecting.
     if args.json:
         print("gate_audit: --json not implemented yet", file=sys.stderr)
         return 2
