@@ -27,7 +27,9 @@ from ontology_server.mcp.phase_tools import (
     collect_upstream_facts,
     record_phase_result,
 )
-from tulla.ontology.phase_predicate_names import PHASE_PREDICATE_NAMES
+# The server-side copy is what record_phase_result enforces (tulla's mirror
+# may be absent or stale in a given checkout).
+from ontology_server.phase_predicate_names import PHASE_PREDICATE_NAMES
 from tulla.ports.ontology import OntologyPort
 
 

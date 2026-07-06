@@ -7,14 +7,54 @@ import sys
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Add tulla src to path for tulla package imports (phase_predicate_names, ports.ontology)
-_tulla_src = Path(__file__).parent.parent.parent.parent / "tulla" / "src"
-if _tulla_src.exists():
-    sys.path.insert(0, str(_tulla_src))
+# Add tulla src to path for tulla package imports (phase_predicate_names, ports.ontology).
+# Preferred: the sibling checkout in the same workspace (<workspace>/tulla/src);
+# fallback: the legacy location two levels further up. Guard stat errors —
+# sandboxed environments raise PermissionError instead of returning False.
+for _tulla_src in (
+    Path(__file__).parent.parent.parent / "tulla" / "src",
+    Path(__file__).parent.parent.parent.parent / "tulla" / "src",
+):
+    try:
+        if _tulla_src.exists():
+            sys.path.insert(0, str(_tulla_src))
+            break
+    except OSError:
+        continue
 
 from ontology_server.config import Settings
 from ontology_server.core.store import OntologyStore
 from ontology_server.core.validation import SHACLValidator
+
+
+def _tulla_port_has_default_impls() -> bool:
+    """True when tulla's OntologyPort still ships default phase-tool methods.
+
+    The tulla branch ``feat/decouple-port-rest`` replaces the port's default
+    implementations with ``NotImplementedError`` stubs; the ``TestOntologyPort*``
+    classes test exactly those removed defaults and must be skipped against it.
+    """
+    try:
+        import inspect
+
+        from tulla.ports.ontology import OntologyPort
+
+        return "NotImplementedError" not in inspect.getsource(OntologyPort.render_gates)
+    except Exception:
+        return False
+
+
+def pytest_collection_modifyitems(config, items):
+    if _tulla_port_has_default_impls():
+        return
+    skip = pytest.mark.skip(
+        reason="tulla OntologyPort has no default phase-tool implementations "
+        "on this branch (feat/decouple-port-rest)"
+    )
+    for item in items:
+        cls = getattr(item, "cls", None)
+        if cls is not None and cls.__name__.startswith("TestOntologyPort"):
+            item.add_marker(skip)
 
 
 @pytest.fixture

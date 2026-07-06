@@ -63,37 +63,53 @@ PHASE_PREDICATE_NAMES: dict[str, frozenset[str]] = {
     }),
     # Planning track
     "p1": frozenset({
-        "discovery_summary",
+        "discovery_summary", "target_audience",
         "feature_scope", "non_negotiable_constraints", "success_metrics",
         "jtbd_traceability", "scope_boundaries",
+        "out_of_scope", "scope_decisions",
+        # Mechanical scope-coverage gate (P1OutputShape forces
+        # uncovered_mandatory_features = "[]")
+        "mandatory_feature_coverage", "uncovered_mandatory_features",
     }),
     "p2": frozenset({
         "codebase_summary",
         "relevant_modules", "architecture_patterns", "integration_points",
         "test_coverage", "tech_debt_hotspots",
+        "rq_resolutions", "gaps_already_done", "remaining_scope_lines",
     }),
     "p3": frozenset({
-        "architecture_decisions", "quality_goals",
+        "architecture_decisions", "quality_goals", "quality_tradeoffs",
         "total_dependencies", "circular_dependencies",
         "file_structure", "adr_count", "shacl_gate", "p0_outstanding_deliverable",
+        # Feature Coverage Matrix (P3OutputShape forces uncovered_features = "[]")
+        "feature_coverage", "uncovered_features",
     }),
     "p4": frozenset({
         "tasks", "task_count", "p0_count", "p1_count", "p2_count",
         "critical_path", "blocked_tasks",
+        "implementation_summary", "estimated_complexity", "implementation_phases",
+        # Task-level coverage (P4OutputShape forces uncovered_features = "[]")
+        "feature_coverage", "uncovered_features",
     }),
     "p5": frozenset({
-        "research_requests",
-        "status", "blocking_gaps", "risks", "readiness_verdict", "readiness_rationale",
+        "research_requests", "skip_research",
+        "status", "blocking_gaps", "risks", "risk_summary",
+        "readiness_verdict", "readiness_rationale",
     }),
     "p6": frozenset({
         "requirement_count", "prd_file",
         "prd_context", "requirements_exported",
         "p0_count", "p1_count", "p2_count",
+        # Mechanical Step 2b verification result — recorded even on fail so the
+        # orchestrator and I1 can see and block on it.
+        "coverage_gate", "uncovered_features",
     }),
     # Implementation track
     "i1": frozenset({
         "status", "tasks_completed", "tasks_failed",
         "pr_url", "commits", "test_results", "outstanding_items",
+        "completed_requirements", "blocked_requirements", "total_requirements",
+        "implementation_status",
     }),
     # Change-agent tracks (unchanged)
     "intake": frozenset({"change_type", "affected_files", "scope", "lightweight_eligible"}),
@@ -217,8 +233,15 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         # from P6
         "requirement_count", "prd_file", "prd_context",
         "requirements_exported",
+        # from P6 — mechanical feature-coverage gate checked at I1 pre-flight
+        "coverage_gate", "uncovered_features",
+        # from P5 — blocking signal checked at I1 pre-flight
+        "research_requests",
         # from P4
         "tasks", "critical_path",
+        # from P3/D5 — architecture context threaded into each coder dispatch
+        "architecture_decisions", "quality_goals",
+        "northstar", "mandatory_features", "key_constraints",
     }),
 }
 

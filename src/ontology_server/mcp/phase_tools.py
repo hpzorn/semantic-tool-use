@@ -902,15 +902,42 @@ class KGOntologyClient(KGSparqlClient):
         instance_uri: str,
         shape_uri: str,
     ) -> dict[str, Any]:
+        # A phase that declares a shaclGate must never pass unvalidated —
+        # missing validator or missing shape is a gate FAILURE, not a skip.
         if self._validator is None:
-            logger.warning(
-                "validate_instance called but no SHACLValidator configured; "
-                "reporting conforms=True"
+            logger.error(
+                "validate_instance called for gated phase but no SHACLValidator "
+                "configured; failing the gate"
             )
-            return {"conforms": True, "violations": []}
+            return {
+                "conforms": False,
+                "violations": [
+                    "SHACL gate declared but no validator is configured on the "
+                    "server — refusing to persist unvalidated phase output"
+                ],
+            }
+
+        # Scope validation to the ONE shape the phase declares.  All phase
+        # output shapes share sh:targetClass phase:PhaseOutput, so validating
+        # against a directory of shapes would apply every phase's shape to
+        # every phase's output.  export_cbd_turtle follows sh:property
+        # blank nodes, which export_turtle(subject=...) would corrupt.
+        shapes_ttl = self._store.export_cbd_turtle(shape_uri, graph=PHASES_GRAPH)
+        if not shapes_ttl:
+            logger.error(
+                "SHACL gate shape %s not found in phases graph; failing the gate",
+                shape_uri,
+            )
+            return {
+                "conforms": False,
+                "violations": [
+                    f"SHACL gate shape <{shape_uri}> not found in the phases "
+                    "graph — seed phase-content.trig before running gated phases"
+                ],
+            }
 
         instance_ttl = self._store.export_turtle(graph=PHASES_GRAPH, subject=instance_uri)
-        result = self._validator.validate(instance_ttl, shapes_uri=shape_uri)
+        result = self._validator.validate(instance_ttl, shapes_ttl=shapes_ttl)
         rd = result.to_dict()
         # Normalise violations to strings for record_phase_result.
         violations = [
@@ -918,6 +945,98 @@ class KGOntologyClient(KGSparqlClient):
             for v in rd.get("violations", [])
         ]
         return {"conforms": rd["conforms"], "violations": violations}
+
+
+# ---------------------------------------------------------------------------
+# Phase-content seeding
+# ---------------------------------------------------------------------------
+
+
+# Sentinel resource used for idempotency: present only in trig versions that
+# carry the full pipeline gate shapes (D1..I1).  Older stores that were seeded
+# before the shapes existed re-seed automatically (quad-set semantics make
+# re-adding existing phase triples a no-op).
+_SEED_SENTINEL = f"{PHASE_NS}P1OutputShape"
+
+
+def _default_phase_content_path() -> "Path":
+    from pathlib import Path
+    import os
+
+    override = os.environ.get("ONTOLOGY_PHASE_CONTENT_PATH")
+    if override:
+        return Path(override)
+    # repo layout: <root>/src/ontology_server/mcp/phase_tools.py
+    #              <root>/tulla/ontologies/phase-content.trig
+    return Path(__file__).resolve().parents[3] / "tulla" / "ontologies" / "phase-content.trig"
+
+
+def seed_phase_content(
+    kg_store: "KnowledgeGraphStore",
+    trig_path: "Path | None" = None,
+) -> int:
+    """Load phase definitions + SHACL gate shapes into the phases graph.
+
+    Idempotent: skipped when the current trig's gate shapes are already
+    present.  Returns the number of quads loaded (0 when skipped or the
+    file is absent).
+
+    Without this seed every phase that declares a ``phase:shaclGate`` fails
+    hard at record time (missing shape == gate failure, never a silent pass),
+    so the server logs an explicit error when the file cannot be found.
+    """
+    path = trig_path or _default_phase_content_path()
+
+    ask = (
+        f"ASK {{ GRAPH <{PHASES_GRAPH}> {{ "
+        f"<{_SEED_SENTINEL}> ?p ?o . }} }}"
+    )
+    try:
+        already = kg_store.ask(ask)
+    except Exception:
+        already = False
+    if already:
+        logger.debug("Phase content already seeded (found %s)", _SEED_SENTINEL)
+        return 0
+
+    if not path.exists():
+        logger.error(
+            "phase-content.trig not found at %s — SHACL gate shapes are missing "
+            "and every gated phase will fail at record_phase_result. Set "
+            "ONTOLOGY_PHASE_CONTENT_PATH or place the file.",
+            path,
+        )
+        return 0
+
+    trig = path.read_text(encoding="utf-8")
+
+    # Upsert: an existing store may hold an OLDER version of these definition
+    # subjects (e.g. a superseded phase:procedure literal). Clear each subject
+    # the trig itself declares before loading, so re-seeding replaces stale
+    # definitions instead of accumulating duplicates.  Live phase OUTPUTS
+    # (phase:idea-*-*) are never among the trig's subjects and are untouched.
+    import pyoxigraph as ox
+
+    trig_format = getattr(ox, "RdfFormat", None)
+    fmt = trig_format.TRIG if trig_format else "application/trig"
+    subjects = {
+        quad.subject.value
+        for quad in ox.parse(trig, fmt)
+        if isinstance(quad.subject, ox.NamedNode)
+    }
+    for subject in subjects:
+        kg_store.remove_triple(subject=subject, graph=PHASES_GRAPH)
+
+    quads = kg_store.load_trig(trig)
+    logger.info(
+        "Seeded phase content from %s (%d quads, %d subjects upserted)",
+        path, quads, len(subjects),
+    )
+    return quads
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
@@ -937,6 +1056,8 @@ def register_phase_tools(
         kg_store: Knowledge graph store (backing the SPARQL transport).
         validator: Optional SHACL validator (needed for record_phase_result).
     """
+    seed_phase_content(kg_store)
+
     sparql_client = KGSparqlClient(kg_store)
     ontology_client = KGOntologyClient(kg_store, validator)
 

@@ -403,6 +403,77 @@ class KnowledgeGraphStore:
 
         return self.count_triples(graph) - initial_count
 
+    def load_trig(self, trig: str) -> int:
+        """Load TriG data, preserving the named graphs declared in the data.
+
+        Used to seed graph-scoped content such as
+        ``tulla/ontologies/phase-content.trig`` (phase definitions + SHACL
+        output shapes inside the phases named graph).
+
+        Returns:
+            Number of quads loaded.
+        """
+        trig_format = getattr(ox, "RdfFormat", None)
+        fmt = trig_format.TRIG if trig_format else "application/trig"
+        count = 0
+        for quad in ox.parse(trig, fmt):
+            self._store.add(quad)
+            count += 1
+        return count
+
+    def export_cbd_turtle(self, subject: str, graph: str | None = None) -> str:
+        """Export the concise bounded description (CBD) of *subject* as Turtle.
+
+        Follows blank-node objects recursively so structures like SHACL
+        ``sh:property [ ... ]`` blocks are exported completely — unlike
+        ``export_turtle(subject=...)``, which exports only the subject's own
+        triples and corrupts blank-node objects.
+
+        Returns an empty string when the subject has no triples in *graph*.
+        """
+        from rdflib import BNode, Graph as RDFGraph, Literal as RDFLiteral, URIRef
+
+        g = self._graph_node(graph)
+        out = RDFGraph()
+        for prefix, uri in NAMESPACES.items():
+            out.bind(prefix, uri)
+        out.bind("sh", "http://www.w3.org/ns/shacl#")
+
+        def _to_rdflib(term: Any) -> Any:
+            if isinstance(term, ox.NamedNode):
+                return URIRef(term.value)
+            if isinstance(term, ox.BlankNode):
+                return BNode(term.value)
+            if isinstance(term, ox.Literal):
+                if term.language:
+                    return RDFLiteral(term.value, lang=term.language)
+                if term.datatype and term.datatype.value != f"{NAMESPACES['xsd']}string":
+                    return RDFLiteral(term.value, datatype=URIRef(term.datatype.value))
+                return RDFLiteral(term.value)
+            raise TypeError(f"unsupported RDF term: {term!r}")
+
+        visited: set[str] = set()
+
+        def _walk(node: Any) -> None:
+            key = repr(node)
+            if key in visited:
+                return
+            visited.add(key)
+            for quad in self._store.quads_for_pattern(node, None, None, g):
+                out.add((
+                    _to_rdflib(quad.subject),
+                    _to_rdflib(quad.predicate),
+                    _to_rdflib(quad.object),
+                ))
+                if isinstance(quad.object, ox.BlankNode):
+                    _walk(quad.object)
+
+        _walk(ox.NamedNode(subject))
+
+        if len(out) == 0:
+            return ""
+        return out.serialize(format="turtle")
+
     def clear_graph(self, graph: str | None = None) -> int:
         """Clear all triples from a graph."""
         g = self._graph_node(graph)

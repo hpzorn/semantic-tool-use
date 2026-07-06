@@ -76,7 +76,7 @@ phase:Phase a rdfs:Class ;
 phase:d1 a phase:Phase ;
     rdfs:label "D1 – Context & Ecosystem Inventory" ;
     phase:phaseId "d1" ;
-    phase:agentFamily "design" ;
+    phase:agentFamily "discovery" ;
     # No upstreamPhase: D1 is the entry point of the design pipeline.
     phase:procedure """Audit what currently exists related to this idea — prior art, comparable solutions, related ideas, and (for ideas targeting an existing codebase) reusable components.
 
@@ -116,7 +116,7 @@ Be thorough — good discovery starts with knowing what exists.""" ;
 phase:d2 a phase:Phase ;
     rdfs:label "D2 – Persona Discovery" ;
     phase:phaseId "d2" ;
-    phase:agentFamily "design" ;
+    phase:agentFamily "discovery" ;
     phase:upstreamPhase phase:d1 ;
     phase:procedure """Identify who would use this idea, their jobs-to-be-done, and their pain points.
 
@@ -157,7 +157,7 @@ Think like a product manager. Focus on real user needs, not features.""" ;
 phase:d3 a phase:Phase ;
     rdfs:label "D3 – Value Mapping" ;
     phase:phaseId "d3" ;
-    phase:agentFamily "design" ;
+    phase:agentFamily "discovery" ;
     phase:upstreamPhase phase:d2 ;
     phase:procedure """Assess business value, strategic fit, and ROI potential.
 
@@ -206,7 +206,7 @@ Think like a product strategist. Be honest about value and effort.""" ;
 phase:d4 a phase:Phase ;
     rdfs:label "D4 – Gap Analysis" ;
     phase:phaseId "d4" ;
-    phase:agentFamily "design" ;
+    phase:agentFamily "discovery" ;
     phase:upstreamPhase phase:d3 ;
     phase:procedure """Identify what's missing to move this idea forward and prioritize the gaps.
 
@@ -260,7 +260,7 @@ Be specific — vague gaps can't be closed.""" ;
 phase:d5 a phase:Phase ;
     rdfs:label "D5 – Discovery Integration" ;
     phase:phaseId "d5" ;
-    phase:agentFamily "design" ;
+    phase:agentFamily "discovery" ;
     phase:upstreamPhase phase:d4 ;
     phase:procedure """Mode-dependent integration phase: creates either a Research Brief (upstream) or a Product Spec (downstream).
 
@@ -566,7 +566,18 @@ phase:p1 a phase:Phase ;
     phase:requiresMcp "mcp__ontology-server__get_idea" ;
     phase:requiresMcp "mcp__ontology-server__collect_upstream_facts_tool" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
-    phase:emitsIntentField "discovery_summary" .
+    phase:shaclGate phase:P1OutputShape ;
+    phase:emitsIntentField "discovery_summary" ;
+    phase:emitsIntentField "target_audience" ;
+    phase:emitsIntentField "feature_scope" ;
+    phase:emitsIntentField "mandatory_feature_coverage" ;
+    phase:emitsIntentField "uncovered_mandatory_features" ;
+    phase:emitsIntentField "out_of_scope" ;
+    phase:emitsIntentField "scope_decisions" ;
+    phase:emitsIntentField "non_negotiable_constraints" ;
+    phase:emitsIntentField "success_metrics" ;
+    phase:emitsIntentField "jtbd_traceability" ;
+    phase:emitsIntentField "scope_boundaries" .
 
 phase:p2 a phase:Phase ;
     rdfs:label "P2 – Codebase Analysis" ;
@@ -596,7 +607,16 @@ Context: read p1-discovery-context.md.
     phase:requiresTool "Glob" ;
     phase:requiresTool "Grep" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
-    phase:emitsIntentField "codebase_summary" .
+    phase:shaclGate phase:P2OutputShape ;
+    phase:emitsIntentField "codebase_summary" ;
+    phase:emitsIntentField "relevant_modules" ;
+    phase:emitsIntentField "architecture_patterns" ;
+    phase:emitsIntentField "integration_points" ;
+    phase:emitsIntentField "rq_resolutions" ;
+    phase:emitsIntentField "gaps_already_done" ;
+    phase:emitsIntentField "remaining_scope_lines" ;
+    phase:emitsIntentField "test_coverage" ;
+    phase:emitsIntentField "tech_debt_hotspots" .
 
 phase:p3 a phase:Phase ;
     rdfs:label "P3 – Architecture Design" ;
@@ -633,6 +653,10 @@ Scale rigor to complexity: read complexity_tier from D3 and right-size the DEPTH
      predecessor_phase_id="p2"
      artifact_path="p3-architecture-design.md"
      result_json={
+       "architecture_decisions": <JSON list of ADRs: id/title/status/context/decision/rationale/consequences/quality_attributes>,
+       "quality_goals": <JSON list: attribute/priority/acceptance_criterion>,
+       "feature_coverage": <JSON list: one {"feature_id", "covered_by": [ADR ids/components]} per P1 feature_scope entry>,
+       "uncovered_features": <JSON list of P1 feature_ids with no coverage — MUST be []; extend the architecture instead of persisting gaps>,
        "file_structure": <top-level directory/component list as a compact string>,
        "adr_count": <integer: number of ADRs written>,
        "circular_dependencies": <integer: count of circular deps found>,
@@ -655,7 +679,10 @@ Follow any Project ADRs in Effect if provided in the context. Feature ADRs must 
     phase:emitsIntentField "file_structure" ;
     phase:emitsIntentField "adr_count" ;
     phase:emitsIntentField "shacl_gate" ;
-    phase:emitsIntentField "p0_outstanding_deliverable" .
+    phase:emitsIntentField "p0_outstanding_deliverable" ;
+    phase:emitsIntentField "quality_tradeoffs" ;
+    phase:emitsIntentField "feature_coverage" ;
+    phase:emitsIntentField "uncovered_features" .
 
 phase:p4 a phase:Phase ;
     rdfs:label "P4 – Implementation Plan" ;
@@ -686,7 +713,20 @@ Context: read p1-discovery-context.md, p2-codebase-analysis.md, p3-architecture-
 Someone must be able to implement this without asking any questions.""" ;
     phase:requiresTool "Read" ;
     phase:requiresTool "Write" ;
-    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" .
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:P4OutputShape ;
+    phase:emitsIntentField "implementation_summary" ;
+    phase:emitsIntentField "estimated_complexity" ;
+    phase:emitsIntentField "task_count" ;
+    phase:emitsIntentField "p0_count" ;
+    phase:emitsIntentField "p1_count" ;
+    phase:emitsIntentField "p2_count" ;
+    phase:emitsIntentField "implementation_phases" ;
+    phase:emitsIntentField "tasks" ;
+    phase:emitsIntentField "critical_path" ;
+    phase:emitsIntentField "blocked_tasks" ;
+    phase:emitsIntentField "feature_coverage" ;
+    phase:emitsIntentField "uncovered_features" .
 
 phase:p5 a phase:Phase ;
     rdfs:label "P5 – Research Requests" ;
@@ -716,7 +756,15 @@ Persist results via mcp__ontology-server__record_phase_result_tool.""" ;
     phase:requiresTool "Write" ;
     phase:requiresTool "Glob" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
-    phase:emitsIntentField "research_requests" .
+    phase:shaclGate phase:P5OutputShape ;
+    phase:emitsIntentField "research_requests" ;
+    phase:emitsIntentField "status" ;
+    phase:emitsIntentField "skip_research" ;
+    phase:emitsIntentField "blocking_gaps" ;
+    phase:emitsIntentField "risks" ;
+    phase:emitsIntentField "risk_summary" ;
+    phase:emitsIntentField "readiness_verdict" ;
+    phase:emitsIntentField "readiness_rationale" .
 
 phase:p6 a phase:Phase ;
     rdfs:label "P6 – Export PRD to RDF" ;
@@ -755,8 +803,46 @@ This is the bridge between planning and implementation:
     phase:requiresTool "Write" ;
     phase:requiresMcp "mcp__ontology-server__store_fact" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:shaclGate phase:P6OutputShape ;
     phase:emitsIntentField "requirement_count" ;
-    phase:emitsIntentField "prd_file" .
+    phase:emitsIntentField "prd_file" ;
+    phase:emitsIntentField "requirements_exported" ;
+    phase:emitsIntentField "prd_context" ;
+    phase:emitsIntentField "p0_count" ;
+    phase:emitsIntentField "p1_count" ;
+    phase:emitsIntentField "p2_count" ;
+    phase:emitsIntentField "coverage_gate" ;
+    phase:emitsIntentField "uncovered_features" .
+
+
+phase:i1 a phase:Phase ;
+    rdfs:label "I1 – Implementation Loop" ;
+    phase:phaseId "i1" ;
+    phase:agentFamily "implementation" ;
+    phase:upstreamPhase phase:p6 ;
+    phase:procedure """Drive the per-requirement coding loop: for each unblocked prd:Pending requirement (all prd:dependsOn targets prd:Complete), dispatch one fresh coding sub-agent, then mark prd:Complete or prd:Blocked. Loop until no unblocked Pending requirements remain.
+
+Pre-flight gates (abort if either fails):
+1. P5 research_requests must be [] — otherwise research is required first.
+2. P6 coverage_gate must be "pass" and uncovered_features must be [] — every P1 feature must be covered by at least one requirement.
+
+Persist the loop summary via mcp__ontology-server__record_phase_result_tool (phase_id "i1"), then set the idea lifecycle to completed.""" ;
+    phase:requiresMcp "mcp__ontology-server__collect_upstream_facts_tool" ;
+    phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
+    phase:requiresMcp "mcp__ontology-server__recall_facts" ;
+    phase:requiresMcp "mcp__ontology-server__store_facts" ;
+    phase:shaclGate phase:I1OutputShape ;
+    phase:emitsIntentField "status" ;
+    phase:emitsIntentField "completed_requirements" ;
+    phase:emitsIntentField "blocked_requirements" ;
+    phase:emitsIntentField "total_requirements" ;
+    phase:emitsIntentField "tasks_completed" ;
+    phase:emitsIntentField "tasks_failed" ;
+    phase:emitsIntentField "implementation_status" ;
+    phase:emitsIntentField "pr_url" ;
+    phase:emitsIntentField "commits" ;
+    phase:emitsIntentField "test_results" ;
+    phase:emitsIntentField "outstanding_items" .
 
 
 # -----------------------------------------------------------------------------
@@ -959,12 +1045,499 @@ If validation fails, review and correct before retrying.""" ;
 
 
 # -----------------------------------------------------------------------------
-# SHACL OUTPUT SHAPES — Lightweight pipeline gate definitions
+# SHACL OUTPUT SHAPES — gate definitions for ALL pipeline phases
 #
 # These NodeShapes validate phase:PhaseOutput instances written by
 # record_phase_result. Each shape is referenced via phase:shaclGate on the
 # corresponding phase definition above.
+#
+# IMPORTANT — single-shape scoping: every shape here targets
+# sh:targetClass phase:PhaseOutput, so shapes MUST NOT be validated as one
+# combined graph (every shape would apply to every phase's output).
+# KGOntologyClient.validate_instance extracts exactly ONE shape via
+# export_cbd_turtle(shape_uri) and validates against it alone.
+#
+# Field values are stored as plain string literals; lists/dicts are
+# JSON-stringified (e.g. an empty list is the literal "[]").  That is why
+# the coverage gates below can use sh:hasValue "[]" — a non-empty list
+# serialises to a different string and fails the gate, rolling back the
+# phase output (feature-drop becomes a pipeline-halting failure).
 # -----------------------------------------------------------------------------
+
+# ---- Discovery family shapes -------------------------------------------------
+
+phase:D1OutputShape a sh:NodeShape ;
+    rdfs:label "D1 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-summary ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "summary is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-key_capabilities ;
+        sh:minCount 1 ;
+        sh:message "key_capabilities is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-idea_verbatim_features ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "idea_verbatim_features is required and must be a non-empty list (the feature contract D5 preserves)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-ecosystem_context ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "ecosystem_context is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-current_gaps ;
+        sh:minCount 1 ;
+        sh:message "current_gaps is required" ;
+    ] .
+
+phase:D2OutputShape a sh:NodeShape ;
+    rdfs:label "D2 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-personas ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "personas is required and must be a non-empty list" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-primary_persona ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "primary_persona is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-non_negotiable_needs ;
+        sh:minCount 1 ;
+        sh:message "non_negotiable_needs is required" ;
+    ] .
+
+phase:D3OutputShape a sh:NodeShape ;
+    rdfs:label "D3 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-total_value_score ;
+        sh:minCount 1 ;
+        sh:message "total_value_score is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-quadrant ;
+        sh:minCount 1 ;
+        sh:in ( "Quick Win" "Major Project" "Fill-in" "Thankless Task" ) ;
+        sh:message "quadrant is required and must be one of: Quick Win, Major Project, Fill-in, Thankless Task" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-complexity_tier ;
+        sh:minCount 1 ;
+        sh:in ( "minimal" "standard" "full" ) ;
+        sh:message "complexity_tier is required and must be one of: minimal, standard, full" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-verdict ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "verdict is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-proceed ;
+        sh:minCount 1 ;
+        sh:message "proceed is required" ;
+    ] .
+
+phase:D4OutputShape a sh:NodeShape ;
+    rdfs:label "D4 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-gaps ;
+        sh:minCount 1 ;
+        sh:message "gaps is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-quality_attribute_gaps ;
+        sh:minCount 1 ;
+        sh:message "quality_attribute_gaps is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-root_blocker ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "root_blocker is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-recommendation ;
+        sh:minCount 1 ;
+        sh:in ( "implementation" "research" "defer" "reject" ) ;
+        sh:message "recommendation is required and must be one of: implementation, research, defer, reject" ;
+    ] .
+
+phase:D5OutputShape a sh:NodeShape ;
+    rdfs:label "D5 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-mode ;
+        sh:minCount 1 ;
+        sh:in ( "research" "plan" "implement" "park" ) ;
+        sh:message "mode is required and must be one of: research, plan, implement, park" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-recommendation ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "recommendation is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-northstar ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "northstar is required and must be non-empty (the anti-drift anchor)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-mandatory_features ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "mandatory_features is required and must be a non-empty list (the feature contract planning preserves)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-research_questions ;
+        sh:minCount 1 ;
+        sh:message "research_questions is required ([] if none)" ;
+    ] .
+
+# ---- Research family shapes -----------------------------------------------------
+
+phase:R1OutputShape a sh:NodeShape ;
+    rdfs:label "R1 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-research_questions ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "research_questions is required and must be a non-empty list" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-questions_refined ;
+        sh:minCount 1 ;
+        sh:message "questions_refined is required" ;
+    ] .
+
+phase:R2OutputShape a sh:NodeShape ;
+    rdfs:label "R2 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-sources_identified ;
+        sh:minCount 1 ;
+        sh:message "sources_identified is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-sources_by_rq ;
+        sh:minCount 1 ;
+        sh:message "sources_by_rq is required" ;
+    ] .
+
+phase:R3OutputShape a sh:NodeShape ;
+    rdfs:label "R3 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-rq_answers ;
+        sh:minCount 1 ;
+        sh:message "rq_answers is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-findings ;
+        sh:minCount 1 ;
+        sh:message "findings is required" ;
+    ] .
+
+phase:R4OutputShape a sh:NodeShape ;
+    rdfs:label "R4 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-key_findings ;
+        sh:minCount 1 ;
+        sh:message "key_findings is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-rq_conclusions ;
+        sh:minCount 1 ;
+        sh:message "rq_conclusions is required" ;
+    ] .
+
+phase:R5OutputShape a sh:NodeShape ;
+    rdfs:label "R5 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-experiments ;
+        sh:minCount 1 ;
+        sh:message "experiments is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-experiment_results ;
+        sh:minCount 1 ;
+        sh:message "experiment_results is required" ;
+    ] .
+
+phase:R6OutputShape a sh:NodeShape ;
+    rdfs:label "R6 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-recommendation ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "recommendation is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-synthesised_answers ;
+        sh:minCount 1 ;
+        sh:message "synthesised_answers is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-risks ;
+        sh:minCount 1 ;
+        sh:message "risks is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-findings_count ;
+        sh:minCount 1 ;
+        sh:message "findings_count is required" ;
+    ] .
+
+# ---- Planning family shapes ---------------------------------------------------
+
+phase:P3OutputShape a sh:NodeShape ;
+    rdfs:label "P3 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-architecture_decisions ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "architecture_decisions is required and must be a non-empty ADR list" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-quality_goals ;
+        sh:minCount 1 ;
+        sh:message "quality_goals is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-adr_count ;
+        sh:minCount 1 ;
+        sh:message "adr_count is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-total_dependencies ;
+        sh:minCount 1 ;
+        sh:message "total_dependencies is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-circular_dependencies ;
+        sh:minCount 1 ;
+        sh:message "circular_dependencies is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-feature_coverage ;
+        sh:minCount 1 ;
+        sh:message "feature_coverage is required (map every P1 feature_id to covering ADRs/components)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-uncovered_features ;
+        sh:minCount 1 ;
+        sh:hasValue "[]" ;
+        sh:message "uncovered_features must be [] — the architecture must cover every P1 feature" ;
+    ] .
+
+
+phase:P1OutputShape a sh:NodeShape ;
+    rdfs:label "P1 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-feature_scope ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "feature_scope is required and must be a non-empty list (the planning feature contract)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-mandatory_feature_coverage ;
+        sh:minCount 1 ;
+        sh:message "mandatory_feature_coverage is required (map every D5 mandatory feature to a feature_id)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-uncovered_mandatory_features ;
+        sh:minCount 1 ;
+        # SENTINEL-SYNC: this "[]" literal mirrors UNCOVERED_EMPTY_SENTINEL in
+        # tools/gate_audit.py; tests/unit/test_sentinel_sync.py asserts they
+        # stay equal. Change both together.
+        sh:hasValue "[]" ;
+        sh:message "uncovered_mandatory_features must be [] — P1 dropped D5 mandatory features; extend feature_scope to cover them" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-discovery_summary ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "discovery_summary is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-success_metrics ;
+        sh:minCount 1 ;
+        sh:message "success_metrics is required" ;
+    ] .
+
+phase:P2OutputShape a sh:NodeShape ;
+    rdfs:label "P2 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-codebase_summary ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "codebase_summary is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-relevant_modules ;
+        sh:minCount 1 ;
+        sh:message "relevant_modules is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-architecture_patterns ;
+        sh:minCount 1 ;
+        sh:message "architecture_patterns is required" ;
+    ] .
+
+phase:P4OutputShape a sh:NodeShape ;
+    rdfs:label "P4 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-tasks ;
+        sh:minCount 1 ;
+        sh:minLength 3 ;
+        sh:message "tasks is required and must be a non-empty list" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-task_count ;
+        sh:minCount 1 ;
+        sh:message "task_count is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-feature_coverage ;
+        sh:minCount 1 ;
+        sh:message "feature_coverage is required (map every P1 feature_id to its task_ids)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-uncovered_features ;
+        sh:minCount 1 ;
+        # SENTINEL-SYNC: this "[]" literal mirrors UNCOVERED_EMPTY_SENTINEL in
+        # tools/gate_audit.py; tests/unit/test_sentinel_sync.py asserts they
+        # stay equal. Change both together.
+        sh:hasValue "[]" ;
+        sh:message "uncovered_features must be [] — every P1 feature needs at least one implementation task" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-critical_path ;
+        sh:minCount 1 ;
+        sh:message "critical_path is required" ;
+    ] .
+
+phase:P5OutputShape a sh:NodeShape ;
+    rdfs:label "P5 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-research_requests ;
+        sh:minCount 1 ;
+        sh:message "research_requests is required ([] when ready — it is the I1 blocking signal)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-readiness_verdict ;
+        sh:minCount 1 ;
+        sh:in ( "PROCEED" "BLOCKED" ) ;
+        sh:message "readiness_verdict is required and must be PROCEED or BLOCKED" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-risks ;
+        sh:minCount 1 ;
+        sh:message "risks is required" ;
+    ] .
+
+# P6 note: coverage_gate is NOT constrained to "pass" here — P6 must be able
+# to RECORD a fail so the orchestrator and I1 can see it and block. The
+# uncovered_features field is required present but not forced empty for the
+# same reason. I1's shaclGate-independent pre-flight enforces the block.
+phase:P6OutputShape a sh:NodeShape ;
+    rdfs:label "P6 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-requirement_count ;
+        sh:minCount 1 ;
+        sh:message "requirement_count is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-prd_context ;
+        sh:minCount 1 ;
+        sh:pattern "^prd-idea-" ;
+        sh:message "prd_context is required and must start with 'prd-idea-'" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-prd_file ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+        sh:message "prd_file is required and must be non-empty" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-coverage_gate ;
+        sh:minCount 1 ;
+        # SENTINEL-SYNC: the "pass" member of this sh:in list mirrors
+        # COVERAGE_GATE_PASS_SENTINEL in tools/gate_audit.py;
+        # tests/unit/test_sentinel_sync.py asserts they stay equal. Change both together.
+        sh:in ( "pass" "fail" ) ;
+        sh:message "coverage_gate is required and must be pass or fail (mechanical Step 2b result)" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-uncovered_features ;
+        sh:minCount 1 ;
+        sh:message "uncovered_features is required ([] on pass)" ;
+    ] .
+
+# ---- Implementation family shape ----------------------------------------------
+
+phase:I1OutputShape a sh:NodeShape ;
+    rdfs:label "I1 Output Shape" ;
+    sh:targetClass phase:PhaseOutput ;
+    sh:property [
+        sh:path phase:preserves-completed_requirements ;
+        sh:minCount 1 ;
+        sh:message "completed_requirements is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-blocked_requirements ;
+        sh:minCount 1 ;
+        sh:message "blocked_requirements is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-total_requirements ;
+        sh:minCount 1 ;
+        sh:message "total_requirements is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-implementation_status ;
+        sh:minCount 1 ;
+        sh:in ( "DONE" "PARTIALLY_BLOCKED" ) ;
+        sh:message "implementation_status is required and must be DONE or PARTIALLY_BLOCKED" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-commits ;
+        sh:minCount 1 ;
+        sh:message "commits is required" ;
+    ] ;
+    sh:property [
+        sh:path phase:preserves-test_results ;
+        sh:minCount 1 ;
+        sh:message "test_results is required" ;
+    ] .
+
+# ---- Lightweight family shapes --------------------------------------------------
 
 phase:LWIntakeOutputShape a sh:NodeShape ;
     rdfs:label "LW Intake Output Shape" ;
