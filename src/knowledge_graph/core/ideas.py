@@ -681,6 +681,155 @@ class IdeasStore:
         self._store.flush()
         logger.info(f"Updated idea: {idea.id}")
 
+    # Field name -> (predicate, kind). Kinds: "text" single literal,
+    # "int" integer-or-clear, "tags" dcterms:subject concept links,
+    # "multi" repeated literals (one value per line in the UI).
+    EDITABLE_IDEA_FIELDS: dict[str, tuple[str, str]] = {
+        "title": (f"{SKOS}prefLabel", "text"),
+        "description": (f"{DCTERMS}description", "text"),
+        "content": (f"{IDEA}content", "text"),
+        "vision": (f"{IDEA}vision", "text"),
+        "priority": (f"{IDEA}priority", "int"),
+        "tags": (f"{DCTERMS}subject", "tags"),
+        "requirements": (f"{IDEA}requirements", "multi"),
+        "considerations": (f"{IDEA}considerations", "multi"),
+        "use_cases": (f"{IDEA}useCases", "multi"),
+    }
+
+    def update_idea_fields(
+        self,
+        idea_id: str,
+        fields: dict[str, str],
+        *,
+        changed_by: str = "dashboard",
+        reason: str | None = None,
+    ) -> list[str]:
+        """Targeted per-field idea edit with change tracking (human edits).
+
+        Unlike :meth:`update_idea` (full-object remove/re-add of ~25
+        predicates), this rewrites only the touched predicates, records one
+        change:Change per real edit, and stamps ``dcterms:modified``.
+        Lifecycle is deliberately NOT editable here — it stays on the
+        guarded ``LifecycleManager`` state-machine path.
+
+        Args:
+            idea_id: The idea identifier.
+            fields: field-name -> raw string value from the edit form
+                (tags comma-separated; multi fields one value per line).
+            changed_by: Attribution for the change records.
+            reason: Optional justification stored on each change record.
+
+        Returns:
+            The names of the fields that actually changed.
+        """
+        from .changelog import new_batch_id, record_change
+
+        idea = self.get_idea(idea_id)
+        if idea is None:
+            raise ValueError(f"Idea {idea_id} does not exist")
+        uri = idea.uri
+
+        unknown = set(fields) - set(self.EDITABLE_IDEA_FIELDS)
+        if unknown:
+            raise ValueError(
+                f"not editable: {sorted(unknown)!r}; editable fields are "
+                f"{sorted(self.EDITABLE_IDEA_FIELDS)}"
+            )
+
+        old_values: dict[str, Any] = {
+            "title": idea.title, "description": idea.description,
+            "content": idea.content, "vision": idea.vision,
+            "priority": idea.priority, "tags": idea.tags,
+            "requirements": idea.requirements,
+            "considerations": idea.considerations,
+            "use_cases": idea.use_cases,
+        }
+
+        batch = new_batch_id()
+        changed: list[str] = []
+        for name, raw in fields.items():
+            predicate, kind = self.EDITABLE_IDEA_FIELDS[name]
+            raw = raw if isinstance(raw, str) else str(raw)
+            old = old_values[name]
+
+            if kind == "text":
+                new_value = raw.strip()
+                if name == "title" and not new_value:
+                    raise ValueError("title must not be empty")
+                if new_value == (old or ""):
+                    continue
+                self._store.remove_triple(uri, predicate)
+                if new_value:
+                    self._store.add_triple(uri, predicate, new_value, is_literal=True)
+                old_repr, new_repr = old, new_value
+
+            elif kind == "int":
+                stripped = raw.strip()
+                new_int = int(stripped) if stripped else None
+                if new_int == old:
+                    continue
+                self._store.remove_triple(uri, predicate)
+                if new_int is not None:
+                    self._store.add_triple(
+                        uri, predicate, str(new_int), datatype=f"{XSD}integer",
+                    )
+                old_repr = str(old) if old is not None else None
+                new_repr = str(new_int) if new_int is not None else ""
+
+            elif kind == "tags":
+                new_tags = [t.strip() for t in raw.split(",") if t.strip()]
+                # Multi-valued triples are unordered in RDF.
+                if sorted(new_tags) == sorted(old):
+                    continue
+                self._store.remove_triple(uri, predicate)
+                for tag in new_tags:
+                    tag_uri = f"{IDEA}tag/{tag}"
+                    self._store.add_triple(uri, predicate, tag_uri)
+                    self._store.add_triple(tag_uri, f"{RDF}type", f"{SKOS}Concept")
+                    self._store.add_triple(
+                        tag_uri, f"{SKOS}prefLabel", tag, is_literal=True,
+                    )
+                old_repr, new_repr = json.dumps(old), json.dumps(new_tags)
+
+            else:  # "multi" — one value per line
+                new_items = [line.strip() for line in raw.splitlines() if line.strip()]
+                # Multi-valued triples are unordered in RDF.
+                if sorted(new_items) == sorted(old):
+                    continue
+                self._store.remove_triple(uri, predicate)
+                for item in new_items:
+                    self._store.add_triple(uri, predicate, item, is_literal=True)
+                old_repr, new_repr = json.dumps(old), json.dumps(new_items)
+
+            record_change(
+                self._store,
+                target=uri,
+                target_graph="default",
+                field=name,
+                old=old_repr if old_repr not in (None, "") else None,
+                new=new_repr,
+                changed_by=changed_by,
+                entity_kind="idea",
+                predicate=predicate,
+                reason=reason,
+                batch_id=batch,
+            )
+            changed.append(name)
+
+        if changed:
+            self._store.remove_triple(uri, f"{DCTERMS}modified")
+            self._store.add_triple(
+                uri, f"{DCTERMS}modified",
+                datetime.now(timezone.utc).isoformat(),
+                datatype=f"{XSD}dateTime",
+            )
+            self._store.flush()
+            logger.info(
+                "update_idea_fields %s changed=%s by %s",
+                idea_id, changed, changed_by,
+            )
+        return changed
+
     def delete_idea(self, idea_id: str) -> bool:
         """
         Delete an idea from the store.

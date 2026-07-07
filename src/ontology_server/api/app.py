@@ -466,27 +466,35 @@ def create_app(
 
         @app.post("/ideas/{idea_id}/update")
         async def update_idea(idea_id: str, request: Request) -> dict[str, Any]:
-            """Update an idea's mutable fields (title/description/content/tags).
+            """Update an idea's mutable fields with change tracking.
 
-            Mirrors the MCP update_idea tool and the python-tulla REST adapter
-            (POST /ideas/{id}/update). Lifecycle changes are NOT applied here:
-            if a "lifecycle" field is supplied it is routed through the
-            validated set_lifecycle transition (per MIGRATION.md), never set
-            silently on the idea record.
+            Editable fields: IdeasStore.EDITABLE_IDEA_FIELDS (title,
+            description, content, vision, priority, tags, requirements,
+            considerations, use_cases). Every real edit is recorded in the
+            change graph. Lifecycle changes are NOT applied here: a
+            "lifecycle" field is routed through the validated set_lifecycle
+            transition (per MIGRATION.md), never set silently.
             """
             try:
                 body = await request.json()
-                idea = ideas_store.get_idea(idea_id)
-                if idea is None:
-                    return {"error": f"Idea not found: {idea_id}"}
 
-                changed: list[str] = []
-                for field in ("title", "description", "content", "tags"):
-                    if field in body and body[field] is not None:
-                        setattr(idea, field, body[field])
-                        changed.append(field)
-                if changed:
-                    ideas_store.update_idea(idea)
+                fields: dict[str, str] = {}
+                for name in ideas_store.EDITABLE_IDEA_FIELDS:
+                    if name not in body or body[name] is None:
+                        continue
+                    value = body[name]
+                    if isinstance(value, list):
+                        # MCP/adapter parity: lists accepted for tags/multi.
+                        sep = ", " if name == "tags" else "\n"
+                        value = sep.join(str(v) for v in value)
+                    fields[name] = str(value)
+
+                changed_by = str(body.get("changed_by") or "api")
+                changed = ideas_store.update_idea_fields(
+                    idea_id, fields,
+                    changed_by=changed_by,
+                    reason=body.get("reason"),
+                ) if fields else []
 
                 lifecycle_result: dict[str, Any] | None = None
                 new_lifecycle = body.get("lifecycle")
