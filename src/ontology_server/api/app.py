@@ -323,6 +323,60 @@ def create_app(
             except Exception as e:
                 return {"error": str(e)}
 
+        @app.post("/facts/{fact_id}/update")
+        async def update_fact(fact_id: str, request: Request) -> Any:
+            """Update a fact in place (object/confidence) with change tracking."""
+            from fastapi.responses import JSONResponse
+
+            try:
+                body = await request.json()
+                new_object = body.get("object")
+                if new_object is not None:
+                    new_object = str(new_object)
+                new_confidence = body.get("confidence")
+                if new_confidence is not None:
+                    new_confidence = float(new_confidence)
+                updated = agent_memory.update_fact(
+                    fact_id,
+                    new_object=new_object,
+                    new_confidence=new_confidence,
+                    changed_by=str(body.get("changed_by") or "api"),
+                    reason=body.get("reason"),
+                )
+                return {"status": "updated", "fact": updated}
+            except ValueError as e:
+                return JSONResponse({"error": str(e)}, status_code=404)
+            except Exception as e:
+                return {"error": str(e)}
+
+        # -- Change log (human-edit history) --------------------------------
+
+        @app.get("/changes/recent")
+        async def changes_recent(
+            limit: int = 100, entity_kind: str | None = None,
+        ) -> dict[str, Any]:
+            """Global human-edit changelog, most recent first."""
+            from knowledge_graph.core.changelog import recent_changes
+
+            try:
+                rows = recent_changes(
+                    kg_store, limit=limit, entity_kind=entity_kind,
+                )
+                return {"changes": rows, "count": len(rows)}
+            except Exception as e:
+                return {"error": str(e)}
+
+        @app.get("/changes")
+        async def changes_for_target(target: str, limit: int = 50) -> dict[str, Any]:
+            """Edit history for one resource URI."""
+            from knowledge_graph.core.changelog import get_history
+
+            try:
+                rows = get_history(kg_store, target, limit=limit)
+                return {"target": target, "changes": rows, "count": len(rows)}
+            except Exception as e:
+                return {"error": str(e)}
+
         @app.get("/facts/stats")
         async def facts_stats() -> dict[str, Any]:
             """Get A-Box memory store statistics."""

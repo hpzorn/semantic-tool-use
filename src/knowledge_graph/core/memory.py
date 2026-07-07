@@ -517,6 +517,132 @@ class AgentMemory:
             for r in results
         ]
 
+    def get_fact(self, fact_id: str) -> dict[str, Any] | None:
+        """Return one fact by id (None when absent)."""
+        uri = self._fact_uri(fact_id)
+        query = f"""
+        PREFIX memory: <{MEMORY}>
+        SELECT ?subject ?predicate ?object ?timestamp ?confidence ?context ?updated
+        WHERE {{
+            GRAPH <{self._graph}> {{
+                <{uri}> a memory:Fact ;
+                        memory:subject ?subject ;
+                        memory:predicate ?predicate ;
+                        memory:object ?object .
+                OPTIONAL {{ <{uri}> memory:timestamp ?timestamp }}
+                OPTIONAL {{ <{uri}> memory:confidence ?confidence }}
+                OPTIONAL {{ <{uri}> memory:context ?context }}
+                OPTIONAL {{ <{uri}> memory:updatedAt ?updated }}
+            }}
+        }}
+        LIMIT 1
+        """
+        results = self._store.query(query).bindings
+        if not results:
+            return None
+        r = results[0]
+        return {
+            "fact_id": fact_id,
+            "uri": uri,
+            "subject": r.get("subject"),
+            "predicate": r.get("predicate"),
+            "object": r.get("object"),
+            "timestamp": r.get("timestamp"),
+            "confidence": float(r["confidence"]) if r.get("confidence") else 1.0,
+            "context": r.get("context"),
+            "updated_at": r.get("updated"),
+        }
+
+    def update_fact(
+        self,
+        fact_id: str,
+        *,
+        new_object: str | None = None,
+        new_confidence: float | None = None,
+        changed_by: str = "dashboard",
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a fact IN PLACE with change tracking (human edits).
+
+        The fact URI, memory:timestamp, prov:generatedAtTime and the original
+        prov:wasAttributedTo are preserved — the editor's identity lives on
+        the change record.  Stamps memory:updatedAt.  PRD requirement fields
+        are facts, so this is also the PRD edit path.
+
+        Returns the updated fact dict.
+        """
+        from .changelog import new_batch_id, record_change
+
+        fact = self.get_fact(fact_id)
+        if fact is None:
+            raise ValueError(f"Fact {fact_id} does not exist")
+        uri = fact["uri"]
+
+        batch = new_batch_id()
+        changed = False
+
+        if new_object is not None and new_object != fact["object"]:
+            self._store.remove_triple(
+                subject=uri, predicate=f"{MEMORY}object", graph=self._graph,
+            )
+            self._store.add_triple(
+                uri, f"{MEMORY}object", new_object,
+                is_literal=True, graph=self._graph,
+            )
+            record_change(
+                self._store,
+                target=uri,
+                target_graph=self._graph,
+                field=fact["predicate"] or "object",
+                old=fact["object"],
+                new=new_object,
+                changed_by=changed_by,
+                entity_kind="fact",
+                predicate=f"{MEMORY}object",
+                reason=reason,
+                batch_id=batch,
+            )
+            changed = True
+
+        if new_confidence is not None and float(new_confidence) != fact["confidence"]:
+            self._store.remove_triple(
+                subject=uri, predicate=f"{MEMORY}confidence", graph=self._graph,
+            )
+            self._store.add_triple(
+                uri, f"{MEMORY}confidence", str(float(new_confidence)),
+                datatype=f"{XSD}decimal", graph=self._graph,
+            )
+            record_change(
+                self._store,
+                target=uri,
+                target_graph=self._graph,
+                field="confidence",
+                old=str(fact["confidence"]),
+                new=str(float(new_confidence)),
+                changed_by=changed_by,
+                entity_kind="fact",
+                predicate=f"{MEMORY}confidence",
+                reason=reason,
+                batch_id=batch,
+            )
+            changed = True
+
+        if changed:
+            self._store.remove_triple(
+                subject=uri, predicate=f"{MEMORY}updatedAt", graph=self._graph,
+            )
+            self._store.add_triple(
+                uri, f"{MEMORY}updatedAt",
+                datetime.now(timezone.utc).isoformat(),
+                datatype=f"{XSD}dateTime", graph=self._graph,
+            )
+            self._store.flush()
+            logger.info("update_fact %s by %s", fact_id, changed_by)
+
+        updated = self.get_fact(fact_id)
+        assert updated is not None
+        return updated
+
     def forget(self, fact_id: str) -> bool:
         """
         Remove a fact from memory.
