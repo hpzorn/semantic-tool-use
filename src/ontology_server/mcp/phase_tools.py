@@ -226,6 +226,46 @@ def collect_upstream_facts(
     return grouped
 
 
+def get_phase_fact(
+    sparql: SparqlClient,
+    idea_id: str,
+    phase_id: str,
+    field: str,
+) -> dict[str, Any]:
+    """Fetch ONE preserved field's full value (targeted drill-down).
+
+    The cheap escape hatch for agents whose collect_upstream_facts call was
+    filtered by consuming_phase_id: reach any specific upstream field
+    without re-pulling the full multi-phase dump.
+    """
+    if not idea_id or not phase_id or not field:
+        raise ValueError("idea_id, phase_id and field are required")
+    if not idea_id.startswith("idea-"):
+        idea_id = f"idea-{idea_id}"
+    subject = f"{PHASE_NS}{idea_id}-{phase_id}"
+    predicate = f"{_PRESERVES_PREFIX}{field}"
+    query = (
+        f"SELECT ?o WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{ <{subject}> <{predicate}> ?o . }}\n"
+        f"}}\n"
+        f"LIMIT 1"
+    )
+    try:
+        result = sparql.sparql_query(query)
+    except Exception as exc:
+        raise PipelineDataError(f"get_phase_fact: {exc}") from exc
+    bindings = result.get("results", []) if isinstance(result, dict) else []
+    if not bindings:
+        return {
+            "idea_id": idea_id, "phase_id": phase_id, "field": field,
+            "found": False, "value": None,
+        }
+    return {
+        "idea_id": idea_id, "phase_id": phase_id, "field": field,
+        "found": True, "value": _try_coerce(str(bindings[0].get("o", ""))),
+    }
+
+
 # ---------------------------------------------------------------------------
 # render_methodology (req-130-2-2)
 # ---------------------------------------------------------------------------
@@ -1177,18 +1217,41 @@ def register_phase_tools(
         idea_id: str,
         consuming_phase_id: str | None = None,
     ) -> dict[str, Any]:
-        """Collect all phase facts for an idea grouped by phase.
+        """Collect upstream phase facts for an idea, grouped by phase.
 
-        Pass consuming_phase_id to filter results to only the fields the
-        consuming phase declared it needs (reduces context size).
+        ALWAYS pass consuming_phase_id (your own phase id): the result is
+        then filtered to the fields your phase declared it consumes, which
+        cuts the payload by 60-95% on mature ideas. Without it you get
+        EVERY field of EVERY completed phase (tens of thousands of tokens).
+        Need a field outside your declared set? Fetch just that one with
+        get_phase_fact instead of re-calling unfiltered.
 
         Args:
             idea_id: The requirement / idea identifier (e.g. "130").
-            consuming_phase_id: Optional phase id of the consuming phase;
-                when provided, output is filtered to only the fields that
-                phase declared it needs via PHASE_CONSUMED_FIELDS.
+            consuming_phase_id: Phase id of the CALLING phase; filters
+                output to that phase's declared PHASE_CONSUMED_FIELDS.
+                Falls back to unfiltered when nothing matches.
         """
         return collect_upstream_facts(sparql_client, idea_id, consuming_phase_id)
+
+    @mcp.tool()
+    def get_phase_fact_tool(
+        idea_id: str,
+        phase_id: str,
+        field: str,
+    ) -> dict[str, Any]:
+        """Fetch ONE upstream phase field's full value (targeted drill-down).
+
+        Cheap escape hatch when your filtered collect_upstream_facts_tool
+        result lacks a field you genuinely need — never re-call the
+        collector unfiltered.
+
+        Args:
+            idea_id: The requirement / idea identifier (e.g. "idea-16").
+            phase_id: The phase that PRODUCED the field (e.g. "r3").
+            field: The preserved field name (e.g. "findings").
+        """
+        return get_phase_fact(sparql_client, idea_id, phase_id, field)
 
     @mcp.tool()
     def list_pipeline_tool(agent_family: str) -> list[str]:
@@ -1304,6 +1367,6 @@ def register_phase_tools(
         )
 
     logger.info(
-        "Registered 6 phase pipeline tools (incl. render_phase_spec, "
-        "await_approval_tool)"
+        "Registered 7 phase pipeline tools (incl. render_phase_spec, "
+        "await_approval_tool, get_phase_fact_tool)"
     )

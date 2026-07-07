@@ -136,16 +136,23 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         "key_capabilities", "ecosystem_context",
         "personas", "non_negotiable_needs", "primary_persona_jtbd",
         "persona_count",
+        "existing_systems", "current_gaps",
     }),
     "d4": frozenset({
         "key_capabilities", "ecosystem_context", "existing_systems",
         "personas", "primary_persona", "non_negotiable_needs",
         "quadrant", "verdict", "effort", "impact", "complexity_tier",
+        "current_gaps", "proceed", "value_dimensions",
     }),
     "d5": frozenset({
         "quadrant", "verdict", "effort", "impact",
         "blockers", "root_blocker", "recommendation",
         "personas", "idea_verbatim_features",
+        # prompt-declared key inputs (mode decision + RQ construction)
+        "total_value_score", "priority_recommendation",
+        "knowledge_gaps_as_research_questions", "gaps", "p0_gaps",
+        "quality_attribute_gaps", "prior_work_refs",
+        "non_negotiable_needs", "ecosystem_context",
     }),
     # R-track
     "r1": frozenset({
@@ -209,11 +216,13 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         # from P1
         "feature_scope",
         # from P2
-        "relevant_modules", "integration_points",
+        "relevant_modules", "integration_points", "architecture_patterns",
         # from P3
         "architecture_decisions", "quality_goals",
         "file_structure", "adr_count",
         "shacl_gate", "p0_outstanding_deliverable",
+        # mechanical coverage chain (P3 → P4)
+        "feature_coverage", "uncovered_features",
     }),
     "p5": frozenset({
         # from P3+P4
@@ -221,6 +230,7 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         "tasks", "task_count", "critical_path", "blocked_tasks",
         "p0_count", "p1_count",
         "feature_scope",
+        "total_dependencies", "circular_dependencies",
     }),
     "p6": frozenset({
         # from P4 — the full task list is what P6 needs most
@@ -228,6 +238,10 @@ PHASE_CONSUMED_FIELDS: dict[str, frozenset[str]] = {
         "critical_path",
         # from P1 — scope context for PRD framing
         "feature_scope", "success_metrics", "non_negotiable_constraints",
+        # from P3 — ADR references for requirement framing
+        "architecture_decisions",
+        # coverage chain visibility
+        "uncovered_features",
     }),
     "i1": frozenset({
         # from P6
