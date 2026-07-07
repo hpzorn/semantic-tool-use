@@ -121,7 +121,8 @@ P1_OK = {
 class TestConformingPayloadsPersist:
     def test_p1_conforming_persists(self, client: KGOntologyClient, kg_store: KnowledgeGraphStore) -> None:
         out = record_phase_result(client, "p1", "901", "", P1_OK, predecessor_phase_id="d5")
-        assert out == {"ok": True, "violations": []}
+        # p1 is a HITL ship-default gate point → recorded as pending review.
+        assert out == {"ok": True, "violations": [], "approval": "pending"}
         assert _residual_triples(kg_store, "idea-901", "p1") > 0
 
     def test_p6_can_record_a_coverage_fail(self, client: KGOntologyClient, kg_store: KnowledgeGraphStore) -> None:
@@ -137,7 +138,7 @@ class TestConformingPayloadsPersist:
             "uncovered_features": ["F3"],
         }
         out = record_phase_result(client, "p6", "902", "", p6_fail, predecessor_phase_id="p5")
-        assert out == {"ok": True, "violations": []}
+        assert out == {"ok": True, "violations": [], "approval": "pending"}
         result = kg_store.query(
             f"SELECT ?v WHERE {{ GRAPH <{GRAPH_PHASES}> {{ "
             f"<{PHASE_NS}idea-902-p6> <{PHASE_NS}preserves-coverage_gate> ?v . }} }}"

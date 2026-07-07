@@ -298,6 +298,9 @@ In both modes:
     phase:requiresMcp "mcp__ontology-server__capture_seed" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
     phase:shaclGate phase:D5OutputShape ;
+    # HITL ship-default gate point. NOTE: seed_phase_content's idempotency
+    # probe checks phase:d5 phase:requiresApproval — keep them in sync.
+    phase:requiresApproval "true" ;
     phase:emitsIntentField "mode" ;
     phase:emitsIntentField "recommendation" ;
     phase:emitsIntentField "northstar" ;
@@ -567,6 +570,7 @@ phase:p1 a phase:Phase ;
     phase:requiresMcp "mcp__ontology-server__collect_upstream_facts_tool" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
     phase:shaclGate phase:P1OutputShape ;
+    phase:requiresApproval "true" ;
     phase:emitsIntentField "discovery_summary" ;
     phase:emitsIntentField "target_audience" ;
     phase:emitsIntentField "feature_scope" ;
@@ -804,6 +808,7 @@ This is the bridge between planning and implementation:
     phase:requiresMcp "mcp__ontology-server__store_fact" ;
     phase:requiresMcp "mcp__ontology-server__record_phase_result_tool" ;
     phase:shaclGate phase:P6OutputShape ;
+    phase:requiresApproval "true" ;
     phase:emitsIntentField "requirement_count" ;
     phase:emitsIntentField "prd_file" ;
     phase:emitsIntentField "requirements_exported" ;

@@ -37,6 +37,11 @@ from ontology_server.phase_constants import (  # noqa: E402
     TRACE_NS,
     PHASES_GRAPH,
     _PRESERVES_PREFIX,
+    APPROVAL_STATUS_PRED,
+    RECORDED_AT_PRED,
+    REQUIRES_APPROVAL_PRED,
+    APPROVAL_PENDING,
+    APPROVAL_APPROVED,
 )
 
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -73,6 +78,13 @@ class OntologyClient(Protocol):
     def remove_triples_by_subject(  # pragma: no cover
         self,
         subject: str,
+    ) -> int:
+        ...
+
+    def remove_triples(  # pragma: no cover
+        self,
+        subject: str,
+        predicate: str,
     ) -> int:
         ...
 
@@ -721,6 +733,89 @@ def _lookup_shacl_gate(ontology: OntologyClient, phase_id: str) -> str | None:
     return shape or None
 
 
+def _lookup_requires_approval(ontology: SparqlClient, phase_id: str) -> bool:
+    """Return True when the phase definition carries phase:requiresApproval."""
+    query = (
+        f"SELECT ?flag WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f"    <{PHASE_NS}{phase_id}> <{REQUIRES_APPROVAL_PRED}> ?flag .\n"
+        f"  }}\n"
+        f"}}\n"
+        f"LIMIT 1"
+    )
+    try:
+        result = ontology.sparql_query(query)
+    except Exception as exc:
+        raise PipelineDataError(f"_lookup_requires_approval: {exc}") from exc
+    bindings = result.get("results", []) if isinstance(result, dict) else []
+    if not bindings:
+        return False
+    return str(bindings[0].get("flag", "")).strip().lower() in ("true", "1")
+
+
+def _run_shacl_gate(
+    ontology: OntologyClient,
+    phase_id: str,
+    subject: str,
+) -> list[str] | None:
+    """Validate *subject* against the phase's declared SHACL gate.
+
+    Returns ``None`` when the phase declares no gate, otherwise the list of
+    violation strings (empty list == conforms).  A validate_instance
+    exception counts as a violation — a declared gate never silently passes.
+    """
+    shape_uri = _lookup_shacl_gate(ontology, phase_id)
+    if shape_uri is None:
+        return None
+    try:
+        validation = ontology.validate_instance(subject, shape_uri)
+    except Exception as exc:
+        logger.error(
+            "validate_instance raised for %s shape %s: %s",
+            subject,
+            shape_uri,
+            exc,
+        )
+        return [str(exc)]
+    conforms = bool(validation.get("conforms", True))
+    violations = validation.get("violations", []) or []
+    if conforms:
+        return []
+    return [str(v) for v in violations]
+
+
+def _write_approval_status(
+    ontology: OntologyClient,
+    subject: str,
+    phase_id: str,
+    *,
+    force_approved: bool = False,
+) -> str:
+    """Write phase:approvalStatus + phase:recordedAt on a validated output.
+
+    Returns the status written: "pending" when the phase definition carries
+    phase:requiresApproval (HITL gate point), else "approved".
+    """
+    from datetime import datetime, timezone
+
+    if force_approved:
+        status = APPROVAL_APPROVED
+    else:
+        status = (
+            APPROVAL_PENDING
+            if _lookup_requires_approval(ontology, phase_id)
+            else APPROVAL_APPROVED
+        )
+    ontology.add_triple(subject, APPROVAL_STATUS_PRED, status, is_literal=True)
+    ontology.add_triple(
+        subject,
+        RECORDED_AT_PRED,
+        datetime.now(timezone.utc).isoformat(),
+        is_literal=True,
+    )
+    return status
+
+
 def _literalise(value: Any) -> str:
     """Convert *value* to its RDF literal string form."""
     if isinstance(value, (list, dict)):
@@ -807,6 +902,8 @@ def record_phase_result(
     # ONTOLOGY_DISABLE_GATES exists for controlled ablation experiments
     # (SDLC-bench arm b: same fleet, gates off — a single-variable change).
     # NEVER set it in normal operation; it is logged loudly per call.
+    # HITL approval is part of gating, so ablation mode always writes
+    # "approved" — the arm stays a single-variable change.
     import os
     if os.environ.get("ONTOLOGY_DISABLE_GATES", "").lower() in ("1", "true", "yes"):
         logger.warning(
@@ -814,44 +911,33 @@ def record_phase_result(
             "(ablation mode; do not use in production)",
             subject,
         )
-        return {"ok": True, "violations": [], "gate_skipped": True}
+        approval = _write_approval_status(
+            ontology, subject, phase_id, force_approved=True
+        )
+        return {
+            "ok": True, "violations": [], "gate_skipped": True,
+            "approval": approval,
+        }
 
-    shape_uri = _lookup_shacl_gate(ontology, phase_id)
-    if shape_uri is None:
-        return {"ok": True, "violations": []}
-
-    try:
-        validation = ontology.validate_instance(subject, shape_uri)
-    except Exception as exc:
-        logger.error(
-            "validate_instance raised for %s shape %s: %s",
+    violations = _run_shacl_gate(ontology, phase_id, subject)
+    if violations:
+        logger.warning(
+            "SHACL validation failed for %s — rolling back.  Violations (%d): %s",
             subject,
-            shape_uri,
-            exc,
+            len(violations),
+            "; ".join(violations) or "(no detail returned)",
         )
         try:
             ontology.remove_triples_by_subject(subject)
         except Exception:
-            logger.exception("rollback after validate_instance exception failed")
-        return {"ok": False, "violations": [str(exc)]}
+            logger.exception("rollback after SHACL violation failed")
+        return {"ok": False, "violations": violations}
 
-    conforms = bool(validation.get("conforms", True))
-    violations = validation.get("violations", []) or []
-    if conforms:
-        return {"ok": True, "violations": []}
-
-    error_strs = [str(v) for v in violations]
-    logger.warning(
-        "SHACL validation failed for %s — rolling back.  Violations (%d): %s",
-        subject,
-        len(error_strs),
-        "; ".join(error_strs) or "(no detail returned)",
-    )
-    try:
-        ontology.remove_triples_by_subject(subject)
-    except Exception:
-        logger.exception("rollback after SHACL violation failed")
-    return {"ok": False, "violations": error_strs}
+    # (9) HITL: mark the validated output pending when the phase is a
+    # configured human gate point, else approved.  Either way ok=True —
+    # the recording agent's job is done; waiting is the orchestrator's job.
+    approval = _write_approval_status(ontology, subject, phase_id)
+    return {"ok": True, "violations": [], "approval": approval}
 
 
 # ---------------------------------------------------------------------------
@@ -909,6 +995,11 @@ class KGOntologyClient(KGSparqlClient):
     def remove_triples_by_subject(self, subject: str) -> int:
         return self._store.remove_triple(subject=subject, graph=PHASES_GRAPH)
 
+    def remove_triples(self, subject: str, predicate: str) -> int:
+        return self._store.remove_triple(
+            subject=subject, predicate=predicate, graph=PHASES_GRAPH,
+        )
+
     def validate_instance(
         self,
         instance_uri: str,
@@ -964,11 +1055,16 @@ class KGOntologyClient(KGSparqlClient):
 # ---------------------------------------------------------------------------
 
 
-# Sentinel resource used for idempotency: present only in trig versions that
-# carry the full pipeline gate shapes (D1..I1).  Older stores that were seeded
-# before the shapes existed re-seed automatically (quad-set semantics make
-# re-adding existing phase triples a no-op).
-_SEED_SENTINEL = f"{PHASE_NS}P1OutputShape"
+# Idempotency probe: a (subject, predicate) pair present only in the CURRENT
+# trig version.  Older stores that lack it re-seed automatically (the upsert
+# below clears each trig-declared subject first, so stale definitions are
+# replaced, never duplicated).
+#
+# BUMP RULE: change this probe whenever phase-content.trig gains triples that
+# existing stores must receive — otherwise deployed stores silently keep the
+# old content.  Current probe: phase:requiresApproval ship-defaults (HITL).
+_SEED_PROBE_SUBJECT = f"{PHASE_NS}d5"
+_SEED_PROBE_PREDICATE = REQUIRES_APPROVAL_PRED
 
 
 def _default_phase_content_path() -> "Path":
@@ -1001,14 +1097,17 @@ def seed_phase_content(
 
     ask = (
         f"ASK {{ GRAPH <{PHASES_GRAPH}> {{ "
-        f"<{_SEED_SENTINEL}> ?p ?o . }} }}"
+        f"<{_SEED_PROBE_SUBJECT}> <{_SEED_PROBE_PREDICATE}> ?o . }} }}"
     )
     try:
         already = kg_store.ask(ask)
     except Exception:
         already = False
     if already:
-        logger.debug("Phase content already seeded (found %s)", _SEED_SENTINEL)
+        logger.debug(
+            "Phase content already seeded (found %s %s)",
+            _SEED_PROBE_SUBJECT, _SEED_PROBE_PREDICATE,
+        )
         return 0
 
     if not path.exists():
@@ -1173,4 +1272,38 @@ def register_phase_tools(
             raise ValueError(f"unknown section {section!r}; expected one of: {valid}")
         return renderers[sec](sparql_client, phase_id)
 
-    logger.info("Registered 5 phase pipeline tools (incl. render_phase_spec)")
+    @mcp.tool()
+    async def await_approval_tool(
+        idea_id: str,
+        phase_id: str,
+        timeout_s: float = 50,
+    ) -> dict[str, Any]:
+        """Long-poll the HITL approval decision for a recorded phase output.
+
+        Blocks server-side (async, cheap) until a human approves or rejects
+        the output in the dashboard, or timeout_s elapses.  Read-only: the
+        decision itself can only be made via the dashboard/REST — never
+        through MCP, so agents cannot approve their own output.
+
+        Args:
+            idea_id: Requirement / idea identifier (e.g. "idea-15").
+            phase_id: Phase identifier whose output awaits review (e.g. "p1").
+            timeout_s: Max seconds to wait before returning "pending"
+                (clamped to 5–110).
+
+        Returns:
+            {"status": "approved"|"rejected"|"pending"|"missing",
+             "comment": str|None}
+        """
+        # Lazy import: phase_approval imports helpers from this module at
+        # module level; importing it here keeps the cycle one-directional.
+        from ontology_server.phase_approval import await_approval
+
+        return await await_approval(
+            sparql_client, idea_id, phase_id, timeout_s=timeout_s,
+        )
+
+    logger.info(
+        "Registered 6 phase pipeline tools (incl. render_phase_spec, "
+        "await_approval_tool)"
+    )

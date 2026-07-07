@@ -114,7 +114,7 @@ class TestRecordPhaseResult:
         out = record_phase_result(
             ontology, "d1", "130", "/tmp/artifact.json", result_json,
         )
-        assert out == {"ok": True, "violations": []}
+        assert out == {"ok": True, "violations": [], "approval": "approved"}
 
         subject = f"{PHASE_NS}idea-130-d1"
         preds = [t["predicate"] for t in ontology.triples]
@@ -176,7 +176,7 @@ class TestRecordPhaseResult:
             validation={"conforms": True, "violations": []},
         )
         out = record_phase_result(ontology, "d1", "130", "", {}, None)
-        assert out == {"ok": True, "violations": []}
+        assert out == {"ok": True, "violations": [], "approval": "approved"}
         # Only the initial cleanup; no rollback.
         removes = [c for c in ontology.calls if c[0] == "remove_triples_by_subject"]
         assert len(removes) == 1
@@ -185,7 +185,7 @@ class TestRecordPhaseResult:
     def test_no_shacl_gate_still_returns_ok(self) -> None:
         ontology = _RecordingOntology(gate_shape=None)
         out = record_phase_result(ontology, "d1", "130", "", {})
-        assert out == {"ok": True, "violations": []}
+        assert out == {"ok": True, "violations": [], "approval": "approved"}
         # No validation call when no gate is configured.
         assert all(c[0] != "validate_instance" for c in ontology.calls)
 
@@ -271,7 +271,7 @@ class TestHandleRecordPhaseResult:
             },
         )
         assert status == 200
-        assert payload == {"ok": True, "violations": []}
+        assert payload == {"ok": True, "violations": [], "approval": "approved"}
 
     def test_violation_returns_200_with_ok_false(self) -> None:
         ontology = _RecordingOntology(
