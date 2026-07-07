@@ -50,6 +50,12 @@ The ontology server runs as a shared HTTP service with MCP SSE, allowing multipl
 - HTTP: `http://localhost:8100`
 - MCP SSE: `http://localhost:8100/sse`
 - Dashboard: `http://localhost:8100/dashboard`
+- HITL review queue: `http://localhost:8100/dashboard/reviews` — phase
+  outputs recorded on gate-point phases (`phase:requiresApproval`, ship
+  defaults d5/p1/p6, toggles at `/dashboard/settings/phases`) pause as
+  `phase:approvalStatus "pending"` until a human approves/edits/rejects
+  them there; the orchestrator long-polls `await_approval_tool`. See
+  `docs/decisions/adr-001-hitl-approval-model.md`.
 
 **Persistence:** `~/.semantic-tool-use/kg` (Oxigraph/RocksDB)
 
