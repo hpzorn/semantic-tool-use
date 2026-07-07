@@ -51,12 +51,15 @@ NAMESPACES = {
     "prd": "http://tulla.dev/prd#",
     "isaqb": "http://tulla.dev/isaqb#",
     "arch": "http://tulla.dev/architecture#",
+    # Human-edit change log (reified change records)
+    "change": "http://semantic-tool-use.org/change/",
 }
 
 # Named graph URIs (aligned with semantic-tool-use namespace)
 GRAPH_MEMORY = "http://semantic-tool-use.org/graphs/memory"
 GRAPH_WIKIDATA = "http://semantic-tool-use.org/graphs/wikidata"
 GRAPH_PHASES = "http://semantic-tool-use.org/graphs/phases"
+GRAPH_CHANGES = "http://semantic-tool-use.org/graphs/changes"
 
 
 @dataclass
