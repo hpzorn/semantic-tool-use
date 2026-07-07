@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Review Queue — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="review-queue">
+    <h1>Review Queue</h1>
+    <p class="text-muted">
+        Phase outputs paused at human gate points. Approving lets the pipeline
+        continue; rejecting sends the phase back to its agent with your
+        feedback.
+        <a href="{{ dashboard_url(request, 'phase_settings') }}">Configure gate points &rarr;</a>
+    </p>
+
+    <div id="review-rows"
+         hx-get="{{ dashboard_url(request, 'partial_review_rows') }}"
+         hx-trigger="every 10s"
+         hx-swap="innerHTML">
+        {% include "partials/review_rows.html" %}
+    </div>
+</div>
+
+<style>
+.review-queue { max-width: 900px; }
+.review-table td { vertical-align: middle; }
+.review-link { font-weight: 600; text-decoration: none; color: var(--color-primary); }
+.review-link:hover { text-decoration: underline; }
+</style>
+{% endblock %}

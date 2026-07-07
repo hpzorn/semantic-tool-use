@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 if TYPE_CHECKING:
     from knowledge_graph import AgentMemory, IdeasStore, KnowledgeGraphStore
     from ontology_server.core.store import OntologyStore
+    from ontology_server.core.validation import SHACLValidator
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ def create_dashboard_app(
     kg_store: "KnowledgeGraphStore",
     agent_memory: "AgentMemory",
     ideas_store: "IdeasStore",
+    validator: "SHACLValidator | None" = None,
 ) -> FastAPI:
     """Create the Ontology Dashboard FastAPI sub-application.
 
@@ -65,6 +67,9 @@ def create_dashboard_app(
         kg_store: Unified knowledge-graph store (Oxigraph).
         agent_memory: Agent memory (reified facts).
         ideas_store: SKOS+DC ideas store.
+        validator: SHACL validator; required for the review queue's
+            edit-then-approve flow (edits re-run the phase gate; without a
+            validator the gate fails closed and edits are rejected).
 
     Returns:
         A FastAPI app suitable for mounting on the main server.
@@ -76,6 +81,7 @@ def create_dashboard_app(
     app.state.kg_store = kg_store
     app.state.agent_memory = agent_memory
     app.state.ideas_store = ideas_store
+    app.state.validator = validator
 
     # -- Templates -------------------------------------------------------------
     templates_dir = _PACKAGE_DIR / "templates"

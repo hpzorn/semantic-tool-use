@@ -1,0 +1,19 @@
+{% if reviews %}
+<table class="property-table review-table">
+    <thead>
+        <tr><th>Idea</th><th>Phase</th><th>Recorded</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for r in reviews %}
+        <tr>
+            <td><a href="{{ dashboard_url(request, 'idea_detail', idea_id=r.idea_id) }}"><code>{{ r.idea_id }}</code></a></td>
+            <td><code>{{ r.phase_id }}</code></td>
+            <td>{% if r.recorded_at %}<span class="phase-timestamp">{{ r.recorded_at[:19] }}</span>{% else %}&mdash;{% endif %}</td>
+            <td><a class="review-link" href="{{ dashboard_url(request, 'review_detail', idea_id=r.idea_id, phase_id=r.phase_id) }}">Review &rarr;</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No phase outputs awaiting review. The pipeline is flowing.</p>
+{% endif %}

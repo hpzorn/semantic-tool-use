@@ -553,6 +553,7 @@ def create_app(
             kg_store=kg_store,
             agent_memory=agent_memory,
             ideas_store=ideas_store,
+            validator=validator,
         )
         # Pass auth state so login route can verify tokens and set cookies
         if settings.api_key:

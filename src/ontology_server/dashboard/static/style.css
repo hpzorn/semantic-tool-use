@@ -993,3 +993,18 @@ h2 {
         gap: 0.5rem;
     }
 }
+
+/* ── HITL review badge ───────────────────────────────── */
+.nav-badge .review-badge {
+    display: inline-block;
+    margin-left: 0.35em;
+    min-width: 1.4em;
+    padding: 0.05em 0.4em;
+    border-radius: 999px;
+    background: #c93c3c;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+    vertical-align: text-top;
+}

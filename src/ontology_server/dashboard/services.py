@@ -693,6 +693,147 @@ class DashboardService:
             "trace_ancestors": trace_ancestors,
         }
 
+    # -- HITL review queue ---------------------------------------------------
+
+    def list_pending_reviews(self) -> list[dict[str, Any]]:
+        """All phase outputs awaiting human review, oldest first."""
+        try:
+            sparql = (
+                f"PREFIX phase: <{PHASE_NS}>\n"
+                f"SELECT ?phase_id ?idea_id ?recorded WHERE {{\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f'    ?s phase:approvalStatus "pending" ;\n'
+                f"       phase:producedBy ?phase_id ;\n"
+                f"       phase:forRequirement ?idea_id .\n"
+                f"    OPTIONAL {{ ?s phase:recordedAt ?recorded }}\n"
+                f"  }}\n"
+                f"}}\n"
+                f"ORDER BY ?recorded"
+            )
+            result = self._kg_store.query(sparql)
+        except Exception:
+            logger.exception("list_pending_reviews failed")
+            return []
+        return [
+            {
+                "phase_id": b.get("phase_id", ""),
+                "idea_id": b.get("idea_id", ""),
+                "recorded_at": b.get("recorded", "") or None,
+            }
+            for b in result.bindings
+        ]
+
+    def count_pending_reviews(self) -> int:
+        """Badge count for the nav."""
+        return len(self.list_pending_reviews())
+
+    def get_review_detail(
+        self, idea_id: str, phase_id: str,
+    ) -> dict[str, Any] | None:
+        """Phase detail enriched for the review page.
+
+        Adds approval metadata, per-field JSON pretty-printing, the editable
+        allowlist, and the phase's gate shape to :meth:`get_phase_detail`.
+        """
+        import json as _json
+
+        detail = self.get_phase_detail(idea_id, phase_id)
+        if detail is None:
+            return None
+
+        from ontology_server.phase_approval import get_approval
+        from ontology_server.phase_constants import (
+            APPROVAL_STATUS_PRED,
+            EDITED_BY_REVIEWER_PRED,
+            RECORDED_AT_PRED,
+            REVIEW_COMMENT_PRED,
+            REVIEWED_AT_PRED,
+            REVIEWED_BY_PRED,
+        )
+
+        class _Sparql:
+            def __init__(self, store: Any) -> None:
+                self._store = store
+
+            def sparql_query(self, query: str) -> dict[str, Any]:
+                return {"results": self._store.query(query).bindings}
+
+        approval = get_approval(_Sparql(self._kg_store), idea_id, phase_id)
+
+        try:
+            from ontology_server.phase_predicate_names import (
+                get_predicates_for_phase,
+            )
+            allowed = get_predicates_for_phase(phase_id)
+        except Exception:
+            allowed = None
+
+        fields = []
+        for name, raw in sorted(detail["intent_fields"].items()):
+            is_json = False
+            display = raw
+            try:
+                parsed = _json.loads(raw)
+                if isinstance(parsed, (list, dict)):
+                    is_json = True
+                    display = _json.dumps(parsed, indent=2)
+            except (ValueError, TypeError):
+                pass
+            fields.append({
+                "name": name,
+                "value": raw,
+                "display": display,
+                "is_json": is_json,
+                "editable": allowed is None or name in allowed,
+            })
+
+        gate_shape = detail["metadata"].get(f"{PHASE_NS}shaclGate")
+        # Approval predicates are review metadata, not RDF trivia — drop them
+        # from the generic metadata table to avoid double-rendering.
+        for pred in (
+            APPROVAL_STATUS_PRED, RECORDED_AT_PRED, REVIEW_COMMENT_PRED,
+            REVIEWED_AT_PRED, REVIEWED_BY_PRED, EDITED_BY_REVIEWER_PRED,
+        ):
+            detail["metadata"].pop(pred, None)
+
+        return {
+            **detail,
+            "approval": approval,
+            "fields": fields,
+            "gate_shape": gate_shape,
+        }
+
+    def list_phase_definitions(self) -> list[dict[str, Any]]:
+        """All phase definitions with their HITL gate flag (settings page)."""
+        try:
+            sparql = (
+                f"PREFIX phase: <{PHASE_NS}>\n"
+                f"PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n"
+                f"SELECT ?p ?phase_id ?label ?family ?flag WHERE {{\n"
+                f"  GRAPH <{PHASES_GRAPH}> {{\n"
+                f"    ?p a phase:Phase ; phase:phaseId ?phase_id .\n"
+                f"    OPTIONAL {{ ?p rdfs:label ?label }}\n"
+                f"    OPTIONAL {{ ?p phase:agentFamily ?family }}\n"
+                f"    OPTIONAL {{ ?p phase:requiresApproval ?flag }}\n"
+                f"  }}\n"
+                f"}}\n"
+                f"ORDER BY ?family ?phase_id"
+            )
+            result = self._kg_store.query(sparql)
+        except Exception:
+            logger.exception("list_phase_definitions failed")
+            return []
+        return [
+            {
+                "phase_id": b.get("phase_id", ""),
+                "label": b.get("label", "") or b.get("phase_id", ""),
+                "agent_family": b.get("family", ""),
+                "requires_approval": str(b.get("flag", "")).lower()
+                in ("true", "1"),
+            }
+            for b in result.bindings
+        ]
+
     def _get_types(self, uri: str) -> list[str]:
         """Return rdf:type values for *uri* from the KG."""
         try:

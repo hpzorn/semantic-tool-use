@@ -557,6 +557,212 @@ async def resolve(request: Request, uri: str) -> HTMLResponse:
 
 
 # ---------------------------------------------------------------------------
+# HITL review queue
+# ---------------------------------------------------------------------------
+
+
+def _get_write_client(request: Request):
+    """Ontology client for review decisions (writes to the phases graph).
+
+    Carries the SHACL validator so edit-then-approve can re-run the phase
+    gate; without one the gate fails closed and edits are rejected.
+    """
+    from ontology_server.mcp.phase_tools import KGOntologyClient
+
+    state = request.app.state
+    return KGOntologyClient(state.kg_store, getattr(state, "validator", None))
+
+
+def _render_review_detail(
+    request: Request,
+    idea_id: str,
+    phase_id: str,
+    *,
+    status_code: int = 200,
+    violations: list[str] | None = None,
+    error: str | None = None,
+    submitted: dict[str, str] | None = None,
+) -> HTMLResponse:
+    service = _get_service(request)
+    detail = service.get_review_detail(idea_id, phase_id)
+    templates = request.app.state.templates
+    if detail is None:
+        return templates.TemplateResponse(
+            "generic_detail.html",
+            {
+                "request": request,
+                "uri": f"{idea_id}/{phase_id}",
+                "triples": [],
+            },
+            status_code=404,
+        )
+    if submitted:
+        # Re-show the reviewer's (rejected) edits instead of the stored values.
+        for field in detail["fields"]:
+            if field["name"] in submitted:
+                field["display"] = submitted[field["name"]]
+    return templates.TemplateResponse(
+        "review_detail.html",
+        {
+            "request": request,
+            **detail,
+            "violations": violations or [],
+            "error": error,
+        },
+        status_code=status_code,
+    )
+
+
+@router.get("/reviews", response_class=HTMLResponse)
+async def review_queue(request: Request) -> HTMLResponse:
+    """Render the HITL review queue (pending phase outputs across ideas)."""
+    service = _get_service(request)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "reviews.html",
+        {"request": request, "reviews": service.list_pending_reviews()},
+    )
+
+
+@router.get("/reviews/{idea_id}/{phase_id}", response_class=HTMLResponse)
+async def review_detail(
+    request: Request, idea_id: str, phase_id: str,
+) -> HTMLResponse:
+    """Render the review page for one phase output."""
+    return _render_review_detail(request, idea_id, phase_id)
+
+
+@router.post("/reviews/{idea_id}/{phase_id}/approve")
+async def review_approve(request: Request, idea_id: str, phase_id: str):
+    """Approve a pending output, applying any field edits first."""
+    from ontology_server.phase_approval import (
+        ApprovalConflictError,
+        approve_phase,
+    )
+
+    form = await request.form()
+    comment = str(form.get("comment", "")).strip() or None
+
+    # Diff submitted field__<name> values against the stored literals so
+    # only genuinely changed fields count as edits.
+    service = _get_service(request)
+    detail = service.get_review_detail(idea_id, phase_id)
+    if detail is None:
+        return _render_review_detail(request, idea_id, phase_id)
+    stored = {f["name"]: f for f in detail["fields"]}
+    submitted: dict[str, str] = {}
+    edited_fields: dict[str, str] = {}
+    for key, value in form.items():
+        if not key.startswith("field__"):
+            continue
+        name = key[len("field__"):]
+        value = str(value)
+        submitted[name] = value
+        field = stored.get(name)
+        if field is None or not field["editable"]:
+            continue
+        # The textarea shows the pretty-printed form; treat either the raw
+        # literal or the pretty form as "unchanged".
+        if value.strip() in (field["value"].strip(), field["display"].strip()):
+            continue
+        edited_fields[name] = value.strip()
+
+    client = _get_write_client(request)
+    try:
+        result = approve_phase(
+            client, client, idea_id, phase_id,
+            reviewed_by="dashboard", comment=comment,
+            edited_fields=edited_fields or None,
+        )
+    except (ApprovalConflictError, ValueError) as exc:
+        return _render_review_detail(
+            request, idea_id, phase_id,
+            status_code=422, error=str(exc), submitted=submitted,
+        )
+    if not result["ok"]:
+        return _render_review_detail(
+            request, idea_id, phase_id,
+            status_code=422, violations=result["violations"],
+            submitted=submitted,
+        )
+    return RedirectResponse(url="/dashboard/reviews", status_code=303)
+
+
+@router.post("/reviews/{idea_id}/{phase_id}/reject")
+async def review_reject(request: Request, idea_id: str, phase_id: str):
+    """Reject a pending output with mandatory feedback for the agent re-run."""
+    from ontology_server.phase_approval import (
+        ApprovalConflictError,
+        reject_phase,
+    )
+
+    form = await request.form()
+    comment = str(form.get("comment", "")).strip()
+    if not comment:
+        return _render_review_detail(
+            request, idea_id, phase_id,
+            status_code=422,
+            error="A rejection needs a feedback comment — it becomes the "
+                  "agent's revision brief.",
+        )
+    client = _get_write_client(request)
+    try:
+        reject_phase(
+            client, client, idea_id, phase_id, comment,
+            reviewed_by="dashboard",
+        )
+    except (ApprovalConflictError, ValueError) as exc:
+        return _render_review_detail(
+            request, idea_id, phase_id, status_code=422, error=str(exc),
+        )
+    return RedirectResponse(url="/dashboard/reviews", status_code=303)
+
+
+@router.get("/settings/phases", response_class=HTMLResponse)
+async def phase_settings(request: Request) -> HTMLResponse:
+    """Render the per-phase HITL gate toggles."""
+    service = _get_service(request)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "phase_settings.html",
+        {"request": request, "phases": service.list_phase_definitions()},
+    )
+
+
+@router.post("/settings/phases/{phase_id}/approval")
+async def phase_settings_toggle(request: Request, phase_id: str):
+    """Toggle phase:requiresApproval on a phase definition."""
+    from ontology_server.phase_approval import set_requires_approval
+
+    form = await request.form()
+    required = str(form.get("required", "")).lower() in ("on", "true", "1")
+    set_requires_approval(_get_write_client(request), phase_id, required)
+    return RedirectResponse(url="/dashboard/settings/phases", status_code=303)
+
+
+@router.get("/partials/review-rows", response_class=HTMLResponse)
+async def partial_review_rows(request: Request) -> HTMLResponse:
+    """HTMX partial: refresh the review-queue rows."""
+    service = _get_service(request)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "partials/review_rows.html",
+        {"request": request, "reviews": service.list_pending_reviews()},
+    )
+
+
+@router.get("/partials/review-badge", response_class=HTMLResponse)
+async def partial_review_badge(request: Request) -> HTMLResponse:
+    """HTMX partial: pending-review count for the nav badge."""
+    service = _get_service(request)
+    count = service.count_pending_reviews()
+    html_out = (
+        f'<span class="review-badge">{count}</span>' if count else ""
+    )
+    return HTMLResponse(html_out)
+
+
+# ---------------------------------------------------------------------------
 # Authentication (cookie session for browser access)
 # ---------------------------------------------------------------------------
 

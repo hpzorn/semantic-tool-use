@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Phase Gate Settings — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="phase-settings">
+    <h1>Human Gate Points</h1>
+    <p class="text-muted">
+        Phases with <code>requiresApproval</code> pause the pipeline until a
+        human approves their output in the
+        <a href="{{ dashboard_url(request, 'review_queue') }}">review queue</a>.
+    </p>
+    <p class="text-muted settings-caveat">
+        Toggles live on the phase definitions and are restored to ship
+        defaults (d5, p1, p6) when the server's phase content is upgraded.
+    </p>
+
+    {% if phases %}
+    <table class="property-table">
+        <thead>
+            <tr><th>Phase</th><th>Label</th><th>Family</th><th>Requires approval</th></tr>
+        </thead>
+        <tbody>
+            {% for p in phases %}
+            <tr>
+                <td><code>{{ p.phase_id }}</code></td>
+                <td>{{ p.label }}</td>
+                <td>{{ p.agent_family }}</td>
+                <td>
+                    <form method="post"
+                          action="{{ dashboard_url(request, 'phase_settings_toggle', phase_id=p.phase_id) }}">
+                        <input type="hidden" name="required" value="{{ 'false' if p.requires_approval else 'true' }}">
+                        <button type="submit"
+                                class="toggle {{ 'toggle-on' if p.requires_approval else 'toggle-off' }}">
+                            {{ 'ON' if p.requires_approval else 'off' }}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No phase definitions found — is phase content seeded?</p>
+    {% endif %}
+</div>
+
+<style>
+.phase-settings { max-width: 900px; }
+.settings-caveat { font-size: 0.85rem; }
+.toggle { border: 1px solid var(--color-border); border-radius: 999px; padding: 0.2em 1em; cursor: pointer; font-weight: 700; font-size: 0.8rem; }
+.toggle-on { background: #2e9e44; color: #fff; border-color: #2e9e44; }
+.toggle-off { background: var(--color-surface); color: var(--color-text-muted); }
+</style>
+{% endblock %}
