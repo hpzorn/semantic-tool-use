@@ -1,0 +1,18 @@
+<tr id="fact-row-{{ fact.fact_id }}">
+    <td><code>{{ fact.predicate }}</code></td>
+    <td>
+        {% if fact.object and fact.object.startswith("prd:") %}
+        <a href="{{ dashboard_url(request, 'facts_context', context=context) }}?subject={{ fact.object | urlencode }}">{{ fact.object }}</a>
+        {% else %}
+        <span class="fact-object">{{ fact.object }}</span>
+        {% endif %}
+        {% if fact.updated_at %}<span class="edited-tag" title="edited {{ fact.updated_at[:19] }}">edited</span>{% endif %}
+    </td>
+    <td>{{ fact.confidence }}</td>
+    <td class="text-muted">{{ fact.timestamp[:19] if fact.timestamp else "" }}</td>
+    <td>
+        <button class="edit-pencil" title="Edit fact"
+                hx-get="{{ dashboard_url(request, 'partial_fact_edit', fact_id=fact.fact_id) }}?context={{ context | urlencode }}"
+                hx-target="#fact-row-{{ fact.fact_id }}" hx-swap="outerHTML">&#9998;</button>
+    </td>
+</tr>

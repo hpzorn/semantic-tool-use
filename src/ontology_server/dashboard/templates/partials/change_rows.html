@@ -1,0 +1,25 @@
+{% if changes %}
+<table class="property-table changes-table">
+    <thead>
+        <tr><th>When</th><th>By</th><th>Kind</th><th>Target</th><th>Field</th><th>Change</th><th>Reason</th></tr>
+    </thead>
+    <tbody>
+        {% for c in changes %}
+        <tr>
+            <td class="text-muted">{{ c.at[:19] }}</td>
+            <td>{{ c.by }}</td>
+            <td><span class="kind-tag kind-{{ c.entity_kind }}">{{ c.entity_kind }}</span></td>
+            <td><a href="/dashboard/resolve/{{ c.target | urlencode }}"><code>{{ c.target | short_uri }}</code></a></td>
+            <td><code>{{ c.field }}</code></td>
+            <td class="history-diff">
+                {% if c.old is not none %}<del>{{ c.old | truncate(80) }}</del> &rarr; {% endif %}
+                <ins>{{ c.new | truncate(80) }}</ins>
+            </td>
+            <td class="text-muted">{{ c.reason or "" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No recorded edits yet. Edits made in the dashboard land here.</p>
+{% endif %}

@@ -1,0 +1,12 @@
+<div class="editable-field" id="idea-field-{{ field }}">
+    {% if widget.pre and value %}
+    <pre class="editable-value">{{ value }}</pre>
+    {% elif value %}
+    <span class="editable-value{% if widget.multiline %} multiline{% endif %}">{{ value }}</span>
+    {% else %}
+    <span class="editable-value empty">&mdash;</span>
+    {% endif %}
+    <button class="edit-pencil" title="Edit {{ field }}"
+            hx-get="{{ dashboard_url(request, 'idea_field_edit_form', idea_id=idea_id, field=field) }}"
+            hx-target="#idea-field-{{ field }}" hx-swap="outerHTML">&#9998;</button>
+</div>

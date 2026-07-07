@@ -111,6 +111,9 @@ class TestKgUpdateDelegation:
         kg = MagicMock()
         kg.update.return_value = None
         client = _make_client(kg_store=kg)
+        # App startup itself issues updates (AgentMemory.materialize_scoping
+        # backfill) — only the endpoint's delegation is under test here.
+        kg.update.reset_mock()
 
         sparql = "INSERT DATA { <urn:x> <urn:y> <urn:z> . }"
         client.post("/kg/update", json={"query": sparql})
@@ -121,6 +124,7 @@ class TestKgUpdateDelegation:
         kg = MagicMock()
         kg.update.return_value = None
         client = _make_client(kg_store=kg)
+        kg.update.reset_mock()
 
         client.post("/kg/update", json={"query": ""})
 

@@ -16,7 +16,11 @@
     <div class="prd-error">{{ error }}</div>
     {% else %}
 
-    <h1>{{ title }}</h1>
+    <h1 class="idea-title">
+        {% with idea_id=id, field="title", value=editable.get("title", title), widget=widgets["title"] %}
+        {% include "partials/idea_field.html" %}
+        {% endwith %}
+    </h1>
     <div class="req-meta">
         <code>{{ id }}</code>
         <span class="lifecycle-badge lc-{{ lifecycle }}">{{ lifecycle }}</span>
@@ -50,16 +54,20 @@
     </div>
     {% endif %}
 
-    {# ── Properties ── #}
+    {# ── Properties (editable fields carry a pencil) ── #}
     <table class="property-table">
         <thead>
             <tr><th>Property</th><th>Value</th></tr>
         </thead>
         <tbody>
             <tr><td>Created</td><td>{{ created[:19] if created else "—" }}</td></tr>
-            {% if description %}
-            <tr><td>Description</td><td>{{ description }}</td></tr>
-            {% endif %}
+            {% for name, label in [("description", "Description"), ("vision", "Vision"), ("priority", "Priority"), ("requirements", "Requirements"), ("considerations", "Considerations"), ("use_cases", "Use Cases")] %}
+            <tr><td>{{ label }}</td><td>
+                {% with idea_id=id, field=name, value=editable.get(name, ""), widget=widgets[name] %}
+                {% include "partials/idea_field.html" %}
+                {% endwith %}
+            </td></tr>
+            {% endfor %}
             {% if agent %}
             <tr><td>Agent</td><td><code>{{ agent }}</code></td></tr>
             {% endif %}
@@ -68,9 +76,6 @@
             {% endif %}
             {% if lifecycle_updated %}
             <tr><td>Lifecycle Updated</td><td>{{ lifecycle_updated[:19] }}</td></tr>
-            {% endif %}
-            {% if vision %}
-            <tr><td>Vision</td><td>{{ vision }}</td></tr>
             {% endif %}
             {% if parent %}
             <tr><td>Parent</td><td><a href="{{ dashboard_url(request, 'idea_detail', idea_id=parent) }}"><code>{{ parent }}</code></a></td></tr>
@@ -95,12 +100,12 @@
     {% endif %}
 
     {# ── Content ── #}
-    {% if content %}
     <h2>Content</h2>
     <div class="idea-content">
-        <pre>{{ content }}</pre>
+        {% with idea_id=id, field="content", value=editable.get("content", content or ""), widget=widgets["content"] %}
+        {% include "partials/idea_field.html" %}
+        {% endwith %}
     </div>
-    {% endif %}
 
     {# ── Related Ideas ── #}
     {% if related %}
@@ -165,14 +170,12 @@
     {% endif %}
 
     {# ── Tags ── #}
-    {% if tags %}
     <h2>Tags</h2>
     <div class="tag-list">
-        {% for tag in tags %}
-        <span class="tag-chip">{{ tag }}</span>
-        {% endfor %}
+        {% with idea_id=id, field="tags", value=editable.get("tags", ""), widget=widgets["tags"] %}
+        {% include "partials/idea_field.html" %}
+        {% endwith %}
     </div>
-    {% endif %}
 
     {# ── Wikidata Refs ── #}
     {% if wikidata_refs %}
@@ -183,6 +186,10 @@
         {% endfor %}
     </div>
     {% endif %}
+
+    {# ── Change History ── #}
+    <div hx-get="{{ dashboard_url(request, 'partial_history') }}?target={{ idea_uri | urlencode }}"
+         hx-trigger="load, entity-edited from:body" hx-swap="innerHTML"></div>
 
     {% endif %}
 </div>

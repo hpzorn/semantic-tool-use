@@ -17,6 +17,7 @@
                 <li><a href="{{ dashboard_url(request, 'dashboard') }}">Dashboard</a></li>
                 <li><a href="{{ dashboard_url(request, 'idea_list') }}">Ideas</a></li>
                 <li><a href="{{ dashboard_url(request, 'review_queue') }}">Reviews<span class="nav-badge" hx-get="{{ dashboard_url(request, 'partial_review_badge') }}" hx-trigger="load, every 15s" hx-swap="innerHTML"></span></a></li>
+                <li><a href="{{ dashboard_url(request, 'changes_feed') }}">Changes</a></li>
                 <li><a href="{{ dashboard_url(request, 'prd_list') }}">PRDs</a></li>
                 <li><a href="{{ dashboard_url(request, 'facts_browser') }}">Facts</a></li>
                 <li><a href="{{ dashboard_url(request, 'instance_list') }}">Instances</a></li>

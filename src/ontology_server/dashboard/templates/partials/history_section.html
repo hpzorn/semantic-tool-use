@@ -1,0 +1,26 @@
+<details class="history-section" {% if history %}open{% endif %}>
+    <summary>History ({{ history | length }}{% if history | length >= 10 %}+{% endif %})</summary>
+    {% if history %}
+    <table class="property-table history-table">
+        <thead>
+            <tr><th>When</th><th>By</th><th>Field</th><th>Change</th><th>Reason</th></tr>
+        </thead>
+        <tbody>
+            {% for h in history %}
+            <tr>
+                <td class="text-muted">{{ h.at[:19] }}</td>
+                <td>{{ h.by }}</td>
+                <td><code>{{ h.field }}</code></td>
+                <td class="history-diff">
+                    {% if h.old is not none %}<del>{{ h.old | truncate(120) }}</del> &rarr; {% endif %}
+                    <ins>{{ h.new | truncate(120) }}</ins>
+                </td>
+                <td class="text-muted">{{ h.reason or "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No recorded edits.</p>
+    {% endif %}
+</details>

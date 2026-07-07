@@ -1,0 +1,20 @@
+<tr id="fact-row-{{ fact.fact_id }}" class="fact-edit-row">
+    <td><code>{{ fact.predicate }}</code></td>
+    <td colspan="3">
+        <form hx-post="{{ dashboard_url(request, 'fact_edit_save', fact_id=fact.fact_id) }}?context={{ context | urlencode }}"
+              hx-target="#fact-row-{{ fact.fact_id }}" hx-swap="outerHTML">
+            {% if error %}<div class="field-error">{{ error }}</div>{% endif %}
+            <textarea name="object" rows="{{ [fact.object.count('\n') + 2, 10] | min }}" spellcheck="false">{{ fact.object }}</textarea>
+            <label class="confidence-label">confidence
+                <input type="text" name="confidence" size="5" value="{{ fact.confidence }}">
+            </label>
+            <span class="editable-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel"
+                        hx-get="{{ dashboard_url(request, 'partial_fact_row', fact_id=fact.fact_id) }}?context={{ context | urlencode }}"
+                        hx-target="#fact-row-{{ fact.fact_id }}" hx-swap="outerHTML">Cancel</button>
+            </span>
+        </form>
+    </td>
+    <td></td>
+</tr>

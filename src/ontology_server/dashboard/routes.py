@@ -241,9 +241,23 @@ async def idea_detail(request: Request, idea_id: str) -> HTMLResponse:
         else:
             contexts[ctx_type] = None
 
+    # In-place editing: raw editable string form per field + widget config.
+    canonical_id = detail.get("id", idea_id)
+    idea = request.app.state.ideas_store.get_idea(canonical_id)
+    editable = (
+        {name: _idea_field_raw(idea, name) for name in _IDEA_FIELD_INPUTS}
+        if idea is not None else {}
+    )
+
     return templates.TemplateResponse(
         "idea_detail.html",
-        {"request": request, "prd_progress": prd_progress, "contexts": contexts, **detail},
+        {
+            "request": request, "prd_progress": prd_progress,
+            "contexts": contexts, "editable": editable,
+            "widgets": _IDEA_FIELD_INPUTS,
+            "idea_uri": f"http://semantic-tool-use.org/ideas/{canonical_id}",
+            **detail,
+        },
     )
 
 
@@ -450,10 +464,20 @@ async def requirement_detail(
     quality_focus_raw = _first(raw.get("prd:qualityFocus"))
     quality_focus_chain = service.get_quality_focus_chain(quality_focus_raw)
 
+    # Fact URIs backing this requirement — for the edit link + history.
+    req_facts = request.app.state.agent_memory.recall(
+        context=context, subject=subject, limit=200,
+    )
+    fact_targets = [
+        f"http://semantic-tool-use.org/memory/fact/{f['fact_id']}"
+        for f in req_facts if f.get("fact_id")
+    ]
+
     detail = {
         "subject": raw.get("subject", subject),
         "context": context,
         "found": found,
+        "fact_targets": fact_targets,
         "error": f"Requirement not found: {subject}" if not found else None,
         "title": _first(raw.get("prd:title")),
         "taskId": _first(raw.get("prd:taskId")),
@@ -761,6 +785,322 @@ async def partial_review_badge(request: Request) -> HTMLResponse:
         f'<span class="review-badge">{count}</span>' if count else ""
     )
     return HTMLResponse(html_out)
+
+
+# ---------------------------------------------------------------------------
+# In-place editing (ideas, facts) + change history
+# ---------------------------------------------------------------------------
+
+# Input widget per editable idea field (field set = EDITABLE_IDEA_FIELDS).
+_IDEA_FIELD_INPUTS: dict[str, dict] = {
+    "title": {"multiline": False},
+    "description": {"multiline": True},
+    "content": {"multiline": True, "pre": True},
+    "vision": {"multiline": True},
+    "priority": {"multiline": False},
+    "tags": {"multiline": False, "hint": "comma-separated"},
+    "requirements": {"multiline": True, "hint": "one per line"},
+    "considerations": {"multiline": True, "hint": "one per line"},
+    "use_cases": {"multiline": True, "hint": "one per line"},
+}
+
+
+def _idea_field_raw(idea, field: str) -> str:
+    """The raw editable string form of an idea field."""
+    value = getattr(idea, field)
+    if field == "tags":
+        return ", ".join(value)
+    if field in ("requirements", "considerations", "use_cases"):
+        return "\n".join(value)
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _render_idea_field(
+    request: Request, idea_id: str, field: str, template: str,
+    status_code: int = 200, error: str | None = None,
+    headers: dict | None = None,
+) -> HTMLResponse:
+    ideas_store = request.app.state.ideas_store
+    idea = ideas_store.get_idea(idea_id)
+    templates = request.app.state.templates
+    if idea is None or field not in _IDEA_FIELD_INPUTS:
+        return HTMLResponse("not found", status_code=404)
+    return templates.TemplateResponse(
+        template,
+        {
+            "request": request,
+            "idea_id": idea_id,
+            "field": field,
+            "value": _idea_field_raw(idea, field),
+            "widget": _IDEA_FIELD_INPUTS[field],
+            "error": error,
+        },
+        status_code=status_code,
+        headers=headers,
+    )
+
+
+@router.get("/ideas/{idea_id}/field/{field}", response_class=HTMLResponse)
+async def idea_field_display(
+    request: Request, idea_id: str, field: str,
+) -> HTMLResponse:
+    """HTMX partial: display view of one idea field (also 'cancel')."""
+    return _render_idea_field(request, idea_id, field, "partials/idea_field.html")
+
+
+@router.get("/ideas/{idea_id}/edit/{field}", response_class=HTMLResponse)
+async def idea_field_edit_form(
+    request: Request, idea_id: str, field: str,
+) -> HTMLResponse:
+    """HTMX partial: edit form for one idea field."""
+    return _render_idea_field(
+        request, idea_id, field, "partials/idea_field_form.html",
+    )
+
+
+@router.post("/ideas/{idea_id}/edit/{field}", response_class=HTMLResponse)
+async def idea_field_edit(
+    request: Request, idea_id: str, field: str,
+) -> HTMLResponse:
+    """Save one idea field; returns the refreshed display partial."""
+    form = await request.form()
+    value = str(form.get("value", ""))
+    ideas_store = request.app.state.ideas_store
+    try:
+        ideas_store.update_idea_fields(
+            idea_id, {field: value}, changed_by="dashboard",
+        )
+    except ValueError as exc:
+        return _render_idea_field(
+            request, idea_id, field, "partials/idea_field_form.html",
+            status_code=422, error=str(exc),
+        )
+    # HX-Trigger lets the page's history section refresh itself.
+    return _render_idea_field(
+        request, idea_id, field, "partials/idea_field.html",
+        headers={"HX-Trigger": "entity-edited"},
+    )
+
+
+def _render_fact_row(
+    request: Request, fact_id: str, context: str,
+    template: str = "partials/fact_row.html",
+    status_code: int = 200, error: str | None = None,
+    headers: dict | None = None,
+) -> HTMLResponse:
+    fact = request.app.state.agent_memory.get_fact(fact_id)
+    if fact is None:
+        return HTMLResponse("not found", status_code=404)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        template,
+        {"request": request, "fact": fact, "context": context, "error": error},
+        status_code=status_code,
+        headers=headers,
+    )
+
+
+@router.get("/partials/fact-row/{fact_id}", response_class=HTMLResponse)
+async def partial_fact_row(
+    request: Request, fact_id: str, context: str = "",
+) -> HTMLResponse:
+    """HTMX partial: display row for one fact (also 'cancel')."""
+    return _render_fact_row(request, fact_id, context)
+
+
+@router.get("/partials/fact-edit/{fact_id}", response_class=HTMLResponse)
+async def partial_fact_edit(
+    request: Request, fact_id: str, context: str = "",
+) -> HTMLResponse:
+    """HTMX partial: edit row for one fact."""
+    return _render_fact_row(
+        request, fact_id, context, template="partials/fact_edit_row.html",
+    )
+
+
+@router.post("/facts-edit/{fact_id}", response_class=HTMLResponse)
+async def fact_edit_save(
+    request: Request, fact_id: str, context: str = "",
+) -> HTMLResponse:
+    """Save an in-place fact edit; returns the refreshed display row."""
+    form = await request.form()
+    new_object = str(form.get("object", ""))
+    confidence_raw = str(form.get("confidence", "")).strip()
+    try:
+        new_confidence = float(confidence_raw) if confidence_raw else None
+        request.app.state.agent_memory.update_fact(
+            fact_id,
+            new_object=new_object,
+            new_confidence=new_confidence,
+            changed_by="dashboard",
+        )
+    except ValueError as exc:
+        return _render_fact_row(
+            request, fact_id, context,
+            template="partials/fact_edit_row.html",
+            status_code=422, error=str(exc),
+        )
+    return _render_fact_row(
+        request, fact_id, context, headers={"HX-Trigger": "entity-edited"},
+    )
+
+
+@router.get("/phases/{idea_id}/{phase_id}/edit", response_class=HTMLResponse)
+async def phase_edit(
+    request: Request, idea_id: str, phase_id: str,
+) -> HTMLResponse:
+    """Full-page field editor for a phase output at ANY approval status."""
+    return _render_phase_edit(request, idea_id, phase_id)
+
+
+def _render_phase_edit(
+    request: Request, idea_id: str, phase_id: str,
+    *, status_code: int = 200, violations: list[str] | None = None,
+    error: str | None = None, submitted: dict[str, str] | None = None,
+    saved_fields: list[str] | None = None, stale_phases: list[str] | None = None,
+) -> HTMLResponse:
+    from ontology_server.phase_approval import consumers_of_fields
+
+    service = _get_service(request)
+    detail = service.get_review_detail(idea_id, phase_id)
+    templates = request.app.state.templates
+    if detail is None:
+        return HTMLResponse("phase output not found", status_code=404)
+    if submitted:
+        for field in detail["fields"]:
+            if field["name"] in submitted:
+                field["display"] = submitted[field["name"]]
+    consumers = consumers_of_fields([f["name"] for f in detail["fields"]])
+    return templates.TemplateResponse(
+        "phase_edit.html",
+        {
+            "request": request,
+            **detail,
+            "consumers": consumers,
+            "violations": violations or [],
+            "error": error,
+            "saved_fields": saved_fields or [],
+            "stale_phases": stale_phases or [],
+        },
+        status_code=status_code,
+    )
+
+
+@router.post("/phases/{idea_id}/{phase_id}/edit")
+async def phase_edit_save(request: Request, idea_id: str, phase_id: str):
+    """Apply phase-output field edits (SHACL-revalidated, change-logged)."""
+    from ontology_server.phase_approval import (
+        ApprovalConflictError,
+        edit_phase_output,
+    )
+
+    form = await request.form()
+    reason = str(form.get("reason", "")).strip() or None
+
+    service = _get_service(request)
+    detail = service.get_review_detail(idea_id, phase_id)
+    if detail is None:
+        return HTMLResponse("phase output not found", status_code=404)
+    stored = {f["name"]: f for f in detail["fields"]}
+    submitted: dict[str, str] = {}
+    edited_fields: dict[str, str] = {}
+    for key, value in form.items():
+        if not key.startswith("field__"):
+            continue
+        name = key[len("field__"):]
+        value = str(value)
+        submitted[name] = value
+        field = stored.get(name)
+        if field is None or not field["editable"]:
+            continue
+        if value.strip() in (field["value"].strip(), field["display"].strip()):
+            continue
+        edited_fields[name] = value.strip()
+
+    if not edited_fields:
+        return _render_phase_edit(
+            request, idea_id, phase_id, error="No fields were changed.",
+        )
+
+    client = _get_write_client(request)
+    try:
+        result = edit_phase_output(
+            client, client, idea_id, phase_id, edited_fields,
+            kg_store=request.app.state.kg_store,
+            changed_by="dashboard", reason=reason,
+        )
+    except (ApprovalConflictError, ValueError) as exc:
+        return _render_phase_edit(
+            request, idea_id, phase_id,
+            status_code=422, error=str(exc), submitted=submitted,
+        )
+    if not result["ok"]:
+        return _render_phase_edit(
+            request, idea_id, phase_id,
+            status_code=422, violations=result["violations"],
+            submitted=submitted,
+        )
+    return _render_phase_edit(
+        request, idea_id, phase_id,
+        saved_fields=result["edited_fields"],
+        stale_phases=result["stale_phases"],
+    )
+
+
+@router.get("/partials/history", response_class=HTMLResponse)
+async def partial_history(request: Request) -> HTMLResponse:
+    """HTMX partial: change history for one or more target URIs.
+
+    Query params: repeated `target=<uri>`, optional `limit`.
+    """
+    from knowledge_graph.core.changelog import get_history_for_targets
+
+    targets = request.query_params.getlist("target")
+    limit = int(request.query_params.get("limit", "10"))
+    rows = get_history_for_targets(
+        request.app.state.kg_store, targets, limit=limit,
+    ) if targets else []
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "partials/history_section.html",
+        {"request": request, "history": rows, "targets": targets},
+    )
+
+
+@router.get("/changes", response_class=HTMLResponse)
+async def changes_feed(
+    request: Request, entity_kind: str | None = None,
+) -> HTMLResponse:
+    """Global human-edit changelog feed."""
+    from knowledge_graph.core.changelog import recent_changes
+
+    rows = recent_changes(
+        request.app.state.kg_store, limit=100, entity_kind=entity_kind,
+    )
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "changes.html",
+        {"request": request, "changes": rows, "entity_kind": entity_kind},
+    )
+
+
+@router.get("/partials/change-rows", response_class=HTMLResponse)
+async def partial_change_rows(
+    request: Request, entity_kind: str | None = None,
+) -> HTMLResponse:
+    """HTMX partial: refresh the global changes feed rows."""
+    from knowledge_graph.core.changelog import recent_changes
+
+    rows = recent_changes(
+        request.app.state.kg_store, limit=100, entity_kind=entity_kind,
+    )
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "partials/change_rows.html",
+        {"request": request, "changes": rows},
+    )
 
 
 # ---------------------------------------------------------------------------

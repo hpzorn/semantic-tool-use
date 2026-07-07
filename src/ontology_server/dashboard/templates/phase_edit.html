@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ phase_id }} — {{ idea_id }} — Ontology Dashboard{% endblock %}
+
+{% block content %}
+<div class="review-detail phase-edit">
+    <a href="{{ dashboard_url(request, 'phase_detail', idea_id=idea_id, phase_id=phase_id) }}" class="back-link">&larr; Back to phase view</a>
+
+    <h1>Edit fields: <code>{{ idea_id }}-{{ phase_id }}</code></h1>
+
+    <div class="phase-meta">
+        {% if approval %}
+        <span class="status-pill status-{{ approval.status }}">{{ approval.status }}</span>
+        {% endif %}
+        {% if gate_shape %}<span class="gate-shape">gate: <code>{{ gate_shape|short_uri }}</code></span>{% endif %}
+    </div>
+
+    <p class="text-muted">
+        Edits work at any approval status: they are re-validated against the
+        phase's SHACL gate and recorded in the change log. The approval status
+        is never changed — but downstream phases that already consumed the old
+        values become stale, and re-running them is your call.
+    </p>
+
+    {% if saved_fields %}
+    <div class="alert alert-success">
+        <strong>Saved:</strong> {{ saved_fields | join(", ") }}.
+        {% if stale_phases %}
+        <div class="stale-warning">
+            &#9888; Downstream phases that consumed the old values and may now
+            be stale:
+            {% for p in stale_phases %}
+            <a href="{{ dashboard_url(request, 'phase_detail', idea_id=idea_id, phase_id=p) }}"><code>{{ p }}</code></a>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+            — consider re-running them.
+        </div>
+        {% else %}
+        No downstream phase has consumed these fields yet — nothing is stale.
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    {% if violations %}
+    <div class="alert alert-error">
+        <strong>Your edits were rejected by the phase's SHACL gate — nothing
+        was changed:</strong>
+        <ul>
+            {% for v in violations %}<li>{{ v }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post"
+          action="{{ dashboard_url(request, 'phase_edit_save', idea_id=idea_id, phase_id=phase_id) }}">
+        <table class="property-table review-fields">
+            <thead>
+                <tr><th>Field</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+                {% for f in fields %}
+                <tr>
+                    <td>
+                        <code>{{ f.name }}</code>
+                        {% if f.is_json %}<span class="field-tag">json</span>{% endif %}
+                        {% if not f.editable %}<span class="field-tag field-tag-locked">read-only</span>{% endif %}
+                        {% if consumers.get(f.name) %}
+                        <div class="consumed-by">consumed by:
+                            {% for p in consumers[f.name] %}<code>{{ p }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if f.editable %}
+                        <textarea name="field__{{ f.name }}"
+                                  rows="{{ [f.display.count('\n') + 1, 12] | min }}"
+                                  spellcheck="false">{{ f.display }}</textarea>
+                        {% else %}
+                        <pre class="readonly-value">{{ f.display }}</pre>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <label for="edit-reason">Reason (recorded in the change log)</label>
+        <textarea id="edit-reason" name="reason" rows="2"
+                  placeholder="Why these values change"></textarea>
+
+        <div class="review-actions">
+            <button type="submit" class="btn-approve">Save edits</button>
+        </div>
+    </form>
+
+    <div hx-get="{{ dashboard_url(request, 'partial_history') }}?target={{ ('http://tulla.dev/phase#' ~ idea_id ~ '-' ~ phase_id) | urlencode }}"
+         hx-trigger="load, entity-edited from:body" hx-swap="innerHTML"></div>
+</div>
+
+<style>
+.alert-success { border-color: #2e9e44; background: rgba(46, 158, 68, 0.08); }
+.stale-warning { margin-top: 0.5rem; color: #8a6d00; }
+.consumed-by { font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.25rem; }
+.review-detail .phase-meta { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.status-pill { padding: 0.2em 0.75em; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.status-pending { background: #f5c518; color: #3a2f00; }
+.status-approved { background: #2e9e44; color: #fff; }
+.status-rejected { background: #c93c3c; color: #fff; }
+.gate-shape { font-size: 0.875rem; color: var(--color-text-muted); }
+.alert { padding: 0.75rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; border: 1px solid var(--color-border); }
+.alert-error { border-color: #c93c3c; background: rgba(201, 60, 60, 0.08); }
+.review-fields textarea { width: 100%; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--color-border); border-radius: 4px; padding: 0.4rem; background: var(--color-bg); color: inherit; }
+.readonly-value { font-size: 0.85rem; margin: 0; white-space: pre-wrap; color: var(--color-text-muted); }
+.field-tag { font-size: 0.7rem; padding: 0.1em 0.5em; border-radius: 4px; background: var(--color-surface); border: 1px solid var(--color-border); margin-left: 0.4em; vertical-align: middle; }
+.field-tag-locked { opacity: 0.7; }
+.review-actions { margin: 1rem 0 2rem; }
+.btn-approve { border: none; border-radius: var(--radius); padding: 0.6rem 1.4rem; font-size: 1rem; font-weight: 600; cursor: pointer; background: #2e9e44; color: #fff; }
+.review-detail label { display: block; margin: 0.75rem 0 0.25rem; font-size: 0.875rem; color: var(--color-text-muted); }
+.review-detail textarea[name="reason"] { width: 100%; border: 1px solid var(--color-border); border-radius: 4px; padding: 0.4rem; background: var(--color-bg); color: inherit; }
+</style>
+{% endblock %}

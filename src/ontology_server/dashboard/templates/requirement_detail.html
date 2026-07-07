@@ -22,6 +22,7 @@
         <code>{{ subject }}</code>
         <span class="status-badge badge-{{ status | lower }}">{{ status }}</span>
         <span class="priority-badge priority-{{ priority | lower }}">{{ priority }}</span>
+        <a href="{{ dashboard_url(request, 'facts_context', context=context) }}?subject={{ subject | urlencode }}" class="edit-fields-link">&#9998; Edit fields</a>
     </div>
 
     {# ── Properties ── #}
@@ -321,4 +322,14 @@
     font-weight: 300;
 }
 </style>
+
+{# ── Change History across this requirement's facts ── #}
+{% if fact_targets %}
+{% set history_qs = [] %}
+{% for t in fact_targets %}
+{% if history_qs.append("target=" ~ (t | urlencode)) %}{% endif %}
+{% endfor %}
+<div hx-get="{{ dashboard_url(request, 'partial_history') }}?{{ history_qs | join('&') }}"
+     hx-trigger="load" hx-swap="innerHTML"></div>
+{% endif %}
 {% endblock %}

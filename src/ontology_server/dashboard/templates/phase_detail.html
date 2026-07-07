@@ -21,6 +21,7 @@
         {% if intent_fields and intent_fields.timestamp %}
         <span class="phase-timestamp">{{ intent_fields.timestamp[:19] }}</span>
         {% endif %}
+        <a href="{{ dashboard_url(request, 'phase_edit', idea_id=idea_id, phase_id=phase_id) }}" class="edit-fields-link">&#9998; Edit fields</a>
     </div>
 
     {# ── Parent Idea Link ── #}
@@ -98,6 +99,10 @@
     {% else %}
     <p class="text-muted">No trace ancestors — this is a root phase output.</p>
     {% endif %}
+
+    {# ── Change History ── #}
+    <div hx-get="{{ dashboard_url(request, 'partial_history') }}?target={{ ('http://tulla.dev/phase#' ~ idea_id ~ '-' ~ phase_id) | urlencode }}"
+         hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 <style>

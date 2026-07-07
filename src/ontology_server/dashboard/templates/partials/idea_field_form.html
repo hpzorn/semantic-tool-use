@@ -1,0 +1,17 @@
+<form class="editable-field editable-field-form" id="idea-field-{{ field }}"
+      hx-post="{{ dashboard_url(request, 'idea_field_edit', idea_id=idea_id, field=field) }}"
+      hx-target="#idea-field-{{ field }}" hx-swap="outerHTML">
+    {% if error %}<div class="field-error">{{ error }}</div>{% endif %}
+    {% if widget.multiline %}
+    <textarea name="value" rows="{{ [value.count('\n') + 2, 12] | min }}" spellcheck="false">{{ value }}</textarea>
+    {% else %}
+    <input type="text" name="value" value="{{ value }}">
+    {% endif %}
+    {% if widget.hint %}<span class="field-hint">{{ widget.hint }}</span>{% endif %}
+    <span class="editable-actions">
+        <button type="submit" class="btn-save">Save</button>
+        <button type="button" class="btn-cancel"
+                hx-get="{{ dashboard_url(request, 'idea_field_display', idea_id=idea_id, field=field) }}"
+                hx-target="#idea-field-{{ field }}" hx-swap="outerHTML">Cancel</button>
+    </span>
+</form>
