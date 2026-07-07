@@ -202,6 +202,147 @@ def handle_record_phase_result(
     return 200, result
 
 
+def _require_idea_and_phase(
+    body: dict[str, Any] | None,
+) -> tuple[str, str] | tuple[None, dict[str, Any]]:
+    if not isinstance(body, dict):
+        return None, {"error": "missing idea_id"}
+    idea_id = body.get("idea_id", "")
+    if not idea_id or not isinstance(idea_id, str):
+        return None, {"error": "missing idea_id"}
+    phase_id = body.get("phase_id", "")
+    if not phase_id or not isinstance(phase_id, str):
+        return None, {"error": "missing phase_id"}
+    return idea_id, phase_id
+
+
+def handle_approve_phase(
+    ontology: OntologyClient,
+    body: dict[str, Any] | None,
+) -> tuple[int, dict[str, Any]]:
+    """Handle POST /phase/approve."""
+    from ontology_server.phase_approval import (
+        ApprovalConflictError,
+        approve_phase,
+    )
+
+    idea_id, phase_id = _require_idea_and_phase(body)
+    if idea_id is None:
+        return 404, phase_id  # type: ignore[return-value]
+    assert isinstance(body, dict)
+
+    comment = body.get("comment")
+    if comment is not None and not isinstance(comment, str):
+        comment = None
+    reviewed_by = body.get("reviewed_by", "api")
+    if not isinstance(reviewed_by, str) or not reviewed_by:
+        reviewed_by = "api"
+    edited_fields = body.get("edited_fields")
+    if edited_fields is not None:
+        if not isinstance(edited_fields, dict) or not all(
+            isinstance(k, str) and isinstance(v, str)
+            for k, v in edited_fields.items()
+        ):
+            return 400, {"error": "edited_fields must map field names to strings"}
+
+    try:
+        result = approve_phase(
+            ontology, ontology, idea_id, phase_id,
+            reviewed_by=reviewed_by, comment=comment,
+            edited_fields=edited_fields,
+        )
+    except ApprovalConflictError as exc:
+        return 409, {"error": str(exc)}
+    except ValueError as exc:
+        return 400, {"error": str(exc)}
+    return (200 if result["ok"] else 422), result
+
+
+def handle_reject_phase(
+    ontology: OntologyClient,
+    body: dict[str, Any] | None,
+) -> tuple[int, dict[str, Any]]:
+    """Handle POST /phase/reject."""
+    from ontology_server.phase_approval import (
+        ApprovalConflictError,
+        reject_phase,
+    )
+
+    idea_id, phase_id = _require_idea_and_phase(body)
+    if idea_id is None:
+        return 404, phase_id  # type: ignore[return-value]
+    assert isinstance(body, dict)
+
+    comment = body.get("comment", "")
+    if not isinstance(comment, str) or not comment.strip():
+        return 400, {"error": "a rejection requires a feedback comment"}
+    reviewed_by = body.get("reviewed_by", "api")
+    if not isinstance(reviewed_by, str) or not reviewed_by:
+        reviewed_by = "api"
+
+    try:
+        result = reject_phase(
+            ontology, ontology, idea_id, phase_id, comment,
+            reviewed_by=reviewed_by,
+        )
+    except ApprovalConflictError as exc:
+        return 409, {"error": str(exc)}
+    except ValueError as exc:
+        return 400, {"error": str(exc)}
+    return 200, result
+
+
+def handle_set_requires_approval(
+    ontology: OntologyClient,
+    body: dict[str, Any] | None,
+) -> tuple[int, dict[str, Any]]:
+    """Handle POST /phase/set-requires-approval."""
+    from ontology_server.phase_approval import set_requires_approval
+
+    if not isinstance(body, dict):
+        return 404, {"error": "missing phase_id"}
+    phase_id = body.get("phase_id", "")
+    if not phase_id or not isinstance(phase_id, str):
+        return 404, {"error": "missing phase_id"}
+    required = body.get("required")
+    if not isinstance(required, bool):
+        return 400, {"error": "required must be a boolean"}
+    return 200, set_requires_approval(ontology, phase_id, required)
+
+
+def handle_get_approval_status(
+    sparql: SparqlClient,
+    idea_id: str,
+    phase_id: str,
+) -> tuple[int, dict[str, Any]]:
+    """Handle GET /phase/approval-status/{idea_id}/{phase_id}."""
+    from ontology_server.phase_approval import get_approval
+
+    state = get_approval(sparql, idea_id, phase_id)
+    if state is None:
+        return 404, {"error": f"no phase output for {idea_id}/{phase_id}"}
+    return 200, state
+
+
+async def handle_await_approval(
+    sparql: SparqlClient,
+    body: dict[str, Any] | None,
+) -> tuple[int, dict[str, Any]]:
+    """Handle POST /phase/await-approval (server-side long-poll)."""
+    from ontology_server.phase_approval import await_approval
+
+    idea_id, phase_id = _require_idea_and_phase(body)
+    if idea_id is None:
+        return 404, phase_id  # type: ignore[return-value]
+    assert isinstance(body, dict)
+
+    timeout_s = body.get("timeout_s", 50)
+    if not isinstance(timeout_s, (int, float)):
+        timeout_s = 50
+    result = await await_approval(sparql, idea_id, phase_id, timeout_s=timeout_s)
+    return 200, result
+
+
 # ---------------------------------------------------------------------------
 # Request helpers
 # ---------------------------------------------------------------------------
@@ -326,6 +467,65 @@ async def record_phase_result_endpoint(request: Request) -> JSONResponse:
     ontology = _get_ontology(request)
     try:
         status, payload = handle_record_phase_result(ontology, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse(payload, status_code=status)
+
+
+@router.post("/phase/approve")
+async def approve_phase_endpoint(request: Request) -> JSONResponse:
+    """Approve a pending phase output (HITL), optionally with field edits."""
+    ontology = _get_ontology(request)
+    try:
+        status, payload = handle_approve_phase(ontology, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse(payload, status_code=status)
+
+
+@router.post("/phase/reject")
+async def reject_phase_endpoint(request: Request) -> JSONResponse:
+    """Reject a pending phase output with mandatory feedback (HITL)."""
+    ontology = _get_ontology(request)
+    try:
+        status, payload = handle_reject_phase(ontology, await request.json())
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse(payload, status_code=status)
+
+
+@router.post("/phase/set-requires-approval")
+async def set_requires_approval_endpoint(request: Request) -> JSONResponse:
+    """Toggle the HITL gate flag on a phase definition."""
+    ontology = _get_ontology(request)
+    try:
+        status, payload = handle_set_requires_approval(
+            ontology, await request.json(),
+        )
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse(payload, status_code=status)
+
+
+@router.get("/phase/approval-status/{idea_id}/{phase_id}")
+async def approval_status_endpoint(
+    request: Request, idea_id: str, phase_id: str,
+) -> JSONResponse:
+    """Read the HITL approval state of a recorded phase output."""
+    sparql = _get_sparql(request)
+    try:
+        status, payload = handle_get_approval_status(sparql, idea_id, phase_id)
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse(payload, status_code=status)
+
+
+@router.post("/phase/await-approval")
+async def await_approval_endpoint(request: Request) -> JSONResponse:
+    """Long-poll the HITL decision for a phase output (bounded server-side)."""
+    sparql = _get_sparql(request)
+    try:
+        status, payload = await handle_await_approval(sparql, await request.json())
     except PipelineDataError as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
