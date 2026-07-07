@@ -56,6 +56,14 @@ The ontology server runs as a shared HTTP service with MCP SSE, allowing multipl
   `phase:approvalStatus "pending"` until a human approves/edits/rejects
   them there; the orchestrator long-polls `await_approval_tool`. See
   `docs/decisions/adr-001-hitl-approval-model.md`.
+- Editable dashboard + change log: ideas, facts/PRD requirements, and phase
+  outputs (any status) are editable in place; every human edit is recorded
+  as a `change:Change` in graph
+  `http://semantic-tool-use.org/graphs/changes` (old→new, attribution,
+  batch, reason) — global feed at `/dashboard/changes`, per-entity History
+  sections, REST `GET /changes?target=` / `GET /changes/recent`. Phase
+  edits are SHACL-revalidated and report stale downstream consumers. See
+  `docs/decisions/adr-002-change-log-model.md`.
 
 **Persistence:** `~/.semantic-tool-use/kg` (Oxigraph/RocksDB)
 
