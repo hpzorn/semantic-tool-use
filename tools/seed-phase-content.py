@@ -65,6 +65,21 @@ def main():
     parser.add_argument("--force", action="store_true", help="Re-seed even if already seeded (clears existing data first)")
     args = parser.parse_args()
 
+    # DEPRECATED: the server seeds phase content in-process at startup
+    # (ontology_server.mcp.phase_tools.seed_phase_content). This script
+    # skolemizes SHACL blank nodes to urn:bnode: URIs, which corrupts gate
+    # shapes with dangling sh:property references. Kept only for manual
+    # emergency use against a server that cannot restart.
+    if not args.force:
+        print(
+            "DEPRECATED: phase content is seeded in-process at server "
+            "startup; this script skolemizes SHACL blank nodes and corrupts "
+            "gate shapes. Run with --force only if you know what you are "
+            "doing.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
+
     base_url = args.url.rstrip("/")
     trig_path = Path(args.trig_file)
 

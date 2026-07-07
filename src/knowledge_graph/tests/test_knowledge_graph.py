@@ -99,6 +99,41 @@ class TestKnowledgeGraphStore:
         assert removed == 1
         assert store.count_triples() == 1
 
+    def test_query_handles_ask(self):
+        """ASK through query() must return ask_result, not raise
+        ('QueryBoolean object is not iterable' broke /kg/sparql callers)."""
+        store = KnowledgeGraphStore()
+        store.add_triple("http://ex.org/s", "http://ex.org/p", "v", is_literal=True)
+
+        hit = store.query("ASK { <http://ex.org/s> ?p ?o }")
+        assert hit.ask_result is True
+        assert hit.bindings == []
+
+        miss = store.query("ASK { <http://ex.org/missing> ?p ?o }")
+        assert miss.ask_result is False
+
+        select = store.query("SELECT ?o WHERE { <http://ex.org/s> ?p ?o }")
+        assert select.ask_result is None
+
+    def test_export_cbd_follows_skolemized_bnodes(self):
+        """urn:bnode: NamedNodes (legacy REST seeding) must be walked like
+        blank nodes — otherwise exported SHACL shapes carry dangling
+        sh:property references."""
+        store = KnowledgeGraphStore()
+        g = "http://ex.org/graph"
+        shape = "http://ex.org/Shape"
+        # Insert via SPARQL so <urn:bnode:...> lands as a NamedNode, exactly
+        # like the legacy REST seeding did.
+        store.update(
+            f"INSERT DATA {{ GRAPH <{g}> {{\n"
+            f"  <{shape}> <http://www.w3.org/ns/shacl#property> <urn:bnode:1234> .\n"
+            f"  <urn:bnode:1234> <http://www.w3.org/ns/shacl#path> <http://ex.org/field> .\n"
+            f"}} }}"
+        )
+        ttl = store.export_cbd_turtle(shape, graph=g)
+        assert "urn:bnode:1234" in ttl
+        assert "path" in ttl
+
 
 class TestIdeasStore:
     """Tests for ideas storage."""

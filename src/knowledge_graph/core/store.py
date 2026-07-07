@@ -64,6 +64,8 @@ class QueryResult:
     """Container for SPARQL query results."""
     variables: list[str]
     bindings: list[dict[str, Any]]
+    # Set (True/False) when the query was an ASK; None for SELECT.
+    ask_result: bool | None = None
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
         return iter(self.bindings)
@@ -252,6 +254,11 @@ class KnowledgeGraphStore:
 
         try:
             results = self._store.query(sparql)
+
+            # ASK queries yield a QueryBoolean, not iterable solutions.
+            query_boolean = getattr(ox, "QueryBoolean", None)
+            if (query_boolean and isinstance(results, query_boolean)) or isinstance(results, bool):
+                return QueryResult(variables=[], bindings=[], ask_result=bool(results))
 
             # Get variable names from QuerySolutions
             variables = [str(var.value) for var in results.variables] if hasattr(results, 'variables') else []
@@ -469,6 +476,11 @@ class KnowledgeGraphStore:
                     _to_rdflib(quad.object),
                 ))
                 if isinstance(quad.object, ox.BlankNode):
+                    _walk(quad.object)
+                elif isinstance(quad.object, ox.NamedNode) and quad.object.value.startswith("urn:bnode:"):
+                    # Skolemized blank nodes (legacy tools/seed-phase-content.py
+                    # REST seeding) are structurally blank — omitting them
+                    # leaves dangling sh:property references in the CBD.
                     _walk(quad.object)
 
         _walk(ox.NamedNode(subject))

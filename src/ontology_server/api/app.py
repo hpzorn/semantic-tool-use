@@ -517,12 +517,16 @@ def create_app(
             """
             try:
                 results = kg_store.query(query)
-                return {
+                payload: dict[str, Any] = {
                     "variables": results.variables,
                     "bindings": results.bindings,
                     "results": results.bindings,  # compat alias
                     "count": len(results.bindings),
                 }
+                if results.ask_result is not None:
+                    payload["result"] = results.ask_result
+                    payload["boolean"] = results.ask_result  # SPARQL-JSON name
+                return payload
             except Exception as e:
                 return {"error": str(e)}
 
