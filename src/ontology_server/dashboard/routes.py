@@ -673,6 +673,7 @@ async def review_approve(request: Request, idea_id: str, phase_id: str):
             client, client, idea_id, phase_id,
             reviewed_by="dashboard", comment=comment,
             edited_fields=edited_fields or None,
+            kg_store=request.app.state.kg_store,
         )
     except (ApprovalConflictError, ValueError) as exc:
         return _render_review_detail(

@@ -221,6 +221,154 @@ def _restore_snapshot(
             )
 
 
+def _record_field_changes(
+    kg_store: Any,
+    subject: str,
+    edited_fields: dict[str, str],
+    snapshot: dict[str, str],
+    *,
+    changed_by: str,
+    reason: str | None,
+) -> None:
+    """Log the applied phase-output edits to the change graph."""
+    from knowledge_graph.core.changelog import new_batch_id, record_change
+
+    batch = new_batch_id()
+    for name, new_value in edited_fields.items():
+        record_change(
+            kg_store,
+            target=subject,
+            target_graph=PHASES_GRAPH,
+            field=name,
+            old=snapshot.get(name),
+            new=new_value,
+            changed_by=changed_by,
+            entity_kind="phase_output",
+            predicate=f"{_PRESERVES_PREFIX}{name}",
+            reason=reason,
+            batch_id=batch,
+        )
+
+
+def consumers_of_fields(fields: list[str]) -> dict[str, list[str]]:
+    """Which phases consume each field (reverse of PHASE_CONSUMED_FIELDS)."""
+    try:
+        from ontology_server.phase_predicate_names import PHASE_CONSUMED_FIELDS
+    except Exception:
+        return {name: [] for name in fields}
+    return {
+        name: sorted(
+            phase for phase, consumed in PHASE_CONSUMED_FIELDS.items()
+            if name in consumed
+        )
+        for name in fields
+    }
+
+
+def stale_downstream_phases(
+    sparql: SparqlClient,
+    idea_id: str,
+    fields: list[str],
+) -> list[str]:
+    """Consuming phases that ALREADY recorded an output for this idea.
+
+    These consumed the pre-edit values — the human decides whether to
+    re-run them; nothing is invalidated automatically.
+    """
+    consumers = sorted({p for ps in consumers_of_fields(fields).values() for p in ps})
+    if not consumers:
+        return []
+    idea = _normalise_idea_id(idea_id)
+    values = " ".join(f'"{p}"' for p in consumers)
+    query = (
+        f"SELECT DISTINCT ?phase_id WHERE {{\n"
+        f"  GRAPH <{PHASES_GRAPH}> {{\n"
+        f"    VALUES ?phase_id {{ {values} }}\n"
+        f"    ?output <{PHASE_NS}producedBy> ?phase_id ;\n"
+        f'            <{PHASE_NS}forRequirement> "{idea}" .\n'
+        f"  }}\n"
+        f"}}"
+    )
+    result = sparql.sparql_query(query)
+    bindings = result.get("results", []) if isinstance(result, dict) else []
+    return sorted(str(b.get("phase_id", "")) for b in bindings if b.get("phase_id"))
+
+
+def edit_phase_output(
+    ontology: OntologyClient,
+    sparql: SparqlClient,
+    idea_id: str,
+    phase_id: str,
+    edited_fields: dict[str, str],
+    *,
+    kg_store: Any,
+    changed_by: str = "dashboard",
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """Edit a recorded phase output's fields at ANY approval status.
+
+    Edits are re-validated against the phase's SHACL gate (a violating edit
+    restores the original literals and records nothing).  approvalStatus is
+    never touched — an approved output stays approved; instead the result
+    lists `stale_phases`: downstream consumers of the edited fields that
+    already recorded outputs (they saw the old values).
+    """
+    subject = _output_subject(idea_id, phase_id)
+    state = get_approval(sparql, idea_id, phase_id)
+    if state is None:
+        raise ApprovalConflictError(
+            f"no phase output recorded for {idea_id}/{phase_id}"
+        )
+
+    # Drop no-op fields so the change log only records real edits.
+    current = _get_preserves_fields(sparql, subject)
+    edited_fields = {
+        name: value for name, value in edited_fields.items()
+        if current.get(name) != value
+    }
+    if not edited_fields:
+        return {
+            "ok": True, "violations": [], "status": state["status"],
+            "edited_fields": [], "consumers": {}, "stale_phases": [],
+        }
+
+    snapshot, violations = _apply_field_edits(
+        ontology, sparql, phase_id, subject, edited_fields,
+    )
+    if violations:
+        _restore_snapshot(ontology, subject, edited_fields, snapshot)
+        logger.warning(
+            "edit_phase_output failed SHACL gate for %s: %s",
+            subject, "; ".join(violations),
+        )
+        return {
+            "ok": False, "violations": violations, "status": state["status"],
+            "edited_fields": [], "consumers": {}, "stale_phases": [],
+        }
+
+    ontology.remove_triples(subject, EDITED_BY_REVIEWER_PRED)
+    ontology.add_triple(
+        subject, EDITED_BY_REVIEWER_PRED, "true", is_literal=True,
+    )
+    _record_field_changes(
+        kg_store, subject, edited_fields, snapshot,
+        changed_by=changed_by, reason=reason,
+    )
+    fields = sorted(edited_fields)
+    logger.info(
+        "edit_phase_output %s/%s fields=%s by %s",
+        idea_id, phase_id, fields, changed_by,
+    )
+    return {
+        "ok": True,
+        "violations": [],
+        "status": state["status"],
+        "edited_fields": fields,
+        "consumers": consumers_of_fields(fields),
+        "stale_phases": stale_downstream_phases(sparql, idea_id, fields),
+    }
+
+
 def approve_phase(
     ontology: OntologyClient,
     sparql: SparqlClient,
@@ -230,12 +378,14 @@ def approve_phase(
     reviewed_by: str = "dashboard",
     comment: str | None = None,
     edited_fields: dict[str, str] | None = None,
+    kg_store: Any = None,
 ) -> dict[str, Any]:
     """Approve a pending/rejected phase output, optionally editing fields.
 
     Edited fields are re-validated against the phase's SHACL gate before the
     approval lands; on violations the original literals are restored and
-    ``{"ok": False, "violations": [...]}`` is returned.
+    ``{"ok": False, "violations": [...]}`` is returned.  When *kg_store* is
+    provided, applied edits are recorded in the change graph.
     """
     subject = _output_subject(idea_id, phase_id)
     state = get_approval(sparql, idea_id, phase_id)
@@ -264,6 +414,11 @@ def approve_phase(
                 "violations": violations,
                 "status": state["status"],
             }
+        if kg_store is not None:
+            _record_field_changes(
+                kg_store, subject, edited_fields, snapshot,
+                changed_by=reviewed_by, reason=comment,
+            )
 
     _set_review_metadata(
         ontology, subject, APPROVAL_APPROVED,

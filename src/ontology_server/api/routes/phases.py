@@ -216,9 +216,26 @@ def _require_idea_and_phase(
     return idea_id, phase_id
 
 
+def _validated_edited_fields(
+    body: dict[str, Any],
+    key: str = "edited_fields",
+) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
+    """Return (fields, None) or (None, error-payload)."""
+    edited_fields = body.get(key)
+    if edited_fields is None:
+        return None, None
+    if not isinstance(edited_fields, dict) or not all(
+        isinstance(k, str) and isinstance(v, str)
+        for k, v in edited_fields.items()
+    ):
+        return None, {"error": f"{key} must map field names to strings"}
+    return edited_fields, None
+
+
 def handle_approve_phase(
     ontology: OntologyClient,
     body: dict[str, Any] | None,
+    kg_store: Any = None,
 ) -> tuple[int, dict[str, Any]]:
     """Handle POST /phase/approve."""
     from ontology_server.phase_approval import (
@@ -237,19 +254,55 @@ def handle_approve_phase(
     reviewed_by = body.get("reviewed_by", "api")
     if not isinstance(reviewed_by, str) or not reviewed_by:
         reviewed_by = "api"
-    edited_fields = body.get("edited_fields")
-    if edited_fields is not None:
-        if not isinstance(edited_fields, dict) or not all(
-            isinstance(k, str) and isinstance(v, str)
-            for k, v in edited_fields.items()
-        ):
-            return 400, {"error": "edited_fields must map field names to strings"}
+    edited_fields, err = _validated_edited_fields(body)
+    if err:
+        return 400, err
 
     try:
         result = approve_phase(
             ontology, ontology, idea_id, phase_id,
             reviewed_by=reviewed_by, comment=comment,
-            edited_fields=edited_fields,
+            edited_fields=edited_fields, kg_store=kg_store,
+        )
+    except ApprovalConflictError as exc:
+        return 409, {"error": str(exc)}
+    except ValueError as exc:
+        return 400, {"error": str(exc)}
+    return (200 if result["ok"] else 422), result
+
+
+def handle_edit_phase_output(
+    ontology: OntologyClient,
+    kg_store: Any,
+    body: dict[str, Any] | None,
+) -> tuple[int, dict[str, Any]]:
+    """Handle POST /phase/edit-output (edit at ANY approval status)."""
+    from ontology_server.phase_approval import (
+        ApprovalConflictError,
+        edit_phase_output,
+    )
+
+    idea_id, phase_id = _require_idea_and_phase(body)
+    if idea_id is None:
+        return 404, phase_id  # type: ignore[return-value]
+    assert isinstance(body, dict)
+
+    edited_fields, err = _validated_edited_fields(body)
+    if err:
+        return 400, err
+    if not edited_fields:
+        return 400, {"error": "edited_fields is required"}
+    changed_by = body.get("changed_by", "api")
+    if not isinstance(changed_by, str) or not changed_by:
+        changed_by = "api"
+    reason = body.get("reason")
+    if reason is not None and not isinstance(reason, str):
+        reason = None
+
+    try:
+        result = edit_phase_output(
+            ontology, ontology, idea_id, phase_id, edited_fields,
+            kg_store=kg_store, changed_by=changed_by, reason=reason,
         )
     except ApprovalConflictError as exc:
         return 409, {"error": str(exc)}
@@ -477,7 +530,23 @@ async def approve_phase_endpoint(request: Request) -> JSONResponse:
     """Approve a pending phase output (HITL), optionally with field edits."""
     ontology = _get_ontology(request)
     try:
-        status, payload = handle_approve_phase(ontology, await request.json())
+        status, payload = handle_approve_phase(
+            ontology, await request.json(),
+            kg_store=request.app.state.kg_store,
+        )
+    except PipelineDataError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse(payload, status_code=status)
+
+
+@router.post("/phase/edit-output")
+async def edit_phase_output_endpoint(request: Request) -> JSONResponse:
+    """Edit a recorded phase output's fields at any approval status."""
+    ontology = _get_ontology(request)
+    try:
+        status, payload = handle_edit_phase_output(
+            ontology, request.app.state.kg_store, await request.json(),
+        )
     except PipelineDataError as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
     return JSONResponse(payload, status_code=status)
