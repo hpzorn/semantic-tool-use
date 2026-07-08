@@ -255,12 +255,6 @@ add `--ontology-path ./ontology/domain/visual-artifacts` (or set
 ./service/install.sh --port 9000 --auth
 ```
 
-### Docker
-
-```bash
-docker compose up
-```
-
 ### Configuration
 
 CLI args or environment variables (`ONTOLOGY_` prefix):
